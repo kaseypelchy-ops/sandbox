@@ -818,10 +818,7 @@ function initMap() {
   setSatelliteBaseLayer();
 
   L.control.zoom({ position: 'bottomleft' }).addTo(mapObj);
-}
-  // Start at the centroid of already-geocoded addresses so tiles load at the
-  // right zoom level immediately. Avoids the jarring US-overview → territory
-  // snap that forces a full tile reload. Fall back to US overview if no pins yet.
+
   var pinned = addresses.filter(function(a) { return a.lat && a.lng; });
   if (pinned.length > 0) {
     var avgLat = pinned.reduce(function(s,a){ return s+a.lat; }, 0) / pinned.length;
@@ -838,7 +835,7 @@ function initMap() {
       { stroke:'#059669', fill:'#10b981' },
       { stroke:'#dc2626', fill:'#ef4444' },
       { stroke:'#7c3aed', fill:'#8b5cf6' },
-      { stroke:'#0891b2', fill:'#06b6d4' },
+      { stroke:'#0891b2', fill:'#06b6d4' }
     ];
     var allBounds = [];
     kmlFiles.forEach(function(kf, i) {
@@ -856,15 +853,11 @@ function initMap() {
     }
   }
 
-  // ── Marker cluster setup ─────────────────────────────────
-  // Groups nearby pins into a single cluster circle at low zoom.
-  // Dramatically reduces DOM nodes on the map — 200 individual markers
-  // becomes 1-5 cluster circles until you zoom in close.
   clusterGroup = L.markerClusterGroup({
-    maxClusterRadius: 50,          // tighter clusters — shows individual pins sooner on zoom
-    showCoverageOnHover: false,    // don't draw the polygon when hovering a cluster
-    spiderfyOnMaxZoom: true,       // fan out overlapping pins at max zoom
-    disableClusteringAtZoom: 17,   // at street level show every pin individually
+    maxClusterRadius: 50,
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 17,
     iconCreateFunction: function(cluster) {
       var count = cluster.getChildCount();
       var size  = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
@@ -878,29 +871,20 @@ function initMap() {
   clusterGroup.addTo(mapObj);
 
   addresses.forEach(function(a) {
-    if (a.lat && a.lng) { placeMarker(a); }
+    if (a.lat && a.lng) placeMarker(a);
   });
 
-  // Fit map to address pins if we have any, otherwise fall back to US overview.
-  // KML bounds take priority if territories were loaded.
   if (!kmlGeoJSON || !kmlGeoJSON.features.length) {
     fitToAddresses();
   }
 
   wxSetRadarUI_(false);
-  // ── Pin-drop: tap map to place a new address ──────────────
+
   mapObj.on('click', function(e) {
     if (!pinDropMode) return;
     handleMapPinDrop(e.latlng);
   });
-
-  // (Map Drop Pin control removed — use top bar button)
-
-  // ── Map style switcher control ────────────────────────────
-    // (Map switcher removed: Voyager is the only base map)
-
 }
-
 function getMarkerColor(addr) {
   var s = (addr.status || '').toLowerCase().trim();
   if (COLORS[s]) return COLORS[s];
