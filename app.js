@@ -530,7 +530,6 @@ function fetchAddressesFromSheet(opts) {
 
       updateStats();
       buildList();
-      initMap();
       geocodeAll();
       fitToAddresses();
       checkLaunchReady();
@@ -673,7 +672,6 @@ function refreshAddressData() {
 
 function launchApp() {
   repName = (document.getElementById('rep-name').value || '').trim();
-  // repPhone and repEmail are populated by fetchAddressesFromSheet from the Reps sheet
 
   try {
     localStorage.setItem('zito_rep_name', repName);
@@ -703,6 +701,14 @@ function launchApp() {
     updateStats();
     buildList();
     initMap();
+
+    setTimeout(function() {
+      if (mapObj) {
+        mapObj.invalidateSize();
+        fitToAddresses();
+      }
+    }, 150);
+
     startGPSPing();
     prefetchTiles();
     geocodeAll();
@@ -1229,18 +1235,20 @@ function renderDispositionButtons(addr) {
 // Attached once at startup — never recreated on buildList() calls.
 // Replaces the old pattern of adding a listener to every row on every render,
 // which was leaking N listeners every 30 seconds during polling.
-(function initAddressListListener() {
-  var container = document.getElementById('addr-items');
-  if (!container) return;
-  container.addEventListener('click', function(e) {
-    var row = e.target.closest('.addr-row');
-    if (!row) return;
-    var id = row.getAttribute('data-id');
-    if (!id) return;
-    openForm(id);
-    if (window.innerWidth <= 640 && sidebarOpen) toggleSidebar();
-  });
-})();
+document.addEventListener('click', function(e) {
+  var row = e.target.closest('.addr-row');
+  if (!row) return;
+
+  var id = row.getAttribute('data-id');
+  if (!id) return;
+
+  openForm(id);
+
+  if (window.innerWidth <= 640 && sidebarOpen) {
+    toggleSidebar();
+  }
+});
+
 
 // ──────────────────────────────────────────────────────────
 //  TERRITORY TABS — split address list by territory
@@ -1467,7 +1475,12 @@ function isActiveAddress_(addr) {
 // ──────────────────────────────────────────────────────────
 function openForm(id) {
   var addr = null;
-  for (var i = 0; i < addresses.length; i++) { if (addresses[i].id === id) { addr = addresses[i]; break; } }
+  for (var i = 0; i < addresses.length; i++) {
+    if (String(addresses[i].id) === String(id)) {
+      addr = addresses[i];
+      break;
+    }
+  }
   if (!addr) return;
 
   setFormCollapsed(false);
@@ -1518,14 +1531,8 @@ function openForm(id) {
   selSlot = null;
   resetOutcomeFlags();
 
-  ['sbt-nh','sbt-bs','sbt-ic','sbt-ni','sbt-gbl','sbt-vac','sbt-biz'].forEach(function(sid) {
-    var el = document.getElementById(sid); if (el) el.className = 'stbtn';
-  });
-
-  // Render the correct set of buttons for this address's territory
   renderDispositionButtons(addr);
 
-  // ── Restore previous disposition if address was already visited ──────────
   var prevDisp    = document.getElementById('prev-disposition');
   var prevStatus  = document.getElementById('prev-disp-status');
   var prevNote    = document.getElementById('prev-disp-note');
@@ -1536,7 +1543,6 @@ function openForm(id) {
 
   var config      = getDispositions(addr);
   var prevEntry   = findDispByStatus(curStatus, config);
-  // Also check unified config so addresses loaded from sheet restore correctly
   if (!prevEntry) prevEntry = findDispByStatus(curStatus, DISPOSITIONS);
 
   if (prevEntry) {
