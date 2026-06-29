@@ -821,8 +821,8 @@ function initMap() {
 
   var pinned = addresses.filter(function(a) { return a.lat && a.lng; });
   if (pinned.length > 0) {
-    var avgLat = pinned.reduce(function(s,a){ return s+a.lat; }, 0) / pinned.length;
-    var avgLng = pinned.reduce(function(s,a){ return s+a.lng; }, 0) / pinned.length;
+    var avgLat = pinned.reduce(function(s, a) { return s + a.lat; }, 0) / pinned.length;
+    var avgLng = pinned.reduce(function(s, a) { return s + a.lng; }, 0) / pinned.length;
     mapObj.setView([avgLat, avgLng], 14);
   } else {
     mapObj.setView([39.5, -98.35], 5);
@@ -848,8 +848,10 @@ function initMap() {
     });
     if (allBounds.length) {
       var combined = allBounds[0];
-      allBounds.forEach(function(b){ combined.extend(b); });
-      setTimeout(function(){ mapObj.fitBounds(combined, { padding:[40,40] }); }, 100);
+      allBounds.forEach(function(b) { combined.extend(b); });
+      setTimeout(function() {
+        mapObj.fitBounds(combined, { padding:[40,40] });
+      }, 100);
     }
   }
 
@@ -860,7 +862,7 @@ function initMap() {
     disableClusteringAtZoom: 17,
     iconCreateFunction: function(cluster) {
       var count = cluster.getChildCount();
-      var size  = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
+      var size = count < 10 ? 'small' : count < 50 ? 'medium' : 'large';
       return L.divIcon({
         html: '<div class="cluster-inner">' + count + '</div>',
         className: 'marker-cluster marker-cluster-' + size,
