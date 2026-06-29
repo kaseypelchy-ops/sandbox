@@ -530,7 +530,9 @@ function fetchAddressesFromSheet(opts) {
 
       updateStats();
       buildList();
+      initMap();
       geocodeAll();
+      fitToAddresses();
       checkLaunchReady();
 
       if (st) {
@@ -671,6 +673,7 @@ function refreshAddressData() {
 
 function launchApp() {
   repName = (document.getElementById('rep-name').value || '').trim();
+  // repPhone and repEmail are populated by fetchAddressesFromSheet from the Reps sheet
 
   try {
     localStorage.setItem('zito_rep_name', repName);
@@ -700,14 +703,6 @@ function launchApp() {
     updateStats();
     buildList();
     initMap();
-
-    setTimeout(function() {
-      if (mapObj) {
-        mapObj.invalidateSize();
-        fitToAddresses();
-      }
-    }, 150);
-
     startGPSPing();
     prefetchTiles();
     geocodeAll();
@@ -1240,8 +1235,8 @@ function renderDispositionButtons(addr) {
   container.addEventListener('click', function(e) {
     var row = e.target.closest('.addr-row');
     if (!row) return;
-    var id = parseInt(row.getAttribute('data-id'), 10);
-    if (isNaN(id)) return;
+    var id = row.getAttribute('data-id');
+    if (!id) return;
     openForm(id);
     if (window.innerWidth <= 640 && sidebarOpen) toggleSidebar();
   });
@@ -3714,9 +3709,7 @@ function submitNewAddress() {
     return;
   }
 
-  var newId = addresses.length > 0
-    ? Math.max.apply(null, addresses.map(function(a){ return a.id; })) + 1
-    : 0;
+  var newId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
   var newAddr = {
     id:          newId,
@@ -4340,8 +4333,7 @@ function _dzAddBuilding_(lat, lng, address, city, state, zip, territory) {
   });
   if (dup) return;
 
-  var newId = addresses.length > 0
-    ? Math.max.apply(null, addresses.map(function(a) { return a.id; })) + 1 : 0;
+  var newId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
   var newAddr = {
     id: newId, sheetRow: null,
