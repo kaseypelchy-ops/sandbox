@@ -808,15 +808,17 @@ function setSatelliteBaseLayer() {
 }
 
 function initMap() {
+  if (mapObj) return;
+
   mapObj = L.map('map');
 
-  // Create a custom pane for the heat map so it always renders above cluster markers
   mapObj.createPane('heatPane');
-  mapObj.getPane('heatPane').style.zIndex = 650; // above markerPane (600) and clusters
+  mapObj.getPane('heatPane').style.zIndex = 650;
 
-  // Default to satellite — best for pin dropping on houses
   setSatelliteBaseLayer();
 
+  L.control.zoom({ position: 'bottomleft' }).addTo(mapObj);
+}
   // Start at the centroid of already-geocoded addresses so tiles load at the
   // right zoom level immediately. Avoids the jarring US-overview → territory
   // snap that forces a full tile reload. Fall back to US overview if no pins yet.
