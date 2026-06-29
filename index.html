@@ -144,8 +144,6 @@
     <div class="tb-stat sched">✅ Scheduled: <strong id="st-sched">0</strong></div>
     <div class="tb-stat">Pending: <strong id="st-pend">0</strong></div>
     <div class="tb-actions">
-      <button id="btn-drop-pin-top" class="tb-btn" title="Drop a pin / add an address">📍 Drop Pin</button>
-      <button id="btn-refresh-data" class="tb-btn" title="Refresh latest data from sheet">⟳ Refresh</button>
 <button class="tb-btn btn-logout" onclick="openSignOutConfirm()" title="Sign out">Log Out</button>
     </div>
   </div>
@@ -165,90 +163,8 @@
       </div>
       <div id="territory-tabs" class="territory-tabs"></div>
     </div>
-    <div id="addr-items"></div>
-    <div class="pl-footer">
-      <button class="btn-add-addr" onclick="openAddAddrModal()">&#43; Add Address</button>
-    </div>
-  </div>
 
-<!-- ═══════════════════ ADD ADDRESS MODAL ═══════════════════ -->
-  <div id="add-addr-modal" onclick="if(event.target===this)closeAddAddrModal()">
-    <div class="add-addr-box">
-      <div class="add-addr-header">
-        <div class="add-addr-title">Add New Address</div>
-        <button class="add-addr-close" onclick="closeAddAddrModal()">&#10005;</button>
-      </div>
-      <div class="add-addr-sub">Enter a home not in the current list. It will be added to your session and saved to the Addresses tab in Google Sheets.</div>
 
-      <div class="fg">
-        <label class="fl">Street Address <span class="text-danger">*</span></label>
-        <input class="fi" type="text" id="new-addr-street" placeholder="e.g. 123 Oak St" oninput="checkNewAddrReady()">
-      </div>
-      <div class="fg-row">
-        <div>
-          <label class="fl">City <span class="text-danger">*</span></label>
-          <input class="fi" type="text" id="new-addr-city" placeholder="e.g. Burnsville" oninput="checkNewAddrReady()">
-        </div>
-        <div>
-          <label class="fl">State</label>
-          <input class="fi" type="text" id="new-addr-state" placeholder="e.g. NC" maxlength="2">
-        </div>
-      </div>
-      <div class="fg">
-        <label class="fl">ZIP Code</label>
-        <input class="fi" type="text" id="new-addr-zip" placeholder="e.g. 28714" maxlength="10">
-      </div>
-
-      <div class="add-addr-note">
-        &#128203; This address will also be written to the <strong>Addresses</strong> tab of your Google Sheet so it persists for future sessions.
-      </div>
-
-      <button class="btn-add-addr-submit" id="btn-new-addr-submit" onclick="submitNewAddress()" disabled>Add Address</button>
-      <div id="add-addr-sending">
-        <div class="add-addr-spinner"></div> Saving to Google Sheet&hellip;
-      </div>
-    </div>
-  </div>
-
-  <!-- Pin Drop banner — visible while pin mode is active -->
-  <div id="pin-drop-banner">📍 Tap a home on the map to add it</div>
-
-  <!-- Pin Drop Address Confirm Modal -->
-  <div id="pin-confirm-modal" onclick="if(event.target===this)cancelPinConfirm()">
-    <div class="pin-confirm-box">
-      <div class="pin-confirm-header">
-        <div class="pin-confirm-title">📍 Confirm Address</div>
-        <button class="pin-confirm-close" onclick="cancelPinConfirm()">✕</button>
-      </div>
-      <div class="pin-confirm-hint">Tap any field to correct it if the address is wrong.</div>
-      <div class="pin-confirm-fields">
-        <label class="pin-field-label">Street</label>
-        <input class="pin-field-input" id="pin-cf-street" type="text" placeholder="123 Main St" autocomplete="off">
-        <label class="pin-field-label">City</label>
-        <input class="pin-field-input" id="pin-cf-city" type="text" placeholder="City" autocomplete="off">
-        <div class="pin-field-row">
-          <div class="pin-field-half">
-            <label class="pin-field-label">State</label>
-            <input class="pin-field-input" id="pin-cf-state" type="text" placeholder="PA" maxlength="2" autocomplete="off">
-          </div>
-          <div class="pin-field-half">
-            <label class="pin-field-label">ZIP</label>
-            <input class="pin-field-input" id="pin-cf-zip" type="text" placeholder="15213" maxlength="10" autocomplete="off">
-          </div>
-        </div>
-      </div>
-      <div class="pin-confirm-coords" id="pin-cf-coords"></div>
-      <div class="pin-confirm-actions">
-        <button class="pin-btn-confirm" onclick="confirmPinAddress()">✅ Add Address</button>
-        <button class="pin-btn-cancel" onclick="cancelPinConfirm()">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Drop Pin FAB — mobile only, replaces the topbar button which overflows on small screens -->
-  <button id="btn-drop-pin-fab" onclick="togglePinDropMode()" title="Drop a pin / add an address">
-    📍 Drop Pin
-  </button>
 
   <div id="map"></div>
   <!-- Geocoding progress bar -->
