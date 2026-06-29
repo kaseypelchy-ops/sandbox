@@ -311,7 +311,7 @@ document.getElementById('csv-file').addEventListener('change', function() {
           return '';
         }
         var addr = col(['address','street address','street']);
-        if (!addr) return;
+        if (!addr) { console.warn('openForm: address not found for id', id, addresses.slice(0,5).map(function(a){return a.id;})); return; }
         var activeCount = col(['active count','active_count','activecount','active','type','customer type','customertype']).toLowerCase().trim();
         addresses.push({
           id: i,
@@ -900,6 +900,10 @@ function getMarkerColor(addr) {
   return COLORS.pending;
 }
 
+function jsStringEscape_(v) {
+  return String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 function markerHTML(color, shape) {
   if (shape === 'house') {
     return '<div style="width:26px;height:26px;background:' + color + ';clip-path:polygon(50% 0%,100% 45%,85% 45%,85% 100%,15% 100%,15% 45%,0% 45%);filter:drop-shadow(0 2px 3px rgba(0,0,0,0.55))"></div>';
@@ -985,8 +989,8 @@ if (activeDispoFilter) {
   m.bindPopup(function() {
     var shape2  = getMarkerShape(addr);
     var btnHTML = shape2 === 'bolt'
-      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-      : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + jsStringEscape_(pid) + '\')">⚡ View Address</button>'
+      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + jsStringEscape_(pid) + '\')">Open Sales Form</button>';
     return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
       popupHtmlForAddr(addr) + btnHTML + '</div>';
   }, { minWidth: 180 });
@@ -1000,7 +1004,7 @@ if (activeDispoFilter) {
 
 window.openFormFromMap = function(id) {
   if (mapObj) mapObj.closePopup();
-  openForm(id);
+  openForm(String(id));
 };
 // ──────────────────────────────────────────────────────────
 //  GEOCODING
@@ -1231,23 +1235,7 @@ function renderDispositionButtons(addr) {
   }).join('');
 }
 
-// Single delegated click listener on the address list container.
-// Attached once at startup — never recreated on buildList() calls.
-// Replaces the old pattern of adding a listener to every row on every render,
-// which was leaking N listeners every 30 seconds during polling.
-document.addEventListener('click', function(e) {
-  var row = e.target.closest('.addr-row');
-  if (!row) return;
-
-  var id = row.getAttribute('data-id');
-  if (!id) return;
-
-  openForm(id);
-
-  if (window.innerWidth <= 640 && sidebarOpen) {
-    toggleSidebar();
-  }
-});
+// Address rows use inline onclick in buildList for maximum compatibility with string UUID ids.
 
 
 // ──────────────────────────────────────────────────────────
@@ -1374,7 +1362,8 @@ function buildList(filter) {
       modeLine = '<div class="ar-dist" style="color:#d97706">⏱ ' + ageStr + '</div>';
     }
 
-    return '<div class="addr-row' + selC + '" data-id="' + a.id + '">' +
+    var rowId = String(a.id || '').replace(/'/g, "\\'");
+    return '<div class="addr-row' + selC + '" data-id="' + escHtml(a.id) + '" onclick="openForm(\'' + rowId + '\')">' +
       '<div class="ar-dot">' + icon + '</div>' +
       '<div class="ar-info">' +
         '<div class="ar-st">'  + escHtml(a.address) + '</div>' +
@@ -2516,8 +2505,8 @@ function refreshMapMarkers() {
     m.bindPopup(function() {
       var shape2  = getMarkerShape(a);
       var btnHTML = shape2 === 'bolt'
-        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-        : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + jsStringEscape_(pid) + '\')">⚡ View Address</button>'
+        : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + jsStringEscape_(pid) + '\')">Open Sales Form</button>';
       return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
         popupHtmlForAddr(a) + btnHTML + '</div>';
     }, { minWidth: 180 });
