@@ -985,8 +985,8 @@ if (activeDispoFilter) {
   m.bindPopup(function() {
     var shape2  = getMarkerShape(addr);
     var btnHTML = shape2 === 'bolt'
-      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-      : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">⚡ View Address</button>'
+      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">Open Sales Form</button>';
     return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
       popupHtmlForAddr(addr) + btnHTML + '</div>';
   }, { minWidth: 180 });
@@ -1374,7 +1374,7 @@ function buildList(filter) {
       modeLine = '<div class="ar-dist" style="color:#d97706">⏱ ' + ageStr + '</div>';
     }
 
-    return '<div class="addr-row' + selC + '" data-id="' + a.id + '">' +
+    return '<div class="addr-row' + selC + '" data-id="' + escHtml(String(a.id)) + '" onclick="openForm(\'' + String(a.id).replace(/'/g, "\\'") + '\')">' +
       '<div class="ar-dot">' + icon + '</div>' +
       '<div class="ar-info">' +
         '<div class="ar-st">'  + escHtml(a.address) + '</div>' +
@@ -2099,7 +2099,7 @@ async function submitSale(pkgLabel) {
     installDate: selSlot ? selSlot.date : (install || ''),
     installTime: selSlot ? selSlot.time : '',
     notes: notes,
-    status: 'Sale — ' + pkgLabel,
+    status: (selPkg === 'gig') ? 'gig' : 'mega',
     standardizedOutcome: getStandardizedOutcomeLabel((selPkg === 'mega') ? 'mega' : 'gig'),
     softInterestType: '',
     decisionMakerSpokenTo: outcomeFlags.decisionMakerSpokenTo,
@@ -2114,16 +2114,23 @@ async function submitSale(pkgLabel) {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
-  await sendData(payload);
-  maybeWriteNewAddrToSheet(addr);
+  try {
+    await sendData(payload);
+    maybeWriteNewAddrToSheet(addr);
 
-  if (selSlot) {
-    var fullAddress = addr.address + (addr.city ? ', ' + addr.city : '') + (addr.state ? ', ' + addr.state : '');
-    schedBookSlot(selSlot.date, selSlot.time, first + ' ' + last, fullAddress);
+    if (selSlot) {
+      var fullAddress = addr.address + (addr.city ? ', ' + addr.city : '') + (addr.state ? ', ' + addr.state : '');
+      schedBookSlot(selSlot.date, selSlot.time, first + ' ' + last, fullAddress);
+    }
+
+    addr.sale = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
+    await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  } catch (err) {
+    console.error(err);
+    toast('⚠ Could not save sale to Supabase', 't-err');
+    return;
   }
 
-  addr.sale   = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
-  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   sendHeartbeat();
@@ -2131,7 +2138,7 @@ async function submitSale(pkgLabel) {
   closeForm();
 }
 
-function submitStatus() {
+function submitStatusasync function submitStatus() {
   var addr = getAddr();
   if (!addr)      { toast('No address selected', 't-err'); return; }
   if (!selStatus) { toast('⚠ Pick a status first', 't-err'); return; }
@@ -2146,23 +2153,7 @@ function submitStatus() {
   applyLockedCoords_(addr);
   var standardizedOutcome = getStandardizedOutcomeLabel(mappedStatus);
   var softInterestType = getSoftInterestType(mappedStatus);
-  var payload = {
-    salesperson: repName,
-    address: addr.address, city: addr.city||'', state: addr.state||'', zip: addr.zip||'',
-    sheetRow: addr.sheetRow || null,
-    lat: addr.lat != null ? addr.lat : '',
-    lng: addr.lng != null ? addr.lng : '',
-    firstName:'', lastName:'', phone:'', email:'',
-    package:'', notes: notes,
-    status: selStatus,
-    standardizedOutcome: standardizedOutcome,
-    softInterestType: softInterestType,
-    decisionMakerSpokenTo: outcomeFlags.decisionMakerSpokenTo,
-    followUpNeeded: outcomeFlags.followUpNeeded,
-    saleMade: outcomeFlags.saleMade
-  };
 
-  // Build label→status map from unified config
   var smap = {};
   DISPOSITIONS.forEach(function(d) {
     smap[d.label] = d.status;
@@ -2176,11 +2167,16 @@ function submitStatus() {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
-  // NOTE: sendData() is intentionally NOT called here — no-sale statuses
-  // should never go to recordSale(). Only updateAddressStatus() is needed
-  // to write the status + note to the Addresses tab.
   maybeWriteNewAddrToSheet(addr);
-  updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+
+  try {
+    await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  } catch (err) {
+    console.error(err);
+    toast('⚠ Could not save disposition to Supabase', 't-err');
+    return;
+  }
+
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   toast('📋 "' + selStatus + '" logged', 't-info');
@@ -2189,14 +2185,16 @@ function submitStatus() {
   closeForm();
 }
 
-async function updateAddressStatus(addr, status, note, flags) {
+async function updateAddressStatusasync function updateAddressStatus(addr, status, note, flags) {
   var outcomeFlags = flags || {
     decisionMakerSpokenTo: addr.decisionMakerSpokenTo || 'N',
     followUpNeeded: addr.followUpNeeded || 'N',
     saleMade: addr.saleMade || 'N'
   };
 
-  if (!supabaseWarn() || !addr || !addr.id) return;
+  if (!supabaseWarn() || !addr || !addr.id) {
+    throw new Error('Missing Supabase client or address id');
+  }
 
   var res = await supabaseClient
     .from('address_events')
@@ -2213,10 +2211,15 @@ async function updateAddressStatus(addr, status, note, flags) {
       sale_made: outcomeFlags.saleMade === 'Y'
     }]);
 
-  if (res.error) console.error(res.error);
+  if (res.error) {
+    console.error('address_events insert failed:', res.error);
+    throw res.error;
+  }
+
+  return res.data;
 }
 
-async function sendData(payload) {
+async function sendDataasync function sendData(payload) {
   if (!supabaseWarn()) return;
 
   var addr = getAddr ? getAddr() : null;
@@ -2230,14 +2233,14 @@ async function sendData(payload) {
       customer_name: fullName,
       phone: payload.phone || '',
       email: payload.email || '',
-      package_name: payload.packageName || payload.package || '',
+      package_name: payload.package || payload.packageName || '',
       install_date: payload.installDate || null,
       install_time: payload.installTime || '',
       notes: payload.notes || payload.note || ''
     }]);
 
   if (salesRes.error) {
-    console.error(salesRes.error);
+    console.error('sales_orders insert failed:', salesRes.error);
     throw salesRes.error;
   }
 
@@ -2245,6 +2248,7 @@ async function sendData(payload) {
 }
 
 // ──────────────────────────────────────────────────────────
+//  STATS// ──────────────────────────────────────────────────────────
 //  STATS
 // ──────────────────────────────────────────────────────────
 function updateStats() {
@@ -2505,8 +2509,8 @@ function refreshMapMarkers() {
     m.bindPopup(function() {
       var shape2  = getMarkerShape(a);
       var btnHTML = shape2 === 'bolt'
-        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-        : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">⚡ View Address</button>'
+        : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">Open Sales Form</button>';
       return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
         popupHtmlForAddr(a) + btnHTML + '</div>';
     }, { minWidth: 180 });
