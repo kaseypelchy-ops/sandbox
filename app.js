@@ -984,10 +984,9 @@ if (activeDispoFilter) {
   var pid = addr.id;
   m.bindPopup(function() {
     var shape2  = getMarkerShape(addr);
-    var safePid = String(pid).replace(/'/g, "\\'");
     var btnHTML = shape2 === 'bolt'
-      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + safePid + '\')">⚡ View Address</button>'
-      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + safePid + '\')">Open Sales Form</button>';
+      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
+      : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
     return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
       popupHtmlForAddr(addr) + btnHTML + '</div>';
   }, { minWidth: 180 });
@@ -1958,6 +1957,7 @@ function fmtPhone(inp) {
 }
 
 function maybeWriteNewAddrToSheet(addr) {
+  return;
   if (!addr._manuallyAdded) return;
   if (!supabaseWarn()) return;
 
@@ -2047,7 +2047,7 @@ function getAddr() {
   return null;
 }
 
-async function submitSale(pkgLabel) {
+function submitSale(pkgLabel) {
   var addr = getAddr();
   if (!addr) { toast('No address selected', 't-err'); return; }
 
@@ -2115,7 +2115,7 @@ async function submitSale(pkgLabel) {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
-  await sendData(payload);
+  sendData(payload);
   maybeWriteNewAddrToSheet(addr);
 
   if (selSlot) {
@@ -2124,7 +2124,7 @@ async function submitSale(pkgLabel) {
   }
 
   addr.sale   = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
-  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   sendHeartbeat();
@@ -2132,7 +2132,7 @@ async function submitSale(pkgLabel) {
   closeForm();
 }
 
-async function submitStatus() {
+function submitStatus() {
   var addr = getAddr();
   if (!addr)      { toast('No address selected', 't-err'); return; }
   if (!selStatus) { toast('⚠ Pick a status first', 't-err'); return; }
@@ -2181,7 +2181,7 @@ async function submitStatus() {
   // should never go to recordSale(). Only updateAddressStatus() is needed
   // to write the status + note to the Addresses tab.
   maybeWriteNewAddrToSheet(addr);
-  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   toast('📋 "' + selStatus + '" logged', 't-info');
@@ -2197,9 +2197,7 @@ async function updateAddressStatus(addr, status, note, flags) {
     saleMade: addr.saleMade || 'N'
   };
 
-  if (!supabaseWarn() || !addr || !addr.id) {
-    throw new Error('Missing Supabase client or address id');
-  }
+  if (!supabaseWarn() || !addr || !addr.id) return;
 
   var res = await supabaseClient
     .from('address_events')
@@ -2216,12 +2214,7 @@ async function updateAddressStatus(addr, status, note, flags) {
       sale_made: outcomeFlags.saleMade === 'Y'
     }]);
 
-  if (res.error) {
-    console.error('address_events insert failed:', res.error);
-    throw res.error;
-  }
-
-  return res.data;
+  if (res.error) console.error(res.error);
 }
 
 async function sendData(payload) {
@@ -2246,10 +2239,21 @@ async function sendData(payload) {
 
   if (salesRes.error) {
     console.error(salesRes.error);
-    throw salesRes.error;
+    return;
   }
 
-  return salesRes.data;
+  if (addr && addr.id) {
+    await updateAddressStatus(
+      addr,
+      (payload.status || '').toLowerCase(),
+      payload.notes || payload.note || '',
+      {
+        decisionMakerSpokenTo: 'Y',
+        followUpNeeded: 'N',
+        saleMade: 'Y'
+      }
+    );
+  }
 }
 
 // ──────────────────────────────────────────────────────────
@@ -3672,89 +3676,13 @@ function pingNearbyAddresses() {
 // ──────────────────────────────────────────────────────────
 //  ADD ADDRESS MODAL
 // ──────────────────────────────────────────────────────────
-function openAddAddrModal() {
-  ['new-addr-street','new-addr-city','new-addr-state','new-addr-zip'].forEach(function(id) {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('btn-new-addr-submit').disabled = true;
-  document.getElementById('add-addr-sending').style.display = 'none';
-  document.getElementById('add-addr-modal').classList.add('open');
-  setTimeout(function(){ document.getElementById('new-addr-street').focus(); }, 80);
-}
+function openAddAddrModal() { return; }
 
-function closeAddAddrModal() {
-  document.getElementById('add-addr-modal').classList.remove('open');
-}
+function closeAddAddrModal() { return; }
 
-function checkNewAddrReady() {
-  var street = (document.getElementById('new-addr-street').value || '').trim();
-  var city   = (document.getElementById('new-addr-city').value   || '').trim();
-  document.getElementById('btn-new-addr-submit').disabled = !(street && city);
-}
+function checkNewAddrReady() { return; }
 
-function submitNewAddress() {
-  var street = (document.getElementById('new-addr-street').value || '').trim();
-  var city   = (document.getElementById('new-addr-city').value   || '').trim();
-  var state  = (document.getElementById('new-addr-state').value  || '').trim().toUpperCase();
-  var zip    = (document.getElementById('new-addr-zip').value    || '').trim();
-
-  if (!street || !city) {
-    toast('⚠ Street address and city are required', 't-err');
-    return;
-  }
-
-  var dup = addresses.find(function(a) {
-    return a.address.toLowerCase() === street.toLowerCase() &&
-           a.city.toLowerCase()    === city.toLowerCase();
-  });
-  if (dup) {
-    toast('⚠ That address is already in the list', 't-err');
-    return;
-  }
-
-  var newId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
-  var newAddr = {
-    id:          newId,
-    sheetRow:    null,
-    address:     street,
-    city:        city,
-    state:       state,
-    zip:         zip,
-    lat:         null,
-    lng:         null,
-    activeCount: '',
-    status:      'pending',
-    salesperson: repName,
-    sale:        null,
-    _manuallyAdded: true
-  };
-
-  addresses.push(newAddr);
-  updateStats();
-  buildList();
-
-  closeAddAddrModal();
-  openForm(newId);
-
-  var geocodeQuery = [street, city, state, zip].filter(Boolean).join(', ');
-  var geocodeUrl = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(geocodeQuery);
-  fetch(geocodeUrl, { headers: { 'Accept': 'application/json', 'User-Agent': 'FieldSalesApp/1.0' } })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data && data.length > 0) {
-        newAddr.lat = parseFloat(data[0].lat);
-        newAddr.lng = parseFloat(data[0].lon);
-        if (mapObj) {
-          placeMarker(newAddr);
-          mapObj.panTo([newAddr.lat, newAddr.lng], { animate: true });
-        }
-      }
-    })
-    .catch(function(){});
-
-  toast('📍 Address added — open the form to log a sale or no-sale', 't-info');
-}
+function submitNewAddress() { return; }
 
 // ──────────────────────────────────────────────────────────
 //  PIN DROP — tap the map to add a new address
@@ -3777,125 +3705,19 @@ function _setPinDropBtnState_(active) {
   });
 }
 
-function togglePinDropMode() {
-  pinDropMode = !pinDropMode;
-  var banner = document.getElementById('pin-drop-banner');
-  var mapEl  = document.getElementById('map');
+function togglePinDropMode() { return; }
 
-  if (pinDropMode) {
-    _setPinDropBtnState_(true);
-    if (banner) banner.classList.add('show');
-    if (mapEl)  mapEl.classList.add('pin-drop-mode');
-    // Collapse sidebar on mobile so the full map is visible
-    if (window.innerWidth <= 640 && sidebarOpen) toggleSidebar();
-    toast('📍 Pin mode ON — tap any home on the map', 't-info');
-  } else {
-    cancelPinDropMode();
-  }
-}
-
-function cancelPinDropMode() {
-  pinDropMode = false;
-  var banner = document.getElementById('pin-drop-banner');
-  var mapEl  = document.getElementById('map');
-  _setPinDropBtnState_(false);
-  if (banner) banner.classList.remove('show');
-  if (mapEl)  mapEl.classList.remove('pin-drop-mode');
-  // Remove temp pin if still showing
-  if (tempPinMarker && mapObj) { mapObj.removeLayer(tempPinMarker); tempPinMarker = null; }
-}
+function cancelPinDropMode() { pinDropMode = false; return; }
 
 // Pending pin-drop data while the confirm modal is open
 var _pendingPin = null;
 
-function handleMapPinDrop(latlng) {
-  // Immediately exit pin mode so accidental double-taps don't fire twice
-  cancelPinDropMode();
+function handleMapPinDrop() { return; }
+function showPinConfirm() { return; }
 
-  var lat = latlng.lat;
-  var lng = latlng.lng;
+function confirmPinAddress() { return; }
 
-  // Place a pulsing temp pin while we reverse-geocode
-  var tempIcon = L.divIcon({
-    className: '',
-    html: '<div class="temp-pin-outer"><div class="temp-pin-inner"></div></div>',
-    iconSize: [36, 36],
-    iconAnchor: [18, 18]
-  });
-  tempPinMarker = L.marker([lat, lng], { icon: tempIcon }).addTo(mapObj);
-  mapObj.panTo([lat, lng], { animate: true });
-  toast('🔍 Looking up address…', 't-info');
-
-  // Reverse geocode using Nominatim
-  var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
-            encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng) +
-            '&zoom=18&addressdetails=1';
-
-  fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'FieldSalesApp/1.0' } })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      // Remove temp pin
-      if (tempPinMarker && mapObj) { mapObj.removeLayer(tempPinMarker); tempPinMarker = null; }
-
-      var a = data && data.address ? data.address : {};
-
-      // Build street: house_number + road is the most reliable combo
-      var street = ((a.house_number || '') + ' ' + (a.road || a.pedestrian || a.path || '')).trim();
-      if (!street) {
-        street = data && data.display_name
-          ? data.display_name.split(',')[0].trim()
-          : '';
-      }
-
-      var city  = a.city || a.town || a.village || a.hamlet || a.county || '';
-      var state = a.state ? stateAbbr(a.state) : '';
-      var zip   = a.postcode || '';
-
-      showPinConfirm(street, city, state, zip, lat, lng);
-    })
-    .catch(function() {
-      if (tempPinMarker && mapObj) { mapObj.removeLayer(tempPinMarker); tempPinMarker = null; }
-      // Show modal with empty fields so rep can type the address manually
-      showPinConfirm('', '', '', '', lat, lng);
-      toast('⚠ Could not look up address — enter it manually', 't-err');
-    });
-}
-function showPinConfirm(street, city, state, zip, lat, lng) {
-  _pendingPin = { lat: lat, lng: lng };
-  document.getElementById('pin-cf-street').value = street;
-  document.getElementById('pin-cf-city').value   = city;
-  document.getElementById('pin-cf-state').value  = state;
-  document.getElementById('pin-cf-zip').value    = zip;
-  document.getElementById('pin-cf-coords').textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
-  document.getElementById('pin-confirm-modal').classList.add('open');
-  // Auto-focus the street field so the rep can immediately start correcting
-  setTimeout(function() { document.getElementById('pin-cf-street').focus(); }, 120);
-}
-
-function confirmPinAddress() {
-  if (!_pendingPin) return;
-  var street = document.getElementById('pin-cf-street').value.trim();
-  var city   = document.getElementById('pin-cf-city').value.trim();
-  var state  = document.getElementById('pin-cf-state').value.trim();
-  var zip    = document.getElementById('pin-cf-zip').value.trim();
-
-  if (!street) {
-    toast('⚠ Street address is required', 't-err');
-    document.getElementById('pin-cf-street').focus();
-    return;
-  }
-
-  document.getElementById('pin-confirm-modal').classList.remove('open');
-  addPinDropAddress(street, city, state, zip, _pendingPin.lat, _pendingPin.lng);
-  _pendingPin = null;
-}
-
-function cancelPinConfirm() {
-  document.getElementById('pin-confirm-modal').classList.remove('open');
-  _pendingPin = null;
-  // Also remove the temp pin if it's still there
-  if (tempPinMarker && mapObj) { mapObj.removeLayer(tempPinMarker); tempPinMarker = null; }
-}
+function cancelPinConfirm() { return; }
 
 // Convert full US state name → 2-letter abbreviation
 function stateAbbr(name) {
@@ -3914,53 +3736,7 @@ function stateAbbr(name) {
   return map[name] || name;
 }
 
-function addPinDropAddress(street, city, state, zip, lat, lng) {
-  // Check for duplicate
-  var dup = addresses.find(function(a) {
-    return a.address.toLowerCase() === street.toLowerCase() &&
-           (a.city || '').toLowerCase() === (city || '').toLowerCase();
-  });
-  if (dup) {
-    toast('⚠ That address is already in the list', 't-err');
-    openForm(dup.id);
-    return;
-  }
-
-  var newId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
-  var newAddr = {
-    id:             newId,
-    sheetRow:       null,
-    address:        street,
-    city:           city,
-    state:          state,
-    zip:            zip,
-    lat:            lat,
-    lng:            lng,
-    activeCount:    '',
-    status:         'pending',
-    salesperson:    repName,
-    note:           '',
-    sale:           null,
-    _manuallyAdded: true,
-    _pinDropped:    true
-  };
-
-  addresses.push(newAddr);
-  updateStats();
-  buildList();
-
-  // Place the proper pending marker immediately (we already have coords)
-  if (mapObj) placeMarker(newAddr);
-
-  // Open the sales form right away
-  openForm(newId);
-
-  // Write to Google Sheet
-  maybeWriteNewAddrToSheet(newAddr);
-
-  toast('📍 ' + street + ' added!', 't-ok');
-}
+function addPinDropAddress() { return; }
 
 // ──────────────────────────────────────────────────────────
 //  DRAW ZONE — polygon drawing + OSM rooftop auto-import
