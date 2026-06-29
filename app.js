@@ -984,9 +984,10 @@ if (activeDispoFilter) {
   var pid = addr.id;
   m.bindPopup(function() {
     var shape2  = getMarkerShape(addr);
+    var safePid = String(pid).replace(/'/g, "\\'");
     var btnHTML = shape2 === 'bolt'
-      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">⚡ View Address</button>'
-      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">Open Sales Form</button>';
+      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + safePid + '\')">⚡ View Address</button>'
+      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + safePid + '\')">Open Sales Form</button>';
     return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
       popupHtmlForAddr(addr) + btnHTML + '</div>';
   }, { minWidth: 180 });
@@ -1374,7 +1375,7 @@ function buildList(filter) {
       modeLine = '<div class="ar-dist" style="color:#d97706">⏱ ' + ageStr + '</div>';
     }
 
-    return '<div class="addr-row' + selC + '" data-id="' + escHtml(String(a.id)) + '" onclick="openForm(\'' + String(a.id).replace(/'/g, "\\'") + '\')">' +
+    return '<div class="addr-row' + selC + '" data-id="' + a.id + '">' +
       '<div class="ar-dot">' + icon + '</div>' +
       '<div class="ar-info">' +
         '<div class="ar-st">'  + escHtml(a.address) + '</div>' +
@@ -2099,7 +2100,7 @@ async function submitSale(pkgLabel) {
     installDate: selSlot ? selSlot.date : (install || ''),
     installTime: selSlot ? selSlot.time : '',
     notes: notes,
-    status: (selPkg === 'gig') ? 'gig' : 'mega',
+    status: 'Sale — ' + pkgLabel,
     standardizedOutcome: getStandardizedOutcomeLabel((selPkg === 'mega') ? 'mega' : 'gig'),
     softInterestType: '',
     decisionMakerSpokenTo: outcomeFlags.decisionMakerSpokenTo,
@@ -2114,23 +2115,16 @@ async function submitSale(pkgLabel) {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
-  try {
-    await sendData(payload);
-    maybeWriteNewAddrToSheet(addr);
+  await sendData(payload);
+  maybeWriteNewAddrToSheet(addr);
 
-    if (selSlot) {
-      var fullAddress = addr.address + (addr.city ? ', ' + addr.city : '') + (addr.state ? ', ' + addr.state : '');
-      schedBookSlot(selSlot.date, selSlot.time, first + ' ' + last, fullAddress);
-    }
-
-    addr.sale = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
-    await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
-  } catch (err) {
-    console.error(err);
-    toast('⚠ Could not save sale to Supabase', 't-err');
-    return;
+  if (selSlot) {
+    var fullAddress = addr.address + (addr.city ? ', ' + addr.city : '') + (addr.state ? ', ' + addr.state : '');
+    schedBookSlot(selSlot.date, selSlot.time, first + ' ' + last, fullAddress);
   }
 
+  addr.sale   = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
+  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   sendHeartbeat();
@@ -2138,7 +2132,7 @@ async function submitSale(pkgLabel) {
   closeForm();
 }
 
-function submitStatusasync function submitStatus() {
+async function submitStatus() {
   var addr = getAddr();
   if (!addr)      { toast('No address selected', 't-err'); return; }
   if (!selStatus) { toast('⚠ Pick a status first', 't-err'); return; }
@@ -2153,7 +2147,23 @@ function submitStatusasync function submitStatus() {
   applyLockedCoords_(addr);
   var standardizedOutcome = getStandardizedOutcomeLabel(mappedStatus);
   var softInterestType = getSoftInterestType(mappedStatus);
+  var payload = {
+    salesperson: repName,
+    address: addr.address, city: addr.city||'', state: addr.state||'', zip: addr.zip||'',
+    sheetRow: addr.sheetRow || null,
+    lat: addr.lat != null ? addr.lat : '',
+    lng: addr.lng != null ? addr.lng : '',
+    firstName:'', lastName:'', phone:'', email:'',
+    package:'', notes: notes,
+    status: selStatus,
+    standardizedOutcome: standardizedOutcome,
+    softInterestType: softInterestType,
+    decisionMakerSpokenTo: outcomeFlags.decisionMakerSpokenTo,
+    followUpNeeded: outcomeFlags.followUpNeeded,
+    saleMade: outcomeFlags.saleMade
+  };
 
+  // Build label→status map from unified config
   var smap = {};
   DISPOSITIONS.forEach(function(d) {
     smap[d.label] = d.status;
@@ -2167,16 +2177,11 @@ function submitStatusasync function submitStatus() {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
+  // NOTE: sendData() is intentionally NOT called here — no-sale statuses
+  // should never go to recordSale(). Only updateAddressStatus() is needed
+  // to write the status + note to the Addresses tab.
   maybeWriteNewAddrToSheet(addr);
-
-  try {
-    await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
-  } catch (err) {
-    console.error(err);
-    toast('⚠ Could not save disposition to Supabase', 't-err');
-    return;
-  }
-
+  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   toast('📋 "' + selStatus + '" logged', 't-info');
@@ -2185,7 +2190,7 @@ function submitStatusasync function submitStatus() {
   closeForm();
 }
 
-async function updateAddressStatusasync function updateAddressStatus(addr, status, note, flags) {
+async function updateAddressStatus(addr, status, note, flags) {
   var outcomeFlags = flags || {
     decisionMakerSpokenTo: addr.decisionMakerSpokenTo || 'N',
     followUpNeeded: addr.followUpNeeded || 'N',
@@ -2219,7 +2224,7 @@ async function updateAddressStatusasync function updateAddressStatus(addr, statu
   return res.data;
 }
 
-async function sendDataasync function sendData(payload) {
+async function sendData(payload) {
   if (!supabaseWarn()) return;
 
   var addr = getAddr ? getAddr() : null;
@@ -2240,7 +2245,7 @@ async function sendDataasync function sendData(payload) {
     }]);
 
   if (salesRes.error) {
-    console.error('sales_orders insert failed:', salesRes.error);
+    console.error(salesRes.error);
     throw salesRes.error;
   }
 
@@ -2248,7 +2253,6 @@ async function sendDataasync function sendData(payload) {
 }
 
 // ──────────────────────────────────────────────────────────
-//  STATS// ──────────────────────────────────────────────────────────
 //  STATS
 // ──────────────────────────────────────────────────────────
 function updateStats() {
@@ -2509,8 +2513,8 @@ function refreshMapMarkers() {
     m.bindPopup(function() {
       var shape2  = getMarkerShape(a);
       var btnHTML = shape2 === 'bolt'
-        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">⚡ View Address</button>'
-        : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + String(pid).replace(/'/g, "\\'") + '\')">Open Sales Form</button>';
+        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
+        : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
       return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
         popupHtmlForAddr(a) + btnHTML + '</div>';
     }, { minWidth: 180 });
