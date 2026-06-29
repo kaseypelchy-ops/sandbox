@@ -984,9 +984,10 @@ if (activeDispoFilter) {
   var pid = addr.id;
   m.bindPopup(function() {
     var shape2  = getMarkerShape(addr);
+    var safePid = String(pid).replace(/'/g, "\\'");
     var btnHTML = shape2 === 'bolt'
-      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-      : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+      ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + safePid + '\')">⚡ View Address</button>'
+      : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + safePid + '\')">Open Sales Form</button>';
     return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
       popupHtmlForAddr(addr) + btnHTML + '</div>';
   }, { minWidth: 180 });
@@ -2047,7 +2048,7 @@ function getAddr() {
   return null;
 }
 
-function submitSale(pkgLabel) {
+async function submitSale(pkgLabel) {
   var addr = getAddr();
   if (!addr) { toast('No address selected', 't-err'); return; }
 
@@ -2115,7 +2116,8 @@ function submitSale(pkgLabel) {
   addr.followUpNeeded = outcomeFlags.followUpNeeded;
   addr.saleMade = outcomeFlags.saleMade;
 
-  sendData(payload);
+  var saleSaved = await sendData(payload);
+  if (!saleSaved) return;
   maybeWriteNewAddrToSheet(addr);
 
   if (selSlot) {
@@ -2124,7 +2126,7 @@ function submitSale(pkgLabel) {
   }
 
   addr.sale   = { firstName: first, lastName: last, phone: phone, email: email, notes: notes };
-  updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   sendHeartbeat();
@@ -2132,7 +2134,7 @@ function submitSale(pkgLabel) {
   closeForm();
 }
 
-function submitStatus() {
+async function submitStatus() {
   var addr = getAddr();
   if (!addr)      { toast('No address selected', 't-err'); return; }
   if (!selStatus) { toast('⚠ Pick a status first', 't-err'); return; }
@@ -2181,7 +2183,8 @@ function submitStatus() {
   // should never go to recordSale(). Only updateAddressStatus() is needed
   // to write the status + note to the Addresses tab.
   maybeWriteNewAddrToSheet(addr);
-  updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  var statusSaved = await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
+  if (!statusSaved) return;
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
   toast('📋 "' + selStatus + '" logged', 't-info');
@@ -2197,7 +2200,7 @@ async function updateAddressStatus(addr, status, note, flags) {
     saleMade: addr.saleMade || 'N'
   };
 
-  if (!supabaseWarn() || !addr || !addr.id) return;
+  if (!supabaseWarn() || !addr || !addr.id) return false;
 
   var res = await supabaseClient
     .from('address_events')
@@ -2214,11 +2217,16 @@ async function updateAddressStatus(addr, status, note, flags) {
       sale_made: outcomeFlags.saleMade === 'Y'
     }]);
 
-  if (res.error) console.error(res.error);
+  if (res.error) {
+    console.error(res.error);
+    toast('⚠ Failed to save status update', 't-err');
+    return false;
+  }
+  return true;
 }
 
 async function sendData(payload) {
-  if (!supabaseWarn()) return;
+  if (!supabaseWarn()) return false;
 
   var addr = getAddr ? getAddr() : null;
   var fullName = ((payload.firstName || '') + ' ' + (payload.lastName || '')).trim();
@@ -2239,21 +2247,11 @@ async function sendData(payload) {
 
   if (salesRes.error) {
     console.error(salesRes.error);
-    return;
+    toast('⚠ Failed to save sale', 't-err');
+    return false;
   }
 
-  if (addr && addr.id) {
-    await updateAddressStatus(
-      addr,
-      (payload.status || '').toLowerCase(),
-      payload.notes || payload.note || '',
-      {
-        decisionMakerSpokenTo: 'Y',
-        followUpNeeded: 'N',
-        saleMade: 'Y'
-      }
-    );
-  }
+  return true;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -2516,9 +2514,10 @@ function refreshMapMarkers() {
     var pid    = a.id;
     m.bindPopup(function() {
       var shape2  = getMarkerShape(a);
+      var safePid = String(pid).replace(/'/g, "\\'");
       var btnHTML = shape2 === 'bolt'
-        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(' + pid + ')">⚡ View Address</button>'
-        : '<button class="pop-open-btn" onclick="openFormFromMap(' + pid + ')">Open Sales Form</button>';
+        ? '<button class="pop-open-btn pop-active-btn" onclick="openFormFromMap(\'' + safePid + '\')">⚡ View Address</button>'
+        : '<button class="pop-open-btn" onclick="openFormFromMap(\'' + safePid + '\')">Open Sales Form</button>';
       return '<div style="font-family:Syne,sans-serif;min-width:160px">' +
         popupHtmlForAddr(a) + btnHTML + '</div>';
     }, { minWidth: 180 });
