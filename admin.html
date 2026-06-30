@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FieldOS Admin Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: #0f172a;
+      --panel-2: #111827;
+      --border: #1e293b;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+    .wrap { max-width: 1400px; margin: 0 auto; }
+    h1, h2, h3, p { margin: 0; }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .sub { color: var(--muted); margin-top: 8px; }
+    .panel {
+      background: linear-gradient(180deg, rgba(15,23,42,.96), rgba(17,24,39,.96));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .controls input, .controls select, .controls button, .search {
+      width: 100%;
+      background: #020617;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    .controls button { cursor: pointer; }
+    .controls button.primary {
+      background: var(--accent);
+      color: #082f49;
+      font-weight: 700;
+      border: none;
+    }
+    .grid-kpis {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .kpi-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+    .kpi-value { font-size: 34px; font-weight: 700; margin-top: 10px; }
+    .kpi-sub { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .panel-sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .chart-box { position: relative; height: 320px; }
+    .list { display: grid; gap: 10px; }
+    .list-item {
+      background: rgba(30,41,59,.55);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(34,197,94,.15);
+      color: #86efac;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid #0f172a;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    tr:hover td { background: rgba(30,41,59,.25); }
+    .table-wrap { overflow: auto; max-height: 420px; }
+    .row-btn {
+      cursor: pointer;
+    }
+    .status-line { color: var(--muted); font-size: 13px; margin-top: 10px; }
+    .error { color: #fda4af; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+      width: min(1100px, 100%);
+      max-height: 80vh;
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 20px;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .modal-close {
+      background: #020617;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    @media (max-width: 1200px) {
+      .controls, .grid-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .controls, .grid-kpis { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+      .kpi-value { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="eyebrow">Zito FieldOS</div>
+        <h1 id="dashboard-title">Admin Dashboard</h1>
+        <p id="dashboard-subtitle" class="sub">Plain HTML dashboard wired to your Supabase tables.</p>
+      </div>
+    </div>
+
+    <div class="panel controls">
+      <input id="sb-url" placeholder="Supabase URL" />
+      <input id="sb-key" placeholder="Supabase anon key" />
+      <select id="territory-filter"><option value="all">All Territories</option></select>
+      <select id="rep-filter"><option value="all">All Reps</option></select>
+      <input id="start-date" type="date" />
+      <input id="end-date" type="date" />
+      <button id="refresh-btn" class="primary">Refresh</button>
+      <button id="export-activity-btn">Export Activity</button>
+      <button id="export-sales-btn">Export Sales</button>
+      <button id="export-events-btn">Export Events</button>
+      <input id="activity-search" class="search" placeholder="Search activity" />
+      <select id="auto-refresh">
+        <option value="off">Auto Refresh Off</option>
+        <option value="30000">Auto Refresh 30s</option>
+        <option value="60000">Auto Refresh 60s</option>
+      </select>
+    </div>
+
+    <div id="status-line" class="status-line">Enter your Supabase URL and anon key, then click Refresh.</div>
+
+    <div class="grid-kpis">
+      <div class="panel"><div class="kpi-label">Homes Passed</div><div id="kpi-homes" class="kpi-value">0</div><div class="kpi-sub">Filtered address universe</div></div>
+      <div class="panel"><div class="kpi-label">Pending</div><div id="kpi-pending" class="kpi-value">0</div><div class="kpi-sub">No latest non-pending event</div></div>
+      <div class="panel"><div class="kpi-label">Doors Worked</div><div id="kpi-worked" class="kpi-value">0</div><div class="kpi-sub">Latest addressed activity</div></div>
+      <div class="panel"><div class="kpi-label">Sales</div><div id="kpi-sales" class="kpi-value">0</div><div class="kpi-sub">Latest status mega/gig</div></div>
+      <div class="panel"><div class="kpi-label">Close Rate</div><div id="kpi-close" class="kpi-value">0.0%</div><div class="kpi-sub">Sales / worked</div></div>
+      <div class="panel"><div class="kpi-label">Booked Installs</div><div id="kpi-booked" class="kpi-value">0</div><div class="kpi-sub">Filtered booking count</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Territory Performance</h2><div class="panel-sub">Coverage and sales by territory.</div></div></div>
+        <div class="chart-box"><canvas id="territory-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Disposition Mix</h2><div class="panel-sub">Counts from address_events.</div></div></div>
+        <div class="chart-box"><canvas id="disposition-chart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Sales Trend</h2><div class="panel-sub">Daily sales from sales_orders.</div></div></div>
+        <div class="chart-box"><canvas id="sales-trend-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Schedule Utilization</h2><div class="panel-sub">Most-used install slots.</div></div></div>
+        <div id="schedule-list" class="list"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Rep Leaderboard</h2><div class="panel-sub">Sales and worked addresses by rep.</div></div></div>
+        <div id="rep-list" class="list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Recent Activity</h2><div class="panel-sub">Latest sales, dispositions, and bookings.</div></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Rep</th>
+                <th>Territory</th>
+                <th>Address</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="activity-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="detail-modal" class="modal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="detail-title">Detail</h2>
+        <div style="display:flex; gap:10px;">
+          <button id="detail-export" class="modal-close">Export</button>
+          <button id="detail-close" class="modal-close">Close</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="detail-head"></thead>
+          <tbody id="detail-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTeam = (urlParams.get('team') || '').toLowerCase().trim();
+
+    const TEAM_TERRITORIES = {
+      fiber: ['bryson_city_nc', 'cameron_tx', 'crawford_tx'],
+      sfi: ['pottsville_pa', 'saint_marys_pa'],
+      lynxx: ['battle_mountain_nv', 'elko_nv']
+    };
+
+    const TEAM_LABELS = {
+      fiber: 'Fiber Sales Team',
+      sfi: 'Sales Focus Inc.',
+      lynxx: 'Lynxx'
+    };
+
+    const allowedTerritories = TEAM_TERRITORIES[activeTeam] || null;
+    const isCompanyView = !allowedTerritories;
+
+    const els = {
+      url: document.getElementById('sb-url'),
+      key: document.getElementById('sb-key'),
+      territory: document.getElementById('territory-filter'),
+      rep: document.getElementById('rep-filter'),
+      start: document.getElementById('start-date'),
+      end: document.getElementById('end-date'),
+      refresh: document.getElementById('refresh-btn'),
+      exportActivity: document.getElementById('export-activity-btn'),
+      exportSales: document.getElementById('export-sales-btn'),
+      exportEvents: document.getElementById('export-events-btn'),
+      activitySearch: document.getElementById('activity-search'),
+      autoRefresh: document.getElementById('auto-refresh'),
+      status: document.getElementById('status-line'),
+      repList: document.getElementById('rep-list'),
+      scheduleList: document.getElementById('schedule-list'),
+      activityBody: document.getElementById('activity-body'),
+      modal: document.getElementById('detail-modal'),
+      detailTitle: document.getElementById('detail-title'),
+      detailHead: document.getElementById('detail-head'),
+      detailBody: document.getElementById('detail-body'),
+      detailClose: document.getElementById('detail-close'),
+      detailExport: document.getElementById('detail-export'),
+      dashboardTitle: document.getElementById('dashboard-title'),
+      dashboardSubtitle: document.getElementById('dashboard-subtitle')
+    };
+
+    els.url.value = 'https://zyioicczczmlsksxysqw.supabase.co';
+    els.key.value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5aW9pY2N6Y3ptbHNrc3h5c3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzYyODMsImV4cCI6MjA5ODMxMjI4M30.Wfcn5_JA73k-Dq6YX0KpHZ3HLNsWa87v7TE3owDpOyM';
+
+    let state = {
+      addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: []
+    };
+    let currentDetailRows = [];
+    let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
+
+    function setDashboardHeader() {
+      if (isCompanyView) {
+        els.dashboardTitle.textContent = 'Company Admin Dashboard';
+        els.dashboardSubtitle.textContent = 'Company-wide view across all territories.';
+      } else {
+        els.dashboardTitle.textContent = (TEAM_LABELS[activeTeam] || activeTeam) + ' Dashboard';
+        els.dashboardSubtitle.textContent = 'Vendor-filtered view limited to assigned territories.';
+      }
+    }
+
+    function normalizeTerritory(value) {
+      return String(value || '').toLowerCase().trim();
+    }
+
+    function rowMatchesTeam(row) {
+      if (!allowedTerritories) return true;
+      const territory = normalizeTerritory(row?.territory);
+      return allowedTerritories.includes(territory);
+    }
+
+    function rowMatchesUiTerritory(row, territoryValue) {
+      if (territoryValue === 'all') return true;
+      return normalizeTerritory(row?.territory) === normalizeTerritory(territoryValue);
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('en-US').format(value || 0);
+    }
+    function formatPercent(value) {
+      if (!Number.isFinite(value)) return '0.0%';
+      return (value * 100).toFixed(1) + '%';
+    }
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function formatDateTime(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return value;
+      return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+function buildAddressLabel(addressMap, id) {
+  if (!id) return '—';
+  const row = addressMap.get(id);
+  if (!row) return '—';
+  return [row.address1, row.city, row.state].filter(Boolean).join(', ');
+}
+    function csvDownload(filename, rows) {
+      if (!rows.length) return;
+      const headers = Object.keys(rows[0]);
+      const lines = [headers.join(',')];
+      rows.forEach(row => {
+        const vals = headers.map(h => {
+          const v = String(row[h] ?? '');
+          return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+        });
+        lines.push(vals.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    function buildAddressMap() {
+      const map = new Map();
+      state.addresses.forEach(r => map.set(r.id, r));
+      return map;
+    }
+    function latestEventsMap(filteredEvents) {
+      const map = new Map();
+      filteredEvents.forEach(ev => {
+        if (!map.has(ev.address_id)) map.set(ev.address_id, ev);
+      });
+      return map;
+    }
+    function currentFilters() {
+      return {
+        territory: els.territory.value || 'all',
+        rep: els.rep.value || 'all',
+        start: els.start.value,
+        end: els.end.value,
+        search: (els.activitySearch.value || '').toLowerCase().trim()
+      };
+    }
+    function getClient() {
+      const url = els.url.value.trim();
+      const key = els.key.value.trim();
+      if (!url || !key) return null;
+      return window.supabase.createClient(url, key);
+    }
+    async function fetchAllPages(client, table, opts = {}) {
+      const pageSize = 1000;
+      let from = 0;
+      let rows = [];
+      while (true) {
+        let query = client.from(table).select(opts.select || '*').range(from, from + pageSize - 1);
+        if (opts.order) query = query.order(opts.order.column, { ascending: opts.order.ascending !== false });
+        (opts.filters || []).forEach(f => {
+          if (f.type === 'eq') query = query.eq(f.column, f.value);
+          if (f.type === 'gte') query = query.gte(f.column, f.value);
+          if (f.type === 'lte') query = query.lte(f.column, f.value);
+        });
+        const { data, error } = await query;
+        if (error) throw error;
+        const page = data || [];
+        rows = rows.concat(page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+      return rows;
+    }
+    async function loadData() {
+      const client = getClient();
+      if (!client) {
+        els.status.textContent = 'Enter your Supabase URL and anon key, then click Refresh.';
+        return;
+      }
+      els.status.textContent = 'Loading Supabase data...';
+      els.status.classList.remove('error');
+      try {
+        const filters = currentFilters();
+        const eventFilters = [];
+        const salesFilters = [];
+        const bookingFilters = [];
+        if (filters.start) {
+          eventFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+          salesFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+          bookingFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+        }
+        if (filters.end) {
+          eventFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+          salesFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+          bookingFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+        }
+        const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings] = await Promise.all([
+          fetchAllPages(client, 'addresses', { order: { column: 'address1', ascending: true } }),
+          fetchAllPages(client, 'reps', { order: { column: 'full_name', ascending: true } }),
+          fetchAllPages(client, 'address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
+          fetchAllPages(client, 'sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
+          fetchAllPages(client, 'schedule_slots', { order: { column: 'slot_date', ascending: true } }),
+          fetchAllPages(client, 'schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters })
+        ]);
+        state = {
+          addresses: addresses.filter(rowMatchesTeam),
+          reps: reps.filter(rowMatchesTeam),
+          address_events: address_events.filter(rowMatchesTeam),
+          sales_orders: sales_orders.filter(rowMatchesTeam),
+          schedule_slots: schedule_slots.filter(rowMatchesTeam),
+          schedule_bookings: schedule_bookings.filter(rowMatchesTeam)
+        };
+        populateFilters();
+        renderAll();
+        els.status.textContent = isCompanyView
+          ? 'Data loaded successfully.'
+          : 'Data loaded successfully for ' + (TEAM_LABELS[activeTeam] || activeTeam) + '.';
+
+      } catch (err) {
+        els.status.textContent = err.message || 'Could not load Supabase data.';
+        els.status.classList.add('error');
+      }
+    }
+    function populateFilters() {
+      const territoryValue = els.territory.value || 'all';
+      const repValue = els.rep.value || 'all';
+      const territories = [...new Set([
+        ...state.addresses.map(r => r.territory).filter(Boolean),
+        ...state.reps.map(r => r.territory).filter(Boolean),
+        ...state.schedule_slots.map(r => r.territory).filter(Boolean)
+      ])].sort();
+      const reps = [...new Set(state.reps.map(r => r.full_name).filter(Boolean))].sort();
+      els.territory.innerHTML = '<option value="all">All Territories</option>' + territories.map(t => `<option value="${t}">${t}</option>`).join('');
+      els.rep.innerHTML = '<option value="all">All Reps</option>' + reps.map(r => `<option value="${r}">${r}</option>`).join('');
+      els.territory.value = territories.includes(territoryValue) ? territoryValue : 'all';
+      els.rep.value = reps.includes(repValue) ? repValue : 'all';
+    }
+    function renderAll() {
+      const filters = currentFilters();
+      const addressMap = buildAddressMap();
+      const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory));
+      const filteredEvents = state.address_events.filter(ev => {
+        if (!rowMatchesUiTerritory(ev, filters.territory)) return false;
+        if (filters.rep !== 'all' && ev.rep_name !== filters.rep) return false;
+        return true;
+      });
+      const filteredSales = state.sales_orders.filter(s => {
+        const directTerritory = s.territory || '';
+        const addressTerritory = addressMap.get(s.address_id)?.territory || '';
+        const salesTerritory = directTerritory || addressTerritory;
+        if (!rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory)) return false;
+        const repName = s.rep_name || s.salesperson || '';
+        if (filters.rep !== 'all' && repName !== filters.rep) return false;
+        return true;
+      });
+      const slotMap = new Map(state.schedule_slots.map(s => [s.id, s]));
+      const filteredBookings = state.schedule_bookings
+        .map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null }))
+        .filter(b => {
+          const territory = b.territory || b.slot?.territory || '';
+          if (!rowMatchesUiTerritory({ territory }, filters.territory)) return false;
+          if (filters.rep !== 'all' && b.rep_name !== filters.rep) return false;
+          return true;
+        });
+      const latestMap = latestEventsMap(filteredEvents);
+
+      let pending = 0, worked = 0, sales = 0;
+      filteredAddresses.forEach(a => {
+        const ev = latestMap.get(a.id);
+        const status = String(ev?.status || 'pending').toLowerCase();
+        if (!ev || !status || status === 'pending') pending++;
+        if (ev && status !== 'pending') worked++;
+        if (status === 'mega' || status === 'gig') sales++;
+      });
+      document.getElementById('kpi-homes').textContent = formatNumber(filteredAddresses.length);
+      document.getElementById('kpi-pending').textContent = formatNumber(pending);
+      document.getElementById('kpi-worked').textContent = formatNumber(worked);
+      document.getElementById('kpi-sales').textContent = formatNumber(sales);
+      document.getElementById('kpi-close').textContent = formatPercent(worked ? sales / worked : 0);
+      document.getElementById('kpi-booked').textContent = formatNumber(filteredBookings.length);
+
+      const territoryRows = [...new Set(state.addresses.map(a => a.territory).filter(Boolean))]
+        .map(territory => {
+          const territoryAddresses = state.addresses.filter(a => a.territory === territory);
+          const territoryEvents = territoryAddresses.map(a => latestMap.get(a.id)).filter(Boolean);
+          const territoryWorked = territoryEvents.filter(ev => String(ev.status || '').toLowerCase() !== 'pending').length;
+          const territorySales = territoryEvents.filter(ev => ['mega','gig'].includes(String(ev.status || '').toLowerCase())).length;
+          return { territory, worked: territoryWorked, sales: territorySales, total: territoryAddresses.length };
+        })
+        ;
+      const dispositionCounts = {};
+      filteredEvents.forEach(ev => {
+        const status = String(ev.status || 'pending').toLowerCase();
+        dispositionCounts[status] = (dispositionCounts[status] || 0) + 1;
+      });
+      const dispositionRows = Object.entries(dispositionCounts).map(([status, count]) => ({ status, count })).sort((a,b) => b.count - a.count).slice(0,10);
+
+      const salesTrendMap = {};
+      filteredSales.forEach(s => {
+        const day = (s.created_at || '').slice(0,10);
+        if (!day) return;
+        salesTrendMap[day] = (salesTrendMap[day] || 0) + 1;
+      });
+      const salesTrendRows = Object.keys(salesTrendMap).sort().map(day => ({ label: formatDate(day), sales: salesTrendMap[day] }));
+
+      const repMap = {};
+      filteredEvents.forEach(ev => {
+        if (!ev.rep_name) return;
+        if (!repMap[ev.rep_name]) repMap[ev.rep_name] = { name: ev.rep_name, worked: 0, sales: 0 };
+        repMap[ev.rep_name].worked++;
+        if (['mega','gig'].includes(String(ev.status || '').toLowerCase())) repMap[ev.rep_name].sales++;
+      });
+      const repRows = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
+
+      const utilizationRows = state.schedule_slots
+        .filter(s => rowMatchesUiTerritory(s, filters.territory))
+        .map(s => ({
+          slot: formatDate(s.slot_date) + ' ' + (s.time_label || ''),
+          territory: s.territory,
+          booked: Number(s.booked_count || 0),
+          capacity: Number(s.capacity || 0),
+          utilization: Number(s.capacity || 0) ? Number(s.booked_count || 0) / Number(s.capacity || 1) : 0
+        }))
+        .sort((a,b) => b.utilization - a.utilization)
+        .slice(0,12);
+
+      const activityRows = [
+        ...filteredSales.map(s => ({
+          time: s.created_at,
+          rep: s.rep_name || '—',
+          territory: addressMap.get(s.address_id)?.territory || '—',
+          address: buildAddressLabel(addressMap, s.address_id),
+          type: 'Sale',
+          status: s.package_name || 'sale'
+        })),
+        ...filteredEvents.map(ev => ({
+          time: ev.created_at,
+          rep: ev.rep_name || '—',
+          territory: ev.territory || '—',
+          address: buildAddressLabel(addressMap, ev.address_id),
+          type: 'Disposition',
+          status: ev.status || '—'
+        })),
+        ...filteredBookings.map(b => ({
+          time: b.created_at,
+          rep: b.rep_name || '—',
+          territory: b.slot?.territory || '—',
+          address: buildAddressLabel(addressMap, b.address_id),
+          type: 'Booking',
+          status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked'
+        }))
+      ].filter(r => {
+        if (!filters.search) return true;
+        return [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search);
+      }).sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0,100);
+
+      renderTerritoryChart(territoryRows);
+      renderDispositionChart(dispositionRows);
+      renderSalesTrendChart(salesTrendRows);
+      renderRepList(repRows, filteredEvents, addressMap);
+      renderScheduleList(utilizationRows);
+      renderActivity(activityRows);
+
+      els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
+      els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', filteredSales.map(s => ({
+        created_at: s.created_at,
+        rep_name: s.rep_name || s.salesperson,
+        territory: s.territory || addressMap.get(s.address_id)?.territory || '',
+        customer_name: s.customer_name,
+        package_name: s.package_name,
+        install_date: s.install_date,
+        install_time: s.install_time,
+        address: buildAddressLabel(addressMap, s.address_id)
+      })));
+      els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({
+        created_at: ev.created_at,
+        rep_name: ev.rep_name,
+        territory: ev.territory,
+        status: ev.status,
+        note: ev.note,
+        address: buildAddressLabel(addressMap, ev.address_id)
+      })));
+    }
+    function renderTerritoryChart(rows) {
+      if (territoryChart) territoryChart.destroy();
+      territoryChart = new Chart(document.getElementById('territory-chart'), {
+        type: 'bar',
+        data: {
+          labels: rows.map(r => r.territory),
+          datasets: [
+            { label: 'Worked', data: rows.map(r => r.worked), backgroundColor: '#06b6d4', borderRadius: 8 },
+            { label: 'Sales', data: rows.map(r => r.sales), backgroundColor: '#22c55e', borderRadius: 8 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          },
+          onClick: (_, elements) => {
+            if (!elements.length) return;
+            const index = elements[0].index;
+            const territory = rows[index].territory;
+            const detail = state.addresses.filter(a => a.territory === territory).map(a => ({
+              address: [a.address1, a.city, a.state].filter(Boolean).join(', '),
+              territory: a.territory
+            }));
+            openDetail('Territory Detail: ' + territory, detail);
+          }
+        }
+      });
+    }
+    function renderDispositionChart(rows) {
+      if (dispositionChart) dispositionChart.destroy();
+      dispositionChart = new Chart(document.getElementById('disposition-chart'), {
+        type: 'pie',
+        data: {
+          labels: rows.map(r => r.status),
+          datasets: [{ data: rows.map(r => r.count), backgroundColor: ['#22c55e','#06b6d4','#a855f7','#f59e0b','#ef4444','#64748b','#eab308','#14b8a6','#38bdf8','#fb7185'] }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1' } } },
+          onClick: (_, elements) => {
+            if (!elements.length) return;
+            const index = elements[0].index;
+            const status = rows[index].status;
+            const detail = filteredEvents.filter(ev => String(ev.status || '').toLowerCase() === status).map(ev => ({
+              time: formatDateTime(ev.created_at),
+              rep: ev.rep_name,
+              territory: ev.territory,
+              status: ev.status,
+              note: ev.note || ''
+            }));
+            openDetail('Disposition Detail: ' + status, detail);
+          }
+        }
+      });
+    }
+    function renderSalesTrendChart(rows) {
+      if (salesTrendChart) salesTrendChart.destroy();
+      salesTrendChart = new Chart(document.getElementById('sales-trend-chart'), {
+        type: 'line',
+        data: { labels: rows.map(r => r.label), datasets: [{ label: 'Sales', data: rows.map(r => r.sales), borderColor: '#22c55e', backgroundColor: '#22c55e', tension: .25 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+          }
+        }
+      });
+    }
+    function renderRepList(rows, filteredEvents, addressMap) {
+      els.repList.innerHTML = rows.length ? rows.map(r => `
+        <div class="list-item row-btn" data-rep="${r.name}">
+          <div>
+            <div style="font-weight:700;">${r.name}</div>
+            <div style="color:#94a3b8; font-size:13px; margin-top:4px;">${formatNumber(r.worked)} events logged</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:24px; font-weight:700;">${formatNumber(r.sales)}</div>
+            <div style="color:#94a3b8; font-size:12px; text-transform:uppercase; letter-spacing:.12em;">Sales</div>
+          </div>
+        </div>
+      `).join('') : '<div style="color:#94a3b8;">No rep activity yet.</div>';
+      els.repList.querySelectorAll('[data-rep]').forEach(node => {
+        node.onclick = () => {
+          const rep = node.getAttribute('data-rep');
+          const detail = filteredEvents.filter(ev => ev.rep_name === rep).map(ev => ({
+            time: formatDateTime(ev.created_at),
+            territory: ev.territory,
+            address: buildAddressLabel(addressMap, ev.address_id),
+            status: ev.status,
+            note: ev.note || ''
+          }));
+          openDetail('Rep Detail: ' + rep, detail);
+        };
+      });
+    }
+    function renderScheduleList(rows) {
+      els.scheduleList.innerHTML = rows.length ? rows.map(r => `
+        <div class="list-item">
+          <div>
+            <div style="font-weight:700;">${r.slot}</div>
+            <div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.territory}</div>
+          </div>
+          <div style="min-width:160px; text-align:right;">
+            <div style="font-weight:700;">${formatPercent(r.utilization)}</div>
+            <div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.booked} booked / ${r.capacity}</div>
+          </div>
+        </div>
+      `).join('') : '<div style="color:#94a3b8;">No schedule slots found.</div>';
+    }
+    function renderActivity(rows) {
+      els.activityBody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="row-btn">
+          <td>${formatDateTime(r.time)}</td>
+          <td>${r.rep}</td>
+          <td>${r.territory}</td>
+          <td>${r.address}</td>
+          <td>${r.type}</td>
+          <td>${r.status}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No activity found.</td></tr>';
+      [...els.activityBody.querySelectorAll('tr')].forEach((tr, idx) => {
+        tr.onclick = () => openDetail('Activity Detail', [rows[idx]]);
+      });
+    }
+    function openDetail(title, rows) {
+      currentDetailRows = rows;
+      els.detailTitle.textContent = title;
+      if (!rows.length) {
+        els.detailHead.innerHTML = '';
+        els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>';
+      } else {
+        const headers = Object.keys(rows[0]);
+        els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+        els.detailBody.innerHTML = rows.map(row => '<tr>' + headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('') + '</tr>').join('');
+      }
+      els.modal.classList.add('open');
+    }
+
+    els.detailClose.onclick = () => els.modal.classList.remove('open');
+    els.modal.onclick = (e) => { if (e.target === els.modal) els.modal.classList.remove('open'); };
+    els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRows);
+    els.refresh.onclick = loadData;
+    els.territory.onchange = renderAll;
+    els.rep.onchange = renderAll;
+    els.activitySearch.oninput = renderAll;
+    els.autoRefresh.onchange = () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+      const ms = Number(els.autoRefresh.value || 0);
+      if (ms) refreshTimer = setInterval(loadData, ms);
+    };
+    els.start.onchange = loadData;
+    els.end.onchange = loadData;
+
+    setDashboardHeader();
+  </script>
+</body>
+</html>
