@@ -548,11 +548,12 @@ function fetchAddressesFromSheet(opts) {
           zip: (row.postal_code || '').trim(),
           lat: isFinite(lat) ? lat : null,
           lng: isFinite(lng) ? lng : null,
+          customerStatus: (row.customer_status || '').toString().trim(),
           activeCount: (row.customer_status || '').toString().trim(),
-          status: ((ev.status || 'pending') + '').toLowerCase(),
-          salesperson: (ev.rep_name || '').trim(),
-          note: (ev.note || '').toString().trim(),
-          knockedAt: ev.knocked_at || null,
+          status: ((ev.status || row.status || 'homes passed') + '').toLowerCase().trim(),
+          salesperson: (ev.rep_name || row.salesperson || '').trim(),
+          note: (ev.note || row.note || '').toString().trim(),
+          knockedAt: ev.knocked_at || row.knocked_at || null,
           decisionMakerSpokenTo: ev.decision_maker_spoken_to ? 'Y' : 'N',
           followUpNeeded: ev.follow_up_needed ? 'Y' : 'N',
           saleMade: ev.sale_made ? 'Y' : 'N',
@@ -927,13 +928,22 @@ function initMap() {
 }
 function getMarkerColor(addr) {
   var s = (addr.status || '').toLowerCase().trim();
-  if (COLORS[s]) return COLORS[s];
-  var shape = getMarkerShape(addr);
-  if (shape === 'bolt')  return COLOR_ACTIVE;
-  if (shape === 'house') return COLOR_PASSED;
-  return COLORS.pending;
-}
 
+  if (s === 'gig') return '#8b5cf6';
+  if (s === 'mega') return '#f97316';
+  if (s === 'activecustomer') return '#06b6d4';
+  if (s === 'homes passed' || s === 'pending') return '#22c55e';
+
+  if (
+    s === 'nothome' || s === 'nothome2' || s === 'nothome3' || s === 'nothome4' ||
+    s === 'goback' || s === 'maybelater' || s === 'sendinfo' || s === 'talktospouse' ||
+    s === 'priceconcern' || s === 'notdecisionmaker' || s === 'notinterested' ||
+    s === 'vacant' || s === 'business' || s === 'competitor' ||
+    s === 'fibercompetitor' || s === 'incontract'
+  ) return '#ef4444';
+
+  return '#22c55e';
+}
 function markerHTML(color, shape) {
   if (shape === 'house') {
     return '<div style="width:26px;height:26px;background:' + color + ';clip-path:polygon(50% 0%,100% 45%,85% 45%,85% 100%,15% 100%,15% 45%,0% 45%);filter:drop-shadow(0 2px 3px rgba(0,0,0,0.55))"></div>';
@@ -944,29 +954,32 @@ function markerHTML(color, shape) {
   return '<div style="width:16px;height:16px;border-radius:50%;background:' + color + ';border:2.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.5)"></div>';
 }
 
-// ── FIX: Rep-logged no-sale statuses are always 'dot', never 'bolt' ──────────
 function getMarkerShape(addr) {
-  var s  = (addr.status      || '').toLowerCase().trim();
-  var ac = (addr.activeCount || '').toLowerCase().trim();
+  var s  = (addr.status || '').toLowerCase().trim();
+  var cs = (addr.customerStatus || addr.activeCount || '').toLowerCase().trim();
 
-  // Sales outcomes always use explicit shapes regardless of activeCount
+  // Sold homes
   if (s === 'mega' || s === 'gig') return 'house';
 
-  // Rep-logged no-sale statuses: always a dot — NEVER treat as active customer.
-  // Without this guard, any address with a non-empty activeCount field would
-  // fall through to the `if (ac && ac !== '') return 'bolt'` catch-all below,
-  // incorrectly showing "Active Customer" after Go Back Later / Not Interested /
-  // Fiber Competitor etc. are submitted.
-  var REP_LOGGED = ['nothome','nothome2','nothome3','nothome4','fibercompetitor','incontract','notinterested','goback','maybelater','sendinfo','talktospouse','priceconcern','notdecisionmaker','vacant','business','competitor','activecustomer'];
+  // Active customers
+  if (s === 'activecustomer') return 'bolt';
+
+  // Workable / unworked homes
+  if (s === 'homes passed' || s === 'pending') return 'house';
+
+  // Rep-logged no-sale statuses
+  var REP_LOGGED = [
+    'nothome','nothome2','nothome3','nothome4',
+    'fibercompetitor','incontract','notinterested','goback',
+    'maybelater','sendinfo','talktospouse','priceconcern',
+    'notdecisionmaker','vacant','business','competitor'
+  ];
   if (REP_LOGGED.indexOf(s) >= 0) return 'dot';
 
-  // Sheet-driven status / activeCount checks (untouched addresses only)
-  if (s === 'active') return 'bolt';
-  if (s.indexOf('home') >= 0 || s.indexOf('passed') >= 0) return 'house';
-  if (ac === 'active' || ac === 'existing' || ac === 'customer') return 'bolt';
-  if (ac.indexOf('home') >= 0 || ac.indexOf('passed') >= 0 || ac === 'hp') return 'house';
-  if (ac && ac !== '') return 'bolt';
-  return 'dot';
+  // Fallback to customer/account truth only if status is blank/unknown
+  if (cs === 'active' || cs === 'existing' || cs === 'customer') return 'bolt';
+
+  return 'house';
 }
 
 function placeMarker(addr) {
@@ -1191,7 +1204,26 @@ function hideGeocodeBar() {
   var bar = document.getElementById('geocode-bar');
   if (bar) bar.style.display = 'none';
 }
+async function updateAddressSnapshot(addr, status, note) {
+  if (!supabaseWarn()) return;
 
+  var payload = {
+    status: (status || '').toLowerCase().trim(),
+    salesperson: repName || addr.salesperson || '',
+    knocked_at: new Date().toISOString(),
+    note: note || ''
+  };
+
+  var res = await supabaseClient
+    .from('addresses')
+    .update(payload)
+    .eq('id', addr.id);
+
+  if (res.error) {
+    console.error(res.error);
+    throw res.error;
+  }
+}
 // ──────────────────────────────────────────────────────────
 //  ADDRESS LIST
 // ──────────────────────────────────────────────────────────
