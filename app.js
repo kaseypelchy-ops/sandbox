@@ -929,10 +929,10 @@ function initMap() {
 function getMarkerColor(addr) {
   var s = (addr.status || '').toLowerCase().trim();
 
-  if (s === 'gig') return '#8b5cf6';
-  if (s === 'mega') return '#f97316';
+  if (s === 'gig') return '#22c55e';          // green
+  if (s === 'mega') return '#8b5cf6';         // purple
   if (s === 'activecustomer') return '#06b6d4';
-  if (s === 'homes passed' || s === 'pending') return '#22c55e';
+  if (s === 'homes passed' || s === 'pending') return '#f97316';   // orange
 
   if (
     s === 'nothome' || s === 'nothome2' || s === 'nothome3' || s === 'nothome4' ||
@@ -942,7 +942,7 @@ function getMarkerColor(addr) {
     s === 'fibercompetitor' || s === 'incontract'
   ) return '#ef4444';
 
-  return '#22c55e';
+  return '#f97316';
 }
 function markerHTML(color, shape) {
   if (shape === 'house') {
