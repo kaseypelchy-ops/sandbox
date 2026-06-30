@@ -77,15 +77,36 @@ function fetchRepProfileFromSupabase(name) {
 
 function fetchAddressesByTerritoryFromSupabase(territory) {
   if (!supabaseWarn()) return Promise.resolve([]);
-  return supabaseClient
-    .from('addresses')
-    .select('*')
-    .eq('territory', territory)
-    .order('address1', { ascending: true })
-    .then(function(res){
-      if (res.error) throw res.error;
-      return res.data || [];
-    });
+
+  var pageSize = 1000;
+  var allRows = [];
+  var from = 0;
+
+  function loadPage() {
+    var to = from + pageSize - 1;
+
+    return supabaseClient
+      .from('addresses')
+      .select('*')
+      .eq('territory', territory)
+      .order('address1', { ascending: true })
+      .range(from, to)
+      .then(function(res) {
+        if (res.error) throw res.error;
+
+        var rows = res.data || [];
+        allRows = allRows.concat(rows);
+
+        if (rows.length < pageSize) {
+          return allRows;
+        }
+
+        from += pageSize;
+        return loadPage();
+      });
+  }
+
+  return loadPage();
 }
 
 function fetchLatestAddressEventsMap(addressIds) {
