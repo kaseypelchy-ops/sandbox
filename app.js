@@ -90,19 +90,32 @@ function fetchAddressesByTerritoryFromSupabase(territory) {
 
 function fetchLatestAddressEventsMap(addressIds) {
   if (!supabaseWarn() || !addressIds || !addressIds.length) return Promise.resolve({});
-  return supabaseClient
-    .from('address_events')
-    .select('*')
-    .in('address_id', addressIds)
-    .order('created_at', { ascending: false })
-    .then(function(res){
-      if (res.error) throw res.error;
-      var map = {};
-      (res.data || []).forEach(function(ev){
-        if (!map[ev.address_id]) map[ev.address_id] = ev;
-      });
-      return map;
+
+  var chunkSize = 200;
+  var chunks = [];
+  for (var i = 0; i < addressIds.length; i += chunkSize) {
+    chunks.push(addressIds.slice(i, i + chunkSize));
+  }
+
+  return Promise.all(
+    chunks.map(function(chunk) {
+      return supabaseClient
+        .from('address_events')
+        .select('*')
+        .in('address_id', chunk)
+        .order('created_at', { ascending: false })
+        .then(function(res) {
+          if (res.error) throw res.error;
+          return res.data || [];
+        });
+    })
+  ).then(function(results) {
+    var map = {};
+    results.flat().forEach(function(ev) {
+      if (!map[ev.address_id]) map[ev.address_id] = ev;
     });
+    return map;
+  });
 }
 
 function fetchScheduleSlotsFromSupabase(territory) {
