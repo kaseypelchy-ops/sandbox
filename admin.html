@@ -252,7 +252,9 @@
     };
     const TEAM_LABELS = { fiber: 'Fiber Sales Team', sfi: 'Sales Focus Inc.', lynxx: 'Lynxx' };
     const allowedTerritories = TEAM_TERRITORIES[activeTeam] || null;
+    const allowedTerritoryKeys = allowedTerritories ? allowedTerritories.map(normalizeTerritory) : null;
     const isCompanyView = !allowedTerritories;
+    const SALE_STATUSES = new Set(['mega', 'gig']);
 
     const els = {
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
@@ -269,6 +271,7 @@
     let currentDetailRows = [];
     let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
     let cachedFilteredEvents = [];
+    let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0 };
 
     function setDashboardHeader() {
       if (isCompanyView) {
@@ -283,20 +286,221 @@
         els.authSubtitle.textContent = 'Sign in with your vendor dashboard credentials.';
       }
     }
-    function normalizeTerritory(value) { return String(value || '').toLowerCase().trim(); }
-    function rowMatchesTeam(row) { if (!allowedTerritories) return true; return allowedTerritories.includes(normalizeTerritory(row?.territory)); }
-    function rowMatchesUiTerritory(row, territoryValue) { if (territoryValue === 'all') return true; return normalizeTerritory(row?.territory) === normalizeTerritory(territoryValue); }
+
+    function normalizeTerritory(value) {
+      let key = String(value || '').toLowerCase().trim();
+      key = key.replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_+/g, '_');
+      const aliases = {
+        bryson_city: 'bryson_city_nc',
+        bryson_city_north_carolina: 'bryson_city_nc',
+        cameron: 'cameron_tx',
+        cameron_texas: 'cameron_tx',
+        crawford: 'crawford_tx',
+        crawford_texas: 'crawford_tx',
+        pottsville: 'pottsville_pa',
+        pottsville_pennsylvania: 'pottsville_pa',
+        saint_marys: 'saint_marys_pa',
+        st_marys: 'saint_marys_pa',
+        saint_marys_pennsylvania: 'saint_marys_pa',
+        st_marys_pa: 'saint_marys_pa',
+        battle_mountain: 'battle_mountain_nv',
+        battle_mountain_nevada: 'battle_mountain_nv',
+        elko: 'elko_nv',
+        elko_nevada: 'elko_nv'
+      };
+      return aliases[key] || key;
+    }
+
+    function idKey(value) {
+      return value === null || value === undefined ? '' : String(value).trim();
+    }
+
+    function firstNonEmpty(...values) {
+      for (const value of values) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') return value;
+      }
+      return '';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+    }
+
+    function timeValue(value) {
+      const ms = new Date(value || '').getTime();
+      return Number.isFinite(ms) ? ms : 0;
+    }
+
     function formatNumber(value) { return new Intl.NumberFormat('en-US').format(value || 0); }
     function formatPercent(value) { return Number.isFinite(value) ? (value * 100).toFixed(1) + '%' : '0.0%'; }
-    function formatDate(value) { if (!value) return ''; const d = new Date(value); return isNaN(d.getTime()) ? value : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-    function formatDateTime(value) { if (!value) return ''; const d = new Date(value); return isNaN(d.getTime()) ? value : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
-    function buildAddressLabel(addressMap, id) { const row = id ? addressMap.get(id) : null; return row ? [row.address1, row.city, row.state].filter(Boolean).join(', ') : '—'; }
-    function csvDownload(filename, rows) { if (!rows.length) return; const headers = Object.keys(rows[0]); const lines = [headers.join(',')]; rows.forEach(row => { const vals = headers.map(h => { const v = String(row[h] ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }); lines.push(vals.join(',')); }); const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); }
-    function buildAddressMap() { const map = new Map(); state.addresses.forEach(r => map.set(r.id, r)); return map; }
-    function latestEventsMap(filteredEvents) { const map = new Map(); filteredEvents.forEach(ev => { if (!map.has(ev.address_id)) map.set(ev.address_id, ev); }); return map; }
-    function currentFilters() { return { territory: els.territory.value || 'all', rep: els.rep.value || 'all', start: els.start.value, end: els.end.value, search: (els.activitySearch.value || '').toLowerCase().trim() }; }
-    function showAuthScreen(message) { els.authScreen.classList.remove('hidden'); els.dashboardShell.classList.add('hidden'); els.authStatus.textContent = message || 'Please sign in.'; els.sessionEmail.textContent = 'Not signed in'; if (refreshTimer) clearInterval(refreshTimer); }
-    function showDashboard(session) { els.authScreen.classList.add('hidden'); els.dashboardShell.classList.remove('hidden'); els.sessionEmail.textContent = session?.user?.email || 'Signed in'; }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const str = String(value);
+      let d;
+      const dateOnly = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnly) d = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+      else d = new Date(value);
+      return isNaN(d.getTime()) ? str : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? value : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
+    function buildAddressMapFromRows(rows) {
+      const map = new Map();
+      rows.forEach(row => {
+        ['id', 'address_id', 'location_id', 'zito_location_id', 'external_id'].forEach(field => {
+          const key = idKey(row?.[field]);
+          if (key && !map.has(key)) map.set(key, row);
+        });
+      });
+      return map;
+    }
+
+    function buildAddressMap() {
+      return buildAddressMapFromRows(state.addresses);
+    }
+
+    function getLinkedAddress(row, addressMap) {
+      if (!row || !addressMap) return null;
+      const keys = [row.address_id, row.location_id, row.zito_location_id, row.external_id, row.id].map(idKey).filter(Boolean);
+      for (const key of keys) {
+        if (addressMap.has(key)) return addressMap.get(key);
+      }
+      return null;
+    }
+
+    function addressLabelFromAddressRow(row) {
+      if (!row) return '';
+      return [firstNonEmpty(row.address1, row.address, row.street_address, row.service_address), row.city, row.state, row.zip || row.postal].filter(Boolean).join(', ');
+    }
+
+    function buildAddressLabel(addressMap, idOrRow) {
+      if (idOrRow && typeof idOrRow === 'object') {
+        const linked = getLinkedAddress(idOrRow, addressMap);
+        if (linked) return addressLabelFromAddressRow(linked) || '—';
+        const direct = [
+          firstNonEmpty(idOrRow.address1, idOrRow.address, idOrRow.street_address, idOrRow.service_address),
+          idOrRow.city,
+          idOrRow.state,
+          idOrRow.zip || idOrRow.postal
+        ].filter(Boolean).join(', ');
+        return direct || '—';
+      }
+      const row = idKey(idOrRow) ? addressMap.get(idKey(idOrRow)) : null;
+      return addressLabelFromAddressRow(row) || '—';
+    }
+
+    function getRepName(row) {
+      return String(firstNonEmpty(row?.rep_name, row?.salesperson, row?.sales_rep, row?.rep, row?.full_name, row?.created_by_name)).trim();
+    }
+
+    function getCustomerName(row) {
+      return String(firstNonEmpty(
+        row?.customer_name,
+        [row?.first_name, row?.last_name].filter(Boolean).join(' '),
+        [row?.customer_first_name, row?.customer_last_name].filter(Boolean).join(' '),
+        row?.name
+      )).trim();
+    }
+
+    function getPackageName(row) {
+      const direct = String(firstNonEmpty(row?.package_name, row?.package, row?.plan_name, row?.selected_package, row?.internet_package, row?.product)).trim();
+      if (direct) return direct;
+      const status = String(row?.status || '').toLowerCase().trim();
+      return SALE_STATUSES.has(status) ? status : '';
+    }
+
+    function getRowTerritory(row, addressMap = null, slotMap = null) {
+      const direct = firstNonEmpty(row?.territory, row?.market, row?.territory_name, row?.assigned_territory);
+      if (direct) return direct;
+
+      if (slotMap) {
+        const slot = slotMap.get(idKey(row?.schedule_slot_id)) || slotMap.get(idKey(row?.slot_id));
+        if (slot?.territory) return slot.territory;
+      }
+
+      const linkedAddress = getLinkedAddress(row, addressMap);
+      return linkedAddress?.territory || '';
+    }
+
+    function rowMatchesTeam(row, addressMap = null, slotMap = null) {
+      if (!allowedTerritoryKeys) return true;
+      return allowedTerritoryKeys.includes(normalizeTerritory(getRowTerritory(row, addressMap, slotMap)));
+    }
+
+    function rowMatchesUiTerritory(row, territoryValue, addressMap = null, slotMap = null) {
+      if (territoryValue === 'all') return true;
+      return normalizeTerritory(getRowTerritory(row, addressMap, slotMap)) === normalizeTerritory(territoryValue);
+    }
+
+    function rowMatchesRep(row, repValue) {
+      if (repValue === 'all') return true;
+      return getRepName(row) === repValue;
+    }
+
+    function csvDownload(filename, rows) {
+      if (!rows.length) {
+        els.status.textContent = 'No rows available to export.';
+        return;
+      }
+      const headers = Object.keys(rows[0]);
+      const lines = [headers.join(',')];
+      rows.forEach(row => {
+        const vals = headers.map(h => {
+          const v = String(row[h] ?? '');
+          return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+        });
+        lines.push(vals.join(','));
+      });
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function latestEventsMap(filteredEvents) {
+      const map = new Map();
+      filteredEvents
+        .slice()
+        .sort((a, b) => timeValue(b.created_at) - timeValue(a.created_at))
+        .forEach(ev => {
+          const key = idKey(ev.address_id);
+          if (key && !map.has(key)) map.set(key, ev);
+        });
+      return map;
+    }
+
+    function currentFilters() {
+      return {
+        territory: els.territory.value || 'all',
+        rep: els.rep.value || 'all',
+        start: els.start.value,
+        end: els.end.value,
+        search: (els.activitySearch.value || '').toLowerCase().trim()
+      };
+    }
+
+    function showAuthScreen(message) {
+      els.authScreen.classList.remove('hidden');
+      els.dashboardShell.classList.add('hidden');
+      els.authStatus.textContent = message || 'Please sign in.';
+      els.sessionEmail.textContent = 'Not signed in';
+      if (refreshTimer) clearInterval(refreshTimer);
+    }
+
+    function showDashboard(session) {
+      els.authScreen.classList.add('hidden');
+      els.dashboardShell.classList.remove('hidden');
+      els.sessionEmail.textContent = session?.user?.email || 'Signed in';
+    }
 
     async function signIn() {
       const email = els.loginEmail.value.trim();
@@ -307,27 +511,56 @@
       if (error) els.authStatus.textContent = error.message || 'Could not sign in.';
       else els.loginPassword.value = '';
     }
+
     async function signOut() { await supabaseClient.auth.signOut(); }
 
     async function fetchAllPages(table, opts = {}) {
-      const pageSize = 1000; let from = 0; let rows = [];
+      const pageSize = 1000;
+      let from = 0;
+      let rows = [];
+
       while (true) {
         let query = supabaseClient.from(table).select(opts.select || '*').range(from, from + pageSize - 1);
         if (opts.order) query = query.order(opts.order.column, { ascending: opts.order.ascending !== false });
-        (opts.filters || []).forEach(f => { if (f.type === 'eq') query = query.eq(f.column, f.value); if (f.type === 'gte') query = query.gte(f.column, f.value); if (f.type === 'lte') query = query.lte(f.column, f.value); });
-        const { data, error } = await query; if (error) throw error; const page = data || []; rows = rows.concat(page); if (page.length < pageSize) break; from += pageSize;
+        (opts.filters || []).forEach(f => {
+          if (f.type === 'eq') query = query.eq(f.column, f.value);
+          if (f.type === 'gte') query = query.gte(f.column, f.value);
+          if (f.type === 'lte') query = query.lte(f.column, f.value);
+        });
+
+        const { data, error } = await query;
+        if (error) throw new Error(`${table}: ${error.message || 'Supabase query failed'}`);
+        const page = data || [];
+        rows = rows.concat(page);
+        if (page.length < pageSize) break;
+        from += pageSize;
       }
+
       return rows;
     }
 
     async function loadData() {
       const { data: authData } = await supabaseClient.auth.getSession();
       if (!authData.session) { showAuthScreen('Your session expired. Please sign in again.'); return; }
-      els.status.textContent = 'Loading Supabase data...'; els.status.classList.remove('error');
+      els.status.textContent = 'Loading Supabase data...';
+      els.status.classList.remove('error');
+
       try {
-        const filters = currentFilters(); const eventFilters = []; const salesFilters = []; const bookingFilters = [];
-        if (filters.start) { eventFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' }); salesFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' }); bookingFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' }); }
-        if (filters.end) { eventFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' }); salesFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' }); bookingFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' }); }
+        const filters = currentFilters();
+        const eventFilters = [];
+        const salesFilters = [];
+        const bookingFilters = [];
+
+        if (filters.start) {
+          eventFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+          salesFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+          bookingFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
+        }
+        if (filters.end) {
+          eventFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+          salesFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+          bookingFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
+        }
 
         const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings] = await Promise.all([
           fetchAllPages('addresses', { order: { column: 'address1', ascending: true } }),
@@ -338,95 +571,294 @@
           fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters })
         ]);
 
-        state = {
-          addresses: addresses.filter(rowMatchesTeam), reps: reps.filter(rowMatchesTeam), address_events: address_events.filter(rowMatchesTeam), sales_orders: sales_orders.filter(rowMatchesTeam), schedule_slots: schedule_slots.filter(rowMatchesTeam), schedule_bookings: schedule_bookings.filter(rowMatchesTeam)
+        loadedCounts = {
+          addresses: addresses.length,
+          reps: reps.length,
+          address_events: address_events.length,
+          sales_orders: sales_orders.length,
+          schedule_slots: schedule_slots.length,
+          schedule_bookings: schedule_bookings.length
         };
-        populateFilters(); renderAll();
-        els.status.textContent = isCompanyView ? 'Data loaded successfully.' : 'Data loaded successfully for ' + (TEAM_LABELS[activeTeam] || activeTeam) + '.';
+
+        const allAddressMap = buildAddressMapFromRows(addresses);
+        const allSlotMap = new Map(schedule_slots.map(s => [idKey(s.id), s]));
+        const teamAddresses = addresses.filter(row => rowMatchesTeam(row, allAddressMap, allSlotMap));
+        const teamAddressMap = buildAddressMapFromRows(teamAddresses);
+        const teamSlots = schedule_slots.filter(row => rowMatchesTeam(row, allAddressMap, allSlotMap));
+        const teamSlotMap = new Map(teamSlots.map(s => [idKey(s.id), s]));
+
+        state = {
+          addresses: teamAddresses,
+          reps: reps.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
+          address_events: address_events.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
+          sales_orders: sales_orders.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
+          schedule_slots: teamSlots,
+          schedule_bookings: schedule_bookings.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap))
+        };
+
+        populateFilters();
+        const rendered = renderAll();
+        els.status.textContent = isCompanyView
+          ? `Data loaded successfully. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`
+          : `Data loaded successfully for ${TEAM_LABELS[activeTeam] || activeTeam}. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`;
       } catch (err) {
-        els.status.textContent = err.message || 'Could not load Supabase data.'; els.status.classList.add('error');
+        els.status.textContent = err.message || 'Could not load Supabase data.';
+        els.status.classList.add('error');
       }
     }
 
     function populateFilters() {
-      const territoryValue = els.territory.value || 'all'; const repValue = els.rep.value || 'all';
-      const territories = [...new Set([...state.addresses.map(r => r.territory).filter(Boolean), ...state.reps.map(r => r.territory).filter(Boolean), ...state.schedule_slots.map(r => r.territory).filter(Boolean)])].sort((a,b) => normalizeTerritory(a).localeCompare(normalizeTerritory(b)));
-      const reps = [...new Set(state.reps.map(r => r.full_name || r.rep_name).filter(Boolean))].sort();
-      els.territory.innerHTML = '<option value="all">All Territories</option>' + territories.map(t => `<option value="${t}">${t}</option>`).join('');
-      els.rep.innerHTML = '<option value="all">All Reps</option>' + reps.map(r => `<option value="${r}">${r}</option>`).join('');
-      els.territory.value = territories.includes(territoryValue) ? territoryValue : 'all';
+      const territoryValue = els.territory.value || 'all';
+      const repValue = els.rep.value || 'all';
+      const addressMap = buildAddressMap();
+      const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
+
+      const territories = [...new Set([
+        ...state.addresses.map(r => r.territory),
+        ...state.reps.map(r => getRowTerritory(r, addressMap, slotMap)),
+        ...state.address_events.map(r => getRowTerritory(r, addressMap, slotMap)),
+        ...state.sales_orders.map(r => getRowTerritory(r, addressMap, slotMap)),
+        ...state.schedule_slots.map(r => r.territory),
+        ...state.schedule_bookings.map(r => getRowTerritory(r, addressMap, slotMap))
+      ].filter(Boolean))].sort((a,b) => normalizeTerritory(a).localeCompare(normalizeTerritory(b)));
+
+      const reps = [...new Set([
+        ...state.reps.map(r => getRepName(r)),
+        ...state.address_events.map(r => getRepName(r)),
+        ...state.sales_orders.map(r => getRepName(r)),
+        ...state.schedule_bookings.map(r => getRepName(r))
+      ].filter(Boolean))].sort();
+
+      els.territory.innerHTML = '<option value="all">All Territories</option>' + territories.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      els.rep.innerHTML = '<option value="all">All Reps</option>' + reps.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
+      els.territory.value = territories.some(t => normalizeTerritory(t) === normalizeTerritory(territoryValue)) ? territoryValue : 'all';
       els.rep.value = reps.includes(repValue) ? repValue : 'all';
     }
 
-    function renderAll() {
-      const filters = currentFilters(); const addressMap = buildAddressMap();
-      const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory));
-      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory) && (filters.rep === 'all' || ev.rep_name === filters.rep));
-      cachedFilteredEvents = filteredEvents;
-      const filteredSales = state.sales_orders.filter(s => { const salesTerritory = s.territory || addressMap.get(s.address_id)?.territory || ''; const repName = s.rep_name || s.salesperson || ''; return rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory) && (filters.rep === 'all' || repName === filters.rep); });
-      const slotMap = new Map(state.schedule_slots.map(s => [s.id, s]));
-      const filteredBookings = state.schedule_bookings.map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null })).filter(b => { const territory = b.territory || b.slot?.territory || ''; return rowMatchesUiTerritory({ territory }, filters.territory) && (filters.rep === 'all' || b.rep_name === filters.rep); });
-      const latestMap = latestEventsMap(filteredEvents);
+    function buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters) {
+      const orderAddressKeys = new Set();
+      const orderRows = filteredSales.map(s => {
+        const addressKey = idKey(s.address_id || s.location_id || s.zito_location_id || s.external_id);
+        if (addressKey) orderAddressKeys.add(addressKey);
+        return {
+          created_at: s.created_at,
+          rep_name: getRepName(s),
+          territory: getRowTerritory(s, addressMap) || '',
+          customer_name: getCustomerName(s),
+          phone: firstNonEmpty(s.phone, s.customer_phone, s.mobile, s.cell_phone),
+          email: firstNonEmpty(s.email, s.customer_email),
+          address: buildAddressLabel(addressMap, s),
+          package_name: getPackageName(s),
+          install_date: firstNonEmpty(s.install_date, s.preferred_install_date, s.appointment_date),
+          install_time: firstNonEmpty(s.install_time, s.install_slot, s.preferred_install_time, s.appointment_time),
+          notes: firstNonEmpty(s.notes, s.note, s.work_order_note, s.comments),
+          source: 'sales_orders'
+        };
+      });
 
-      let pending = 0, worked = 0, sales = 0;
-      filteredAddresses.forEach(a => { const ev = latestMap.get(a.id); const status = String(ev?.status || 'pending').toLowerCase(); if (!ev || status === 'pending') pending++; if (ev && status !== 'pending') worked++; if (status === 'mega' || status === 'gig') sales++; });
+      const fallbackEventRows = filteredEvents
+        .filter(ev => SALE_STATUSES.has(String(ev.status || '').toLowerCase().trim()))
+        .filter(ev => !orderAddressKeys.has(idKey(ev.address_id)))
+        .map(ev => ({
+          created_at: ev.created_at,
+          rep_name: getRepName(ev),
+          territory: getRowTerritory(ev, addressMap) || '',
+          customer_name: '',
+          phone: '',
+          email: '',
+          address: buildAddressLabel(addressMap, ev),
+          package_name: String(ev.status || '').toLowerCase().trim(),
+          install_date: '',
+          install_time: '',
+          notes: firstNonEmpty(ev.note, 'Sale disposition found in address_events, but no matching row was found in sales_orders.'),
+          source: 'address_events'
+        }));
+
+      return [...orderRows, ...fallbackEventRows]
+        .filter(r => rowMatchesUiTerritory(r, filters.territory) && rowMatchesRep(r, filters.rep))
+        .filter(r => !filters.search || Object.values(r).join(' ').toLowerCase().includes(filters.search))
+        .sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at));
+    }
+
+    function renderAll() {
+      const filters = currentFilters();
+      const addressMap = buildAddressMap();
+      const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
+
+      const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
+      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
+      cachedFilteredEvents = filteredEvents;
+
+      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const filteredBookings = state.schedule_bookings
+        .map(b => ({ ...b, slot: slotMap.get(idKey(b.schedule_slot_id)) || slotMap.get(idKey(b.slot_id)) || null }))
+        .filter(b => rowMatchesUiTerritory(b, filters.territory, addressMap, slotMap) && rowMatchesRep(b, filters.rep));
+      const latestMap = latestEventsMap(filteredEvents);
+      const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
+
+      let pending = 0, worked = 0;
+      filteredAddresses.forEach(a => {
+        const ev = latestMap.get(idKey(a.id));
+        const status = String(ev?.status || 'pending').toLowerCase();
+        if (!ev || status === 'pending') pending++;
+        if (ev && status !== 'pending') worked++;
+      });
+
+      const salesCount = salesQueueRows.length;
       document.getElementById('kpi-homes').textContent = formatNumber(filteredAddresses.length);
       document.getElementById('kpi-pending').textContent = formatNumber(pending);
       document.getElementById('kpi-worked').textContent = formatNumber(worked);
-      document.getElementById('kpi-sales').textContent = formatNumber(sales);
-      document.getElementById('kpi-close').textContent = formatPercent(worked ? sales / worked : 0);
+      document.getElementById('kpi-sales').textContent = formatNumber(salesCount);
+      document.getElementById('kpi-close').textContent = formatPercent(worked ? salesCount / worked : 0);
       document.getElementById('kpi-booked').textContent = formatNumber(filteredBookings.length);
 
-      const territoryRows = [...new Set(filteredAddresses.map(a => a.territory).filter(Boolean))].map(territory => { const territoryAddresses = filteredAddresses.filter(a => normalizeTerritory(a.territory) === normalizeTerritory(territory)); const territoryEvents = territoryAddresses.map(a => latestMap.get(a.id)).filter(Boolean); return { territory, worked: territoryEvents.filter(ev => String(ev.status || '').toLowerCase() !== 'pending').length, sales: territoryEvents.filter(ev => ['mega','gig'].includes(String(ev.status || '').toLowerCase())).length, total: territoryAddresses.length }; });
-      const dispositionCounts = {}; filteredEvents.forEach(ev => { const status = String(ev.status || 'pending').toLowerCase(); dispositionCounts[status] = (dispositionCounts[status] || 0) + 1; });
-      const dispositionRows = Object.entries(dispositionCounts).map(([status, count]) => ({ status, count })).sort((a,b) => b.count - a.count).slice(0,10);
-      const salesTrendMap = {}; filteredSales.forEach(s => { const day = (s.created_at || '').slice(0,10); if (day) salesTrendMap[day] = (salesTrendMap[day] || 0) + 1; });
-      const salesTrendRows = Object.keys(salesTrendMap).sort().map(day => ({ label: formatDate(day), sales: salesTrendMap[day] }));
-      const repMap = {}; filteredEvents.forEach(ev => { if (!ev.rep_name) return; if (!repMap[ev.rep_name]) repMap[ev.rep_name] = { name: ev.rep_name, worked: 0, sales: 0 }; repMap[ev.rep_name].worked++; if (['mega','gig'].includes(String(ev.status || '').toLowerCase())) repMap[ev.rep_name].sales++; });
-      const repRows = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
-      const utilizationRows = state.schedule_slots.filter(s => rowMatchesUiTerritory(s, filters.territory)).map(s => ({ slot: formatDate(s.slot_date) + ' ' + (s.time_label || ''), territory: s.territory, booked: Number(s.booked_count || 0), capacity: Number(s.capacity || 0), utilization: Number(s.capacity || 0) ? Number(s.booked_count || 0) / Number(s.capacity || 1) : 0 })).sort((a,b) => b.utilization - a.utilization).slice(0,12);
-      const salesQueueRows = filteredSales.map(s => ({
-        created_at: s.created_at,
-        rep_name: s.rep_name || s.salesperson || '',
-        territory: s.territory || addressMap.get(s.address_id)?.territory || '',
-        customer_name: s.customer_name || [s.first_name, s.last_name].filter(Boolean).join(' ') || '',
-        phone: s.phone || s.customer_phone || s.mobile || '',
-        email: s.email || s.customer_email || '',
-        address: buildAddressLabel(addressMap, s.address_id),
-        package_name: s.package_name || s.package || '',
-        install_date: s.install_date || '',
-        install_time: s.install_time || '',
-        notes: s.notes || s.note || s.work_order_note || ''
-      })).filter(r => !filters.search || Object.values(r).join(' ').toLowerCase().includes(filters.search))
-        .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-      const activityRows = [
-        ...filteredSales.map(s => ({ time: s.created_at, rep: s.rep_name || s.salesperson || '—', territory: s.territory || addressMap.get(s.address_id)?.territory || '—', address: buildAddressLabel(addressMap, s.address_id), type: 'Sale', status: s.package_name || 'sale' })),
-        ...filteredEvents.map(ev => ({ time: ev.created_at, rep: ev.rep_name || '—', territory: ev.territory || '—', address: buildAddressLabel(addressMap, ev.address_id), type: 'Disposition', status: ev.status || '—' })),
-        ...filteredBookings.map(b => ({ time: b.created_at, rep: b.rep_name || '—', territory: b.territory || b.slot?.territory || '—', address: buildAddressLabel(addressMap, b.address_id), type: 'Booking', status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked' }))
-      ].filter(r => !filters.search || [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search)).sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0,100);
+      const salesByTerritory = {};
+      salesQueueRows.forEach(row => {
+        const territory = row.territory || 'Unknown';
+        salesByTerritory[normalizeTerritory(territory)] = (salesByTerritory[normalizeTerritory(territory)] || 0) + 1;
+      });
 
-      renderTerritoryChart(territoryRows); renderDispositionChart(dispositionRows); renderSalesTrendChart(salesTrendRows); renderRepList(repRows, filteredEvents, addressMap); renderScheduleList(utilizationRows); renderActivity(activityRows); renderSalesQueue(salesQueueRows);
+      const territoryRows = [...new Set(filteredAddresses.map(a => a.territory).filter(Boolean))].map(territory => {
+        const territoryAddresses = filteredAddresses.filter(a => normalizeTerritory(a.territory) === normalizeTerritory(territory));
+        const territoryEvents = territoryAddresses.map(a => latestMap.get(idKey(a.id))).filter(Boolean);
+        return {
+          territory,
+          worked: territoryEvents.filter(ev => String(ev.status || '').toLowerCase() !== 'pending').length,
+          sales: salesByTerritory[normalizeTerritory(territory)] || territoryEvents.filter(ev => SALE_STATUSES.has(String(ev.status || '').toLowerCase())).length,
+          total: territoryAddresses.length
+        };
+      });
+
+      const dispositionCounts = {};
+      filteredEvents.forEach(ev => {
+        const status = String(ev.status || 'pending').toLowerCase();
+        dispositionCounts[status] = (dispositionCounts[status] || 0) + 1;
+      });
+      const dispositionRows = Object.entries(dispositionCounts).map(([status, count]) => ({ status, count })).sort((a,b) => b.count - a.count).slice(0,10);
+
+      const salesTrendMap = {};
+      salesQueueRows.forEach(s => {
+        const day = (s.created_at || '').slice(0,10);
+        if (day) salesTrendMap[day] = (salesTrendMap[day] || 0) + 1;
+      });
+      const salesTrendRows = Object.keys(salesTrendMap).sort().map(day => ({ label: formatDate(day), sales: salesTrendMap[day] }));
+
+      const repMap = {};
+      filteredEvents.forEach(ev => {
+        const rep = getRepName(ev);
+        if (!rep) return;
+        if (!repMap[rep]) repMap[rep] = { name: rep, worked: 0, sales: 0 };
+        repMap[rep].worked++;
+      });
+      salesQueueRows.forEach(row => {
+        const rep = row.rep_name;
+        if (!rep) return;
+        if (!repMap[rep]) repMap[rep] = { name: rep, worked: 0, sales: 0 };
+        repMap[rep].sales++;
+      });
+      const repRows = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
+
+      const utilizationRows = state.schedule_slots
+        .filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap))
+        .map(s => ({
+          slot: formatDate(s.slot_date) + ' ' + (s.time_label || ''),
+          territory: s.territory,
+          booked: Number(s.booked_count || 0),
+          capacity: Number(s.capacity || 0),
+          utilization: Number(s.capacity || 0) ? Number(s.booked_count || 0) / Number(s.capacity || 1) : 0
+        }))
+        .sort((a,b) => b.utilization - a.utilization)
+        .slice(0,12);
+
+      const activityRows = [
+        ...salesQueueRows.map(s => ({ time: s.created_at, rep: s.rep_name || '—', territory: s.territory || '—', address: s.address || '—', type: s.source === 'sales_orders' ? 'Sale' : 'Sale Disposition', status: s.package_name || 'sale' })),
+        ...filteredEvents.map(ev => ({ time: ev.created_at, rep: getRepName(ev) || '—', territory: getRowTerritory(ev, addressMap, slotMap) || '—', address: buildAddressLabel(addressMap, ev), type: 'Disposition', status: ev.status || '—' })),
+        ...filteredBookings.map(b => ({ time: b.created_at, rep: getRepName(b) || '—', territory: getRowTerritory(b, addressMap, slotMap) || '—', address: buildAddressLabel(addressMap, b), type: 'Booking', status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked' }))
+      ].filter(r => !filters.search || [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search))
+       .sort((a,b) => timeValue(b.time) - timeValue(a.time))
+       .slice(0,100);
+
+      renderTerritoryChart(territoryRows);
+      renderDispositionChart(dispositionRows);
+      renderSalesTrendChart(salesTrendRows);
+      renderRepList(repRows, filteredEvents, addressMap);
+      renderScheduleList(utilizationRows);
+      renderActivity(activityRows);
+      renderSalesQueue(salesQueueRows);
+
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
-      els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', filteredSales.map(s => ({ created_at: s.created_at, rep_name: s.rep_name || s.salesperson, territory: s.territory || addressMap.get(s.address_id)?.territory || '', customer_name: s.customer_name, package_name: s.package_name, install_date: s.install_date, install_time: s.install_time, address: buildAddressLabel(addressMap, s.address_id) })));
-      els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({ created_at: ev.created_at, rep_name: ev.rep_name, territory: ev.territory, status: ev.status, note: ev.note, address: buildAddressLabel(addressMap, ev.address_id) })));
+      els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', salesQueueRows);
+      els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({
+        created_at: ev.created_at,
+        rep_name: getRepName(ev),
+        territory: getRowTerritory(ev, addressMap, slotMap),
+        status: ev.status,
+        note: ev.note,
+        address: buildAddressLabel(addressMap, ev)
+      })));
       els.exportSalesQueue.onclick = () => csvDownload('fieldos_sales_queue.csv', salesQueueRows);
+
+      return { salesQueueCount: salesQueueRows.length };
+    }
+
+    function chartUnavailable(containerId, message) {
+      const el = document.getElementById(containerId);
+      if (el && el.parentElement) el.parentElement.innerHTML = `<div style="color:#94a3b8; padding:16px;">${escapeHtml(message)}</div>`;
     }
 
     function renderTerritoryChart(rows) {
+      if (typeof Chart === 'undefined') { chartUnavailable('territory-chart', 'Chart.js did not load.'); return; }
       if (territoryChart) territoryChart.destroy();
-      territoryChart = new Chart(document.getElementById('territory-chart'), { type: 'bar', data: { labels: rows.map(r => r.territory), datasets: [{ label: 'Worked', data: rows.map(r => r.worked), backgroundColor: '#06b6d4', borderRadius: 8 }, { label: 'Sales', data: rows.map(r => r.sales), backgroundColor: '#22c55e', borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } }, onClick: (_, elements) => { if (!elements.length) return; const territory = rows[elements[0].index].territory; openDetail('Territory Detail: ' + territory, state.addresses.filter(a => normalizeTerritory(a.territory) === normalizeTerritory(territory)).map(a => ({ address: [a.address1, a.city, a.state].filter(Boolean).join(', '), territory: a.territory }))); } } });
+      territoryChart = new Chart(document.getElementById('territory-chart'), {
+        type: 'bar',
+        data: { labels: rows.map(r => r.territory), datasets: [{ label: 'Worked', data: rows.map(r => r.worked), backgroundColor: '#06b6d4', borderRadius: 8 }, { label: 'Sales', data: rows.map(r => r.sales), backgroundColor: '#22c55e', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' }, beginAtZero: true } }, onClick: (_, elements) => { if (!elements.length) return; const territory = rows[elements[0].index].territory; openDetail('Territory Detail: ' + territory, state.addresses.filter(a => normalizeTerritory(a.territory) === normalizeTerritory(territory)).map(a => ({ address: addressLabelFromAddressRow(a), territory: a.territory }))); } }
+      });
     }
+
     function renderDispositionChart(rows) {
+      if (typeof Chart === 'undefined') { chartUnavailable('disposition-chart', 'Chart.js did not load.'); return; }
       if (dispositionChart) dispositionChart.destroy();
-      dispositionChart = new Chart(document.getElementById('disposition-chart'), { type: 'pie', data: { labels: rows.map(r => r.status), datasets: [{ data: rows.map(r => r.count), backgroundColor: ['#22c55e','#06b6d4','#a855f7','#f59e0b','#ef4444','#64748b','#eab308','#14b8a6','#38bdf8','#fb7185'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, onClick: (_, elements) => { if (!elements.length) return; const status = rows[elements[0].index].status; openDetail('Disposition Detail: ' + status, cachedFilteredEvents.filter(ev => String(ev.status || '').toLowerCase() === status).map(ev => ({ time: formatDateTime(ev.created_at), rep: ev.rep_name, territory: ev.territory, status: ev.status, note: ev.note || '' }))); } } });
+      dispositionChart = new Chart(document.getElementById('disposition-chart'), {
+        type: 'pie',
+        data: { labels: rows.map(r => r.status), datasets: [{ data: rows.map(r => r.count), backgroundColor: ['#22c55e','#06b6d4','#a855f7','#f59e0b','#ef4444','#64748b','#eab308','#14b8a6','#38bdf8','#fb7185'] }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, onClick: (_, elements) => { if (!elements.length) return; const status = rows[elements[0].index].status; openDetail('Disposition Detail: ' + status, cachedFilteredEvents.filter(ev => String(ev.status || '').toLowerCase() === status).map(ev => ({ time: formatDateTime(ev.created_at), rep: getRepName(ev), territory: ev.territory, status: ev.status, note: ev.note || '' }))); } }
+      });
     }
-    function renderSalesTrendChart(rows) { if (salesTrendChart) salesTrendChart.destroy(); salesTrendChart = new Chart(document.getElementById('sales-trend-chart'), { type: 'line', data: { labels: rows.map(r => r.label), datasets: [{ label: 'Sales', data: rows.map(r => r.sales), borderColor: '#22c55e', backgroundColor: '#22c55e', tension: .25 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } } } } }); }
-    function renderRepList(rows, filteredEvents, addressMap) { els.repList.innerHTML = rows.length ? rows.map(r => `<div class="list-item row-btn" data-rep="${r.name}"><div><div style="font-weight:700;">${r.name}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${formatNumber(r.worked)} events logged</div></div><div style="text-align:right;"><div style="font-size:24px; font-weight:700;">${formatNumber(r.sales)}</div><div style="color:#94a3b8; font-size:12px; text-transform:uppercase; letter-spacing:.12em;">Sales</div></div></div>`).join('') : '<div style="color:#94a3b8;">No rep activity yet.</div>'; els.repList.querySelectorAll('[data-rep]').forEach(node => { node.onclick = () => { const rep = node.getAttribute('data-rep'); openDetail('Rep Detail: ' + rep, filteredEvents.filter(ev => ev.rep_name === rep).map(ev => ({ time: formatDateTime(ev.created_at), territory: ev.territory, address: buildAddressLabel(addressMap, ev.address_id), status: ev.status, note: ev.note || '' }))); }; }); }
-    function renderScheduleList(rows) { els.scheduleList.innerHTML = rows.length ? rows.map(r => `<div class="list-item"><div><div style="font-weight:700;">${r.slot}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.territory}</div></div><div style="min-width:160px; text-align:right;"><div style="font-weight:700;">${formatPercent(r.utilization)}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.booked} booked / ${r.capacity}</div></div></div>`).join('') : '<div style="color:#94a3b8;">No schedule slots found.</div>'; }
-    function renderActivity(rows) { els.activityBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${formatDateTime(r.time)}</td><td>${r.rep}</td><td>${r.territory}</td><td>${r.address}</td><td>${r.type}</td><td>${r.status}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No activity found.</td></tr>'; [...els.activityBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Activity Detail', [rows[idx]]); }); }
+
+    function renderSalesTrendChart(rows) {
+      if (typeof Chart === 'undefined') { chartUnavailable('sales-trend-chart', 'Chart.js did not load.'); return; }
+      if (salesTrendChart) salesTrendChart.destroy();
+      salesTrendChart = new Chart(document.getElementById('sales-trend-chart'), {
+        type: 'line',
+        data: { labels: rows.map(r => r.label), datasets: [{ label: 'Sales', data: rows.map(r => r.sales), borderColor: '#22c55e', backgroundColor: '#22c55e', tension: .25 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#cbd5e1' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, y: { ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#1e293b' }, beginAtZero: true } } }
+      });
+    }
+
+    function renderRepList(rows, filteredEvents, addressMap) {
+      els.repList.innerHTML = rows.length ? rows.map((r, index) => `<div class="list-item row-btn" data-index="${index}"><div><div style="font-weight:700;">${escapeHtml(r.name)}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${formatNumber(r.worked)} events logged</div></div><div style="text-align:right;"><div style="font-size:24px; font-weight:700;">${formatNumber(r.sales)}</div><div style="color:#94a3b8; font-size:12px; text-transform:uppercase; letter-spacing:.12em;">Sales</div></div></div>`).join('') : '<div style="color:#94a3b8;">No rep activity yet.</div>';
+      els.repList.querySelectorAll('[data-index]').forEach(node => {
+        node.onclick = () => {
+          const rep = rows[Number(node.getAttribute('data-index'))]?.name;
+          openDetail('Rep Detail: ' + rep, filteredEvents.filter(ev => getRepName(ev) === rep).map(ev => ({ time: formatDateTime(ev.created_at), territory: ev.territory, address: buildAddressLabel(addressMap, ev), status: ev.status, note: ev.note || '' })));
+        };
+      });
+    }
+
+    function renderScheduleList(rows) {
+      els.scheduleList.innerHTML = rows.length ? rows.map(r => `<div class="list-item"><div><div style="font-weight:700;">${escapeHtml(r.slot)}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${escapeHtml(r.territory)}</div></div><div style="min-width:160px; text-align:right;"><div style="font-weight:700;">${formatPercent(r.utilization)}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${formatNumber(r.booked)} booked / ${formatNumber(r.capacity)}</div></div></div>`).join('') : '<div style="color:#94a3b8;">No schedule slots found.</div>';
+    }
+
+    function renderActivity(rows) {
+      els.activityBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${escapeHtml(formatDateTime(r.time))}</td><td>${escapeHtml(r.rep)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.address)}</td><td>${escapeHtml(r.type)}</td><td>${escapeHtml(r.status)}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No activity found.</td></tr>';
+      if (!rows.length) return;
+      [...els.activityBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Activity Detail', [rows[idx]]); });
+    }
 
     function renderSalesQueue(rows) {
-      els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${formatDateTime(r.created_at)}</td><td>${r.rep_name || '—'}</td><td>${r.territory || '—'}</td><td>${r.customer_name || '—'}</td><td>${r.phone || '—'}</td><td>${r.email || '—'}</td><td>${r.address || '—'}</td><td>${r.package_name || '—'}</td><td>${r.install_date || '—'}</td><td>${r.install_time || '—'}</td><td>${r.notes || '—'}</td></tr>`).join('') : '<tr><td colspan="11" style="color:#94a3b8;">No submitted sales found.</td></tr>';
+      els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}</td><td>${escapeHtml(r.phone || '—')}</td><td>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.address || '—')}</td><td>${escapeHtml(r.package_name || '—')}</td><td>${escapeHtml(r.install_date || '—')}</td><td>${escapeHtml(r.install_time || '—')}</td><td>${escapeHtml(r.notes || '—')}</td></tr>`).join('') : '<tr><td colspan="11" style="color:#94a3b8;">No submitted sales found.</td></tr>';
+      if (!rows.length) return;
       [...els.salesQueueBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Sales Submission Detail', [rows[idx]]); });
     }
 
@@ -438,20 +870,52 @@
       els.tabPanelSales.classList.toggle('active', !showOverview);
     }
 
-    function openDetail(title, rows) { currentDetailRows = rows; els.detailTitle.textContent = title; if (!rows.length) { els.detailHead.innerHTML = ''; els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>'; } else { const headers = Object.keys(rows[0]); els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>'; els.detailBody.innerHTML = rows.map(row => '<tr>' + headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('') + '</tr>').join(''); } els.modal.classList.add('open'); }
+    function openDetail(title, rows) {
+      currentDetailRows = (rows || []).filter(Boolean);
+      els.detailTitle.textContent = title;
+      if (!currentDetailRows.length) {
+        els.detailHead.innerHTML = '';
+        els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>';
+      } else {
+        const headers = Object.keys(currentDetailRows[0]);
+        els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
+        els.detailBody.innerHTML = currentDetailRows.map(row => '<tr>' + headers.map(h => `<td>${escapeHtml(row[h] ?? '')}</td>`).join('') + '</tr>').join('');
+      }
+      els.modal.classList.add('open');
+    }
 
     els.detailClose.onclick = () => els.modal.classList.remove('open');
     els.modal.onclick = (e) => { if (e.target === els.modal) els.modal.classList.remove('open'); };
     els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRows);
-    els.refresh.onclick = loadData; els.territory.onchange = renderAll; els.rep.onchange = renderAll; els.activitySearch.oninput = renderAll; els.start.onchange = loadData; els.end.onchange = loadData;
-    els.autoRefresh.onchange = () => { if (refreshTimer) clearInterval(refreshTimer); const ms = Number(els.autoRefresh.value || 0); if (ms) refreshTimer = setInterval(loadData, ms); };
-    els.loginBtn.onclick = signIn; els.logoutBtn.onclick = signOut;
+    els.refresh.onclick = loadData;
+    els.territory.onchange = renderAll;
+    els.rep.onchange = renderAll;
+    els.activitySearch.oninput = renderAll;
+    els.start.onchange = loadData;
+    els.end.onchange = loadData;
+    els.autoRefresh.onchange = () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+      const ms = Number(els.autoRefresh.value || 0);
+      if (ms) refreshTimer = setInterval(loadData, ms);
+    };
+    els.loginBtn.onclick = signIn;
+    els.logoutBtn.onclick = signOut;
     els.tabOverview.onclick = () => setActiveTab('overview');
     els.tabSales.onclick = () => setActiveTab('sales');
     els.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 
-    supabaseClient.auth.onAuthStateChange(async (_event, session) => { if (session) { showDashboard(session); await loadData(); } else { showAuthScreen('Signed out. Please sign in.'); } });
-    async function init() { setDashboardHeader(); const { data } = await supabaseClient.auth.getSession(); if (data.session) { showDashboard(data.session); await loadData(); } else { showAuthScreen('Please sign in to continue.'); } }
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      if (session) { showDashboard(session); await loadData(); }
+      else { showAuthScreen('Signed out. Please sign in.'); }
+    });
+
+    async function init() {
+      setDashboardHeader();
+      const { data } = await supabaseClient.auth.getSession();
+      if (data.session) { showDashboard(data.session); await loadData(); }
+      else { showAuthScreen('Please sign in to continue.'); }
+    }
+
     init();
   </script>
 </body>
