@@ -339,7 +339,12 @@
         ]);
 
         state = {
-          addresses: addresses.filter(rowMatchesTeam), reps: reps.filter(rowMatchesTeam), address_events: address_events.filter(rowMatchesTeam), sales_orders: sales_orders.filter(rowMatchesTeam), schedule_slots: schedule_slots.filter(rowMatchesTeam), schedule_bookings: schedule_bookings.filter(rowMatchesTeam)
+          addresses: addresses.filter(rowMatchesTeam),
+          reps: reps.filter(rowMatchesTeam),
+          address_events: address_events.filter(rowMatchesTeam),
+          sales_orders: sales_orders,
+          schedule_slots: schedule_slots.filter(rowMatchesTeam),
+          schedule_bookings: schedule_bookings
         };
         populateFilters(); renderAll();
         els.status.textContent = isCompanyView ? 'Data loaded successfully.' : 'Data loaded successfully for ' + (TEAM_LABELS[activeTeam] || activeTeam) + '.';
@@ -363,9 +368,24 @@
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory));
       const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory) && (filters.rep === 'all' || ev.rep_name === filters.rep));
       cachedFilteredEvents = filteredEvents;
-      const filteredSales = state.sales_orders.filter(s => { const salesTerritory = s.territory || addressMap.get(s.address_id)?.territory || ''; const repName = s.rep_name || s.salesperson || ''; return rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory) && (filters.rep === 'all' || repName === filters.rep); });
+      const filteredSales = state.sales_orders.filter(s => {
+        const salesTerritory = s.territory || addressMap.get(s.address_id)?.territory || '';
+        const repName = s.rep_name || s.salesperson || '';
+        if (!rowMatchesTeam({ territory: salesTerritory })) return false;
+        if (!rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory)) return false;
+        if (filters.rep !== 'all' && repName !== filters.rep) return false;
+        return true;
+      });
       const slotMap = new Map(state.schedule_slots.map(s => [s.id, s]));
-      const filteredBookings = state.schedule_bookings.map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null })).filter(b => { const territory = b.territory || b.slot?.territory || ''; return rowMatchesUiTerritory({ territory }, filters.territory) && (filters.rep === 'all' || b.rep_name === filters.rep); });
+      const filteredBookings = state.schedule_bookings
+        .map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null }))
+        .filter(b => {
+          const territory = b.territory || b.slot?.territory || '';
+          if (!rowMatchesTeam({ territory })) return false;
+          if (!rowMatchesUiTerritory({ territory }, filters.territory)) return false;
+          if (filters.rep !== 'all' && b.rep_name !== filters.rep) return false;
+          return true;
+        });
       const latestMap = latestEventsMap(filteredEvents);
 
       let pending = 0, worked = 0, sales = 0;
