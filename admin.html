@@ -22,8 +22,10 @@
     h1, h2, h3, p { margin: 0; }
     .top { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
     .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .2em; font-size: 12px; margin-bottom: 8px; }
-    .sub { color: var(--muted); margin-top: 8px; }
-    .panel { background: linear-gradient(180deg, rgba(15,23,42,.96), rgba(17,24,39,.96)); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+    .sub { color: var(--muted); margin-top: 8px; line-height: 1.45; }
+    .panel strong { color: #f8fafc; }
+    .glass-note { background: rgba(15,23,42,.55); border: 1px solid rgba(148,163,184,.10); border-radius: 14px; padding: 12px 14px; color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .panel { background: linear-gradient(180deg, rgba(15,23,42,.98), rgba(17,24,39,.96)); border: 1px solid rgba(148,163,184,.14); border-radius: var(--radius); padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.22); backdrop-filter: blur(8px); }
     .controls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
     .controls input, .controls select, .controls button, .search, .auth-grid input, .auth-grid button {
       width: 100%; background: #020617; color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; font-size: 14px;
@@ -39,7 +41,7 @@
     .panel-sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
     .chart-box { position: relative; height: 320px; }
     .list { display: grid; gap: 10px; }
-    .list-item { background: rgba(30,41,59,.55); border-radius: 16px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .list-item { background: linear-gradient(180deg, rgba(30,41,59,.62), rgba(15,23,42,.62)); border: 1px solid rgba(148,163,184,.10); border-radius: 16px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #0f172a; vertical-align: top; }
     th { color: var(--muted); font-weight: 600; }
@@ -77,6 +79,11 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(148,163,184,.14); background: rgba(15,23,42,.72); white-space: nowrap; }
+    .chip.sale { color: #86efac; }
+    .chip.booking { color: #93c5fd; }
+    .chip.disposition { color: #fcd34d; }
+    .chip.audit { color: #c4b5fd; }
     .modal { position: fixed; inset: 0; background: rgba(2,6,23,.75); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 9999; }
     .modal.open { display: flex; }
     .modal-box { width: min(1100px, 100%); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 22px; padding: 20px; }
@@ -137,6 +144,7 @@
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
+        <button id="tab-audit" class="tab-btn">Audit Log</button>
       </div>
 
       <div id="tab-panel-overview" class="tab-panel active">
@@ -198,6 +206,7 @@
             </div>
             <button id="export-sales-queue-btn">Export Sales Queue</button>
           </div>
+          <div class="glass-note">Use this queue for order entry, CRM creation, and issue spotting before installs are activated.</div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -216,6 +225,34 @@
                 </tr>
               </thead>
               <tbody id="sales-queue-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-panel-audit" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Audit Log</h2>
+              <div class="panel-sub">Unified operational timeline for sales, dispositions, and bookings.</div>
+            </div>
+            <button id="export-audit-btn">Export Audit Log</button>
+          </div>
+          <div class="glass-note">This log gives managers and operations a single place to review who did what, when it happened, and what record it impacted. For full field-level before/after history later, add a dedicated database audit table.</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Record Type</th>
+                  <th>Rep</th>
+                  <th>Territory</th>
+                  <th>Address</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="audit-body"></tbody>
             </table>
           </div>
         </div>
@@ -258,9 +295,9 @@
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
       loginEmail: document.getElementById('login-email'), loginPassword: document.getElementById('login-password'), loginBtn: document.getElementById('login-btn'), authStatus: document.getElementById('auth-status'), authTitle: document.getElementById('auth-title'), authSubtitle: document.getElementById('auth-subtitle'),
       sessionEmail: document.getElementById('session-email'), logoutBtn: document.getElementById('logout-btn'),
-      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'),
-      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'),
-      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'),
+      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabAudit: document.getElementById('tab-audit'),
+      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelAudit: document.getElementById('tab-panel-audit'),
+      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'), auditBody: document.getElementById('audit-body'), exportAudit: document.getElementById('export-audit-btn'),
       territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
@@ -339,12 +376,7 @@
         ]);
 
         state = {
-          addresses: addresses.filter(rowMatchesTeam),
-          reps: reps.filter(rowMatchesTeam),
-          address_events: address_events.filter(rowMatchesTeam),
-          sales_orders: sales_orders,
-          schedule_slots: schedule_slots.filter(rowMatchesTeam),
-          schedule_bookings: schedule_bookings
+          addresses: addresses.filter(rowMatchesTeam), reps: reps.filter(rowMatchesTeam), address_events: address_events.filter(rowMatchesTeam), sales_orders: sales_orders, schedule_slots: schedule_slots.filter(rowMatchesTeam), schedule_bookings: schedule_bookings
         };
         populateFilters(); renderAll();
         els.status.textContent = isCompanyView ? 'Data loaded successfully.' : 'Data loaded successfully for ' + (TEAM_LABELS[activeTeam] || activeTeam) + '.';
@@ -368,24 +400,9 @@
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory));
       const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory) && (filters.rep === 'all' || ev.rep_name === filters.rep));
       cachedFilteredEvents = filteredEvents;
-      const filteredSales = state.sales_orders.filter(s => {
-        const salesTerritory = s.territory || addressMap.get(s.address_id)?.territory || '';
-        const repName = s.rep_name || s.salesperson || '';
-        if (!rowMatchesTeam({ territory: salesTerritory })) return false;
-        if (!rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory)) return false;
-        if (filters.rep !== 'all' && repName !== filters.rep) return false;
-        return true;
-      });
+      const filteredSales = state.sales_orders.filter(s => { const salesTerritory = s.territory || addressMap.get(s.address_id)?.territory || ''; const repName = s.rep_name || s.salesperson || ''; if (!rowMatchesTeam({ territory: salesTerritory })) return false; if (!rowMatchesUiTerritory({ territory: salesTerritory }, filters.territory)) return false; if (filters.rep !== 'all' && repName !== filters.rep) return false; return true; });
       const slotMap = new Map(state.schedule_slots.map(s => [s.id, s]));
-      const filteredBookings = state.schedule_bookings
-        .map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null }))
-        .filter(b => {
-          const territory = b.territory || b.slot?.territory || '';
-          if (!rowMatchesTeam({ territory })) return false;
-          if (!rowMatchesUiTerritory({ territory }, filters.territory)) return false;
-          if (filters.rep !== 'all' && b.rep_name !== filters.rep) return false;
-          return true;
-        });
+      const filteredBookings = state.schedule_bookings.map(b => ({ ...b, slot: slotMap.get(b.schedule_slot_id) || null })).filter(b => { const territory = b.territory || b.slot?.territory || ''; if (!rowMatchesTeam({ territory })) return false; if (!rowMatchesUiTerritory({ territory }, filters.territory)) return false; if (filters.rep !== 'all' && b.rep_name !== filters.rep) return false; return true; });
       const latestMap = latestEventsMap(filteredEvents);
 
       let pending = 0, worked = 0, sales = 0;
@@ -419,17 +436,24 @@
         notes: s.notes || s.note || s.work_order_note || ''
       })).filter(r => !filters.search || Object.values(r).join(' ').toLowerCase().includes(filters.search))
         .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      const auditRows = [
+        ...filteredSales.map(s => ({ time: s.created_at, record_type: '<span class="chip sale">Sale</span>', rep: s.rep_name || s.salesperson || '—', territory: s.territory || addressMap.get(s.address_id)?.territory || '—', address: buildAddressLabel(addressMap, s.address_id), details: [s.customer_name || [s.first_name, s.last_name].filter(Boolean).join(' '), s.package_name || s.package, s.install_date, s.install_time].filter(Boolean).join(' • ') })),
+        ...filteredEvents.map(ev => ({ time: ev.created_at, record_type: '<span class="chip disposition">Disposition</span>', rep: ev.rep_name || '—', territory: ev.territory || '—', address: buildAddressLabel(addressMap, ev.address_id), details: [ev.status || '—', ev.note || ''].filter(Boolean).join(' • ') })),
+        ...filteredBookings.map(b => ({ time: b.created_at, record_type: '<span class="chip booking">Booking</span>', rep: b.rep_name || '—', territory: b.territory || b.slot?.territory || '—', address: buildAddressLabel(addressMap, b.address_id), details: [b.slot?.slot_date || '', b.slot?.time_label || '', 'Booked count: ' + (b.slot?.booked_count ?? '')].filter(Boolean).join(' • ') }))
+      ].sort((a,b) => new Date(b.time) - new Date(a.time));
+
       const activityRows = [
         ...filteredSales.map(s => ({ time: s.created_at, rep: s.rep_name || s.salesperson || '—', territory: s.territory || addressMap.get(s.address_id)?.territory || '—', address: buildAddressLabel(addressMap, s.address_id), type: 'Sale', status: s.package_name || 'sale' })),
         ...filteredEvents.map(ev => ({ time: ev.created_at, rep: ev.rep_name || '—', territory: ev.territory || '—', address: buildAddressLabel(addressMap, ev.address_id), type: 'Disposition', status: ev.status || '—' })),
         ...filteredBookings.map(b => ({ time: b.created_at, rep: b.rep_name || '—', territory: b.territory || b.slot?.territory || '—', address: buildAddressLabel(addressMap, b.address_id), type: 'Booking', status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked' }))
       ].filter(r => !filters.search || [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search)).sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0,100);
 
-      renderTerritoryChart(territoryRows); renderDispositionChart(dispositionRows); renderSalesTrendChart(salesTrendRows); renderRepList(repRows, filteredEvents, addressMap); renderScheduleList(utilizationRows); renderActivity(activityRows); renderSalesQueue(salesQueueRows);
+      renderTerritoryChart(territoryRows); renderDispositionChart(dispositionRows); renderSalesTrendChart(salesTrendRows); renderRepList(repRows, filteredEvents, addressMap); renderScheduleList(utilizationRows); renderActivity(activityRows); renderSalesQueue(salesQueueRows); renderAuditLog(auditRows);
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
       els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', filteredSales.map(s => ({ created_at: s.created_at, rep_name: s.rep_name || s.salesperson, territory: s.territory || addressMap.get(s.address_id)?.territory || '', customer_name: s.customer_name, package_name: s.package_name, install_date: s.install_date, install_time: s.install_time, address: buildAddressLabel(addressMap, s.address_id) })));
       els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({ created_at: ev.created_at, rep_name: ev.rep_name, territory: ev.territory, status: ev.status, note: ev.note, address: buildAddressLabel(addressMap, ev.address_id) })));
       els.exportSalesQueue.onclick = () => csvDownload('fieldos_sales_queue.csv', salesQueueRows);
+      els.exportAudit.onclick = () => csvDownload('fieldos_audit_log.csv', auditRows.map(r => ({ time: r.time, record_type: r.record_type.replace(/<[^>]+>/g, ''), rep: r.rep, territory: r.territory, address: r.address, details: r.details })));
     }
 
     function renderTerritoryChart(rows) {
@@ -450,12 +474,21 @@
       [...els.salesQueueBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Sales Submission Detail', [rows[idx]]); });
     }
 
+    function renderAuditLog(rows) {
+      els.auditBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${formatDateTime(r.time)}</td><td>${r.record_type}</td><td>${r.rep}</td><td>${r.territory}</td><td>${r.address}</td><td>${r.details}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No audit history found.</td></tr>';
+      [...els.auditBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Audit Detail', [rows[idx]]); });
+    }
+
     function setActiveTab(tabName) {
-      const showOverview = tabName !== 'sales';
+      const showOverview = tabName === 'overview';
+      const showSales = tabName === 'sales';
+      const showAudit = tabName === 'audit';
       els.tabOverview.classList.toggle('active', showOverview);
-      els.tabSales.classList.toggle('active', !showOverview);
+      els.tabSales.classList.toggle('active', showSales);
+      els.tabAudit.classList.toggle('active', showAudit);
       els.tabPanelOverview.classList.toggle('active', showOverview);
-      els.tabPanelSales.classList.toggle('active', !showOverview);
+      els.tabPanelSales.classList.toggle('active', showSales);
+      els.tabPanelAudit.classList.toggle('active', showAudit);
     }
 
     function openDetail(title, rows) { currentDetailRows = rows; els.detailTitle.textContent = title; if (!rows.length) { els.detailHead.innerHTML = ''; els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>'; } else { const headers = Object.keys(rows[0]); els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>'; els.detailBody.innerHTML = rows.map(row => '<tr>' + headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('') + '</tr>').join(''); } els.modal.classList.add('open'); }
@@ -468,6 +501,7 @@
     els.loginBtn.onclick = signIn; els.logoutBtn.onclick = signOut;
     els.tabOverview.onclick = () => setActiveTab('overview');
     els.tabSales.onclick = () => setActiveTab('sales');
+    els.tabAudit.onclick = () => setActiveTab('audit');
     els.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 
     supabaseClient.auth.onAuthStateChange(async (_event, session) => { if (session) { showDashboard(session); await loadData(); } else { showAuthScreen('Signed out. Please sign in.'); } });
