@@ -56,6 +56,27 @@
     .auth-grid { display: grid; gap: 12px; }
     .auth-top-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .pill { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 12px; background: rgba(2,6,23,.7); }
+
+    .tab-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn {
+      width: auto;
+      background: #020617;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #082f49;
+      border: none;
+      font-weight: 700;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
     .modal { position: fixed; inset: 0; background: rgba(2,6,23,.75); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 9999; }
     .modal.open { display: flex; }
     .modal-box { width: min(1100px, 100%); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 22px; padding: 20px; }
@@ -113,6 +134,13 @@
 
       <div id="status-line" class="status-line">Signed in. Loading data...</div>
 
+      <div class="tab-bar">
+        <button id="tab-overview" class="tab-btn active">Overview</button>
+        <button id="tab-sales" class="tab-btn">Sales Queue</button>
+      </div>
+
+      <div id="tab-panel-overview" class="tab-panel active">
+
       <div class="grid-kpis">
         <div class="panel"><div class="kpi-label">Homes Passed</div><div id="kpi-homes" class="kpi-value">0</div><div class="kpi-sub">Filtered address universe</div></div>
         <div class="panel"><div class="kpi-label">Pending</div><div id="kpi-pending" class="kpi-value">0</div><div class="kpi-sub">No latest non-pending event</div></div>
@@ -159,6 +187,39 @@
           </div>
         </div>
       </div>
+      </div>
+
+      <div id="tab-panel-sales" class="tab-panel">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Submitted Sales Queue</h2>
+              <div class="panel-sub">All submitted sales with the details needed for CRM entry.</div>
+            </div>
+            <button id="export-sales-queue-btn">Export Sales Queue</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Rep</th>
+                  <th>Territory</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Address</th>
+                  <th>Package</th>
+                  <th>Install Date</th>
+                  <th>Install Time</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="sales-queue-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -197,6 +258,9 @@
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
       loginEmail: document.getElementById('login-email'), loginPassword: document.getElementById('login-password'), loginBtn: document.getElementById('login-btn'), authStatus: document.getElementById('auth-status'), authTitle: document.getElementById('auth-title'), authSubtitle: document.getElementById('auth-subtitle'),
       sessionEmail: document.getElementById('session-email'), logoutBtn: document.getElementById('logout-btn'),
+      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'),
+      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'),
+      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'),
       territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
@@ -321,16 +385,31 @@
       const repMap = {}; filteredEvents.forEach(ev => { if (!ev.rep_name) return; if (!repMap[ev.rep_name]) repMap[ev.rep_name] = { name: ev.rep_name, worked: 0, sales: 0 }; repMap[ev.rep_name].worked++; if (['mega','gig'].includes(String(ev.status || '').toLowerCase())) repMap[ev.rep_name].sales++; });
       const repRows = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
       const utilizationRows = state.schedule_slots.filter(s => rowMatchesUiTerritory(s, filters.territory)).map(s => ({ slot: formatDate(s.slot_date) + ' ' + (s.time_label || ''), territory: s.territory, booked: Number(s.booked_count || 0), capacity: Number(s.capacity || 0), utilization: Number(s.capacity || 0) ? Number(s.booked_count || 0) / Number(s.capacity || 1) : 0 })).sort((a,b) => b.utilization - a.utilization).slice(0,12);
+      const salesQueueRows = filteredSales.map(s => ({
+        created_at: s.created_at,
+        rep_name: s.rep_name || s.salesperson || '',
+        territory: s.territory || addressMap.get(s.address_id)?.territory || '',
+        customer_name: s.customer_name || [s.first_name, s.last_name].filter(Boolean).join(' ') || '',
+        phone: s.phone || s.customer_phone || s.mobile || '',
+        email: s.email || s.customer_email || '',
+        address: buildAddressLabel(addressMap, s.address_id),
+        package_name: s.package_name || s.package || '',
+        install_date: s.install_date || '',
+        install_time: s.install_time || '',
+        notes: s.notes || s.note || s.work_order_note || ''
+      })).filter(r => !filters.search || Object.values(r).join(' ').toLowerCase().includes(filters.search))
+        .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
       const activityRows = [
         ...filteredSales.map(s => ({ time: s.created_at, rep: s.rep_name || s.salesperson || '—', territory: s.territory || addressMap.get(s.address_id)?.territory || '—', address: buildAddressLabel(addressMap, s.address_id), type: 'Sale', status: s.package_name || 'sale' })),
         ...filteredEvents.map(ev => ({ time: ev.created_at, rep: ev.rep_name || '—', territory: ev.territory || '—', address: buildAddressLabel(addressMap, ev.address_id), type: 'Disposition', status: ev.status || '—' })),
         ...filteredBookings.map(b => ({ time: b.created_at, rep: b.rep_name || '—', territory: b.territory || b.slot?.territory || '—', address: buildAddressLabel(addressMap, b.address_id), type: 'Booking', status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked' }))
       ].filter(r => !filters.search || [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search)).sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0,100);
 
-      renderTerritoryChart(territoryRows); renderDispositionChart(dispositionRows); renderSalesTrendChart(salesTrendRows); renderRepList(repRows, filteredEvents, addressMap); renderScheduleList(utilizationRows); renderActivity(activityRows);
+      renderTerritoryChart(territoryRows); renderDispositionChart(dispositionRows); renderSalesTrendChart(salesTrendRows); renderRepList(repRows, filteredEvents, addressMap); renderScheduleList(utilizationRows); renderActivity(activityRows); renderSalesQueue(salesQueueRows);
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
       els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', filteredSales.map(s => ({ created_at: s.created_at, rep_name: s.rep_name || s.salesperson, territory: s.territory || addressMap.get(s.address_id)?.territory || '', customer_name: s.customer_name, package_name: s.package_name, install_date: s.install_date, install_time: s.install_time, address: buildAddressLabel(addressMap, s.address_id) })));
       els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({ created_at: ev.created_at, rep_name: ev.rep_name, territory: ev.territory, status: ev.status, note: ev.note, address: buildAddressLabel(addressMap, ev.address_id) })));
+      els.exportSalesQueue.onclick = () => csvDownload('fieldos_sales_queue.csv', salesQueueRows);
     }
 
     function renderTerritoryChart(rows) {
@@ -345,6 +424,20 @@
     function renderRepList(rows, filteredEvents, addressMap) { els.repList.innerHTML = rows.length ? rows.map(r => `<div class="list-item row-btn" data-rep="${r.name}"><div><div style="font-weight:700;">${r.name}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${formatNumber(r.worked)} events logged</div></div><div style="text-align:right;"><div style="font-size:24px; font-weight:700;">${formatNumber(r.sales)}</div><div style="color:#94a3b8; font-size:12px; text-transform:uppercase; letter-spacing:.12em;">Sales</div></div></div>`).join('') : '<div style="color:#94a3b8;">No rep activity yet.</div>'; els.repList.querySelectorAll('[data-rep]').forEach(node => { node.onclick = () => { const rep = node.getAttribute('data-rep'); openDetail('Rep Detail: ' + rep, filteredEvents.filter(ev => ev.rep_name === rep).map(ev => ({ time: formatDateTime(ev.created_at), territory: ev.territory, address: buildAddressLabel(addressMap, ev.address_id), status: ev.status, note: ev.note || '' }))); }; }); }
     function renderScheduleList(rows) { els.scheduleList.innerHTML = rows.length ? rows.map(r => `<div class="list-item"><div><div style="font-weight:700;">${r.slot}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.territory}</div></div><div style="min-width:160px; text-align:right;"><div style="font-weight:700;">${formatPercent(r.utilization)}</div><div style="color:#94a3b8; font-size:13px; margin-top:4px;">${r.booked} booked / ${r.capacity}</div></div></div>`).join('') : '<div style="color:#94a3b8;">No schedule slots found.</div>'; }
     function renderActivity(rows) { els.activityBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${formatDateTime(r.time)}</td><td>${r.rep}</td><td>${r.territory}</td><td>${r.address}</td><td>${r.type}</td><td>${r.status}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No activity found.</td></tr>'; [...els.activityBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Activity Detail', [rows[idx]]); }); }
+
+    function renderSalesQueue(rows) {
+      els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${formatDateTime(r.created_at)}</td><td>${r.rep_name || '—'}</td><td>${r.territory || '—'}</td><td>${r.customer_name || '—'}</td><td>${r.phone || '—'}</td><td>${r.email || '—'}</td><td>${r.address || '—'}</td><td>${r.package_name || '—'}</td><td>${r.install_date || '—'}</td><td>${r.install_time || '—'}</td><td>${r.notes || '—'}</td></tr>`).join('') : '<tr><td colspan="11" style="color:#94a3b8;">No submitted sales found.</td></tr>';
+      [...els.salesQueueBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Sales Submission Detail', [rows[idx]]); });
+    }
+
+    function setActiveTab(tabName) {
+      const showOverview = tabName !== 'sales';
+      els.tabOverview.classList.toggle('active', showOverview);
+      els.tabSales.classList.toggle('active', !showOverview);
+      els.tabPanelOverview.classList.toggle('active', showOverview);
+      els.tabPanelSales.classList.toggle('active', !showOverview);
+    }
+
     function openDetail(title, rows) { currentDetailRows = rows; els.detailTitle.textContent = title; if (!rows.length) { els.detailHead.innerHTML = ''; els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>'; } else { const headers = Object.keys(rows[0]); els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>'; els.detailBody.innerHTML = rows.map(row => '<tr>' + headers.map(h => `<td>${String(row[h] ?? '')}</td>`).join('') + '</tr>').join(''); } els.modal.classList.add('open'); }
 
     els.detailClose.onclick = () => els.modal.classList.remove('open');
@@ -352,7 +445,10 @@
     els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRows);
     els.refresh.onclick = loadData; els.territory.onchange = renderAll; els.rep.onchange = renderAll; els.activitySearch.oninput = renderAll; els.start.onchange = loadData; els.end.onchange = loadData;
     els.autoRefresh.onchange = () => { if (refreshTimer) clearInterval(refreshTimer); const ms = Number(els.autoRefresh.value || 0); if (ms) refreshTimer = setInterval(loadData, ms); };
-    els.loginBtn.onclick = signIn; els.logoutBtn.onclick = signOut; els.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
+    els.loginBtn.onclick = signIn; els.logoutBtn.onclick = signOut;
+    els.tabOverview.onclick = () => setActiveTab('overview');
+    els.tabSales.onclick = () => setActiveTab('sales');
+    els.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 
     supabaseClient.auth.onAuthStateChange(async (_event, session) => { if (session) { showDashboard(session); await loadData(); } else { showAuthScreen('Signed out. Please sign in.'); } });
     async function init() { setDashboardHeader(); const { data } = await supabaseClient.auth.getSession(); if (data.session) { showDashboard(data.session); await loadData(); } else { showAuthScreen('Please sign in to continue.'); } }
