@@ -75,8 +75,41 @@ function fetchRepProfileFromSupabase(name) {
     });
 }
 
-function fetchAddressesByTerritoryFromSupabase(territory) {
+function fetchRepTerritoriesFromSupabase(repId, fallbackTerritory) {
+  if (!supabaseWarn() || !repId) {
+    return Promise.resolve(fallbackTerritory ? [fallbackTerritory] : []);
+  }
+
+  return supabaseClient
+    .from('rep_territories')
+    .select('territory, is_primary')
+    .eq('rep_id', repId)
+    .order('is_primary', { ascending: false })
+    .order('territory', { ascending: true })
+    .then(function(res){
+      if (res.error) throw res.error;
+
+      var territories = (res.data || [])
+        .map(function(row){ return String(row.territory || '').trim(); })
+        .filter(Boolean);
+
+      if (!territories.length && fallbackTerritory) territories = [String(fallbackTerritory).trim()];
+
+      var seen = {};
+      return territories.filter(function(t){
+        var key = t.toLowerCase();
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
+    });
+}
+
+function fetchAddressesByTerritoriesFromSupabase(territories) {
   if (!supabaseWarn()) return Promise.resolve([]);
+
+  var list = (territories || []).map(function(t){ return String(t || '').trim(); }).filter(Boolean);
+  if (!list.length) return Promise.resolve([]);
 
   var pageSize = 1000;
   var allRows = [];
@@ -88,7 +121,8 @@ function fetchAddressesByTerritoryFromSupabase(territory) {
     return supabaseClient
       .from('addresses')
       .select('*')
-      .eq('territory', territory)
+      .in('territory', list)
+      .order('territory', { ascending: true })
       .order('address1', { ascending: true })
       .range(from, to)
       .then(function(res) {
@@ -139,15 +173,20 @@ function fetchLatestAddressEventsMap(addressIds) {
   });
 }
 
-function fetchScheduleSlotsFromSupabase(territory) {
+function fetchScheduleSlotsFromSupabase(territories) {
   if (!supabaseWarn()) return Promise.resolve([]);
   var today = new Date().toISOString().split('T')[0];
+  var list = Array.isArray(territories) ? territories : [territories];
+  list = list.map(function(t){ return String(t || '').trim(); }).filter(Boolean);
+  if (!list.length) return Promise.resolve([]);
+
   return supabaseClient
     .from('schedule_slots')
     .select('*')
-    .eq('territory', territory)
+    .in('territory', list)
     .gte('slot_date', today)
     .order('slot_date', { ascending: true })
+    .order('territory', { ascending: true })
     .order('time_label', { ascending: true })
     .then(function(res){
       if (res.error) throw res.error;
@@ -162,6 +201,7 @@ var repPhone   = '';
 var repEmail   = '';
 var repWebsite = 'https://www.zitomedia.net';
 var activeTerritory = '';
+var activeTerritories = [];
 var activeTerritoryTab = '';
 var mapObj     = null;
 var mapMarkers = {};
@@ -516,17 +556,25 @@ function fetchAddressesFromSheet(opts) {
         if (repEmail) localStorage.setItem('zito_rep_email', repEmail);
       } catch(e) {}
 
-      if (profileSt && (repPhone || repEmail)) {
-        profileSt.style.color = '#10b981';
-        profileSt.textContent = '✓ Profile loaded' +
-          (repPhone ? ' • ' + repPhone : '') +
-          (repEmail ? ' • ' + repEmail : '');
-      }
+      return fetchRepTerritoriesFromSupabase(rep.id, activeTerritory)
+        .then(function(territories){
+          activeTerritories = territories || [];
+          if (!activeTerritories.length && activeTerritory) activeTerritories = [activeTerritory];
+          if (activeTerritories.length && !activeTerritory) activeTerritory = activeTerritories[0];
 
-      return fetchAddressesByTerritoryFromSupabase(activeTerritory)
-        .then(function(rows){
-          return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
-            .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+          if (profileSt && (repPhone || repEmail || activeTerritories.length)) {
+            profileSt.style.color = '#10b981';
+            profileSt.textContent = '✓ Profile loaded' +
+              (repPhone ? ' • ' + repPhone : '') +
+              (repEmail ? ' • ' + repEmail : '') +
+              (activeTerritories.length ? ' • Territories: ' + activeTerritories.join(', ') : '');
+          }
+
+          return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
+            .then(function(rows){
+              return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
+                .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+            });
         });
     })
     .then(function(result){
@@ -669,6 +717,8 @@ function selectTeam(val) {
   if (team) {
     webhookURL = '';
     SCHED_URL  = '';
+    activeTerritory = '';
+    activeTerritories = [];
     addresses = [];
     document.getElementById('fetch-addr-status').textContent = '';
     document.getElementById('fetch-addr-icon').textContent = '📋';
@@ -1773,7 +1823,17 @@ function schedFetch(callback) {
     return;
   }
 
-  fetchScheduleSlotsFromSupabase(activeTerritory || '')
+  var addr = getAddr();
+  var scheduleTerritories = [];
+  if (addr && addr.territory) {
+    scheduleTerritories = [String(addr.territory).trim()];
+  } else if (activeTerritories && activeTerritories.length) {
+    scheduleTerritories = activeTerritories.slice();
+  } else if (activeTerritory) {
+    scheduleTerritories = [String(activeTerritory).trim()];
+  }
+
+  fetchScheduleSlotsFromSupabase(scheduleTerritories)
     .then(function(rows) {
       var data = {};
       rows.forEach(function(row) {
@@ -2409,6 +2469,8 @@ function confirmSignOut() {
     activeTeam = '';
     webhookURL = '';
     SCHED_URL  = '';
+    activeTerritory = '';
+    activeTerritories = [];
     var teamSel = document.getElementById('team-select');
     if (teamSel) teamSel.value = '';
     applyPresetTeamFromURL();
