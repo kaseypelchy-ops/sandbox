@@ -46,6 +46,72 @@ var supabaseClient = (window.supabase && typeof window.supabase.createClient ===
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
+var scheduleRealtimeChannel = null;
+
+function startScheduleRealtime() {
+  if (!supabaseClient) return;
+
+  if (scheduleRealtimeChannel) {
+    try { supabaseClient.removeChannel(scheduleRealtimeChannel); } catch (e) {}
+    scheduleRealtimeChannel = null;
+  }
+
+  scheduleRealtimeChannel = supabaseClient
+    .channel('fieldos-schedule-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'schedule_slots'
+      },
+      function(payload) {
+        var row = payload.new || payload.old;
+        if (!row) return;
+
+        var scheduleTerritory = getScheduleTerritory ? getScheduleTerritory() : (activeTerritory || '');
+        var rowTerritory = String(row.territory || '').trim();
+
+        if (scheduleTerritory && rowTerritory && rowTerritory !== scheduleTerritory) return;
+
+        fetchScheduleSlotsFromSupabase(scheduleTerritory)
+          .then(function(rows) {
+            var data = {};
+            rows.forEach(function(r) {
+              var date = String(r.slot_date || '').trim();
+              var time = schedNormalizeTime(r.time_label || '');
+              if (!date || !time) return;
+
+              if (!data[date]) data[date] = {};
+              data[date][time] = {
+                cap: Number(r.capacity || 0),
+                booked: Number(r.booked_count || 0),
+                avail: Math.max(0, Number(r.capacity || 0) - Number(r.booked_count || 0)),
+                slotId: r.id,
+                territory: r.territory
+              };
+            });
+
+            schedData = data;
+
+            if (!document.getElementById('sched-picker').classList.contains('hidden')) {
+              schedRenderWeek();
+            }
+          })
+          .catch(function(err) {
+            console.error('Realtime schedule refresh failed', err);
+          });
+      }
+    )
+    .subscribe();
+}
+
+function stopScheduleRealtime() {
+  if (!supabaseClient || !scheduleRealtimeChannel) return;
+  try { supabaseClient.removeChannel(scheduleRealtimeChannel); } catch (e) {}
+  scheduleRealtimeChannel = null;
+}
+
 function hasSupabase() {
   return !!supabaseClient;
 }
@@ -783,6 +849,7 @@ function launchApp() {
     document.getElementById('page-setup').style.display = 'none';
     document.getElementById('page-app').style.display   = 'block';
 
+    startScheduleRealtime();
     updateStats();
     buildList();
     initMap();
@@ -1970,12 +2037,12 @@ function schedClearSlot() {
 }
 
 function schedBookSlot(date, time, customerName, address) {
-  if (!supabaseWarn()) return;
+  if (!supabaseWarn()) return Promise.resolve(false);
 
   var slot = schedData[date] && schedData[date][time] ? schedData[date][time] : null;
-  if (!slot || !slot.slotId) return;
+  if (!slot || !slot.slotId) return Promise.resolve(false);
 
-  supabaseClient
+  return supabaseClient
     .from('schedule_bookings')
     .insert([{
       schedule_slot_id: slot.slotId,
@@ -1989,22 +2056,33 @@ function schedBookSlot(date, time, customerName, address) {
     }])
     .then(function(res) {
       if (res.error) throw res.error;
-      return supabaseClient
-        .from('schedule_slots')
-        .update({ booked_count: Number(slot.booked || 0) + 1 })
-        .eq('id', slot.slotId);
+
+      if (schedData[date] && schedData[date][time]) {
+        schedData[date][time].booked = Number(schedData[date][time].booked || 0) + 1;
+        schedData[date][time].avail = Math.max(
+          0,
+          Number(schedData[date][time].cap || 0) - Number(schedData[date][time].booked || 0)
+        );
+      }
+
+      if (!document.getElementById('sched-picker').classList.contains('hidden')) {
+        schedRenderWeek();
+      }
+
+      return new Promise(function(resolve) {
+        schedFetch(function(ok) {
+          if (ok && !document.getElementById('sched-picker').classList.contains('hidden')) {
+            schedRenderWeek();
+          }
+          resolve(ok);
+        });
+      });
     })
     .catch(function(err) {
       console.error(err);
+      toast('⚠ Failed to book schedule slot', 't-err');
+      return false;
     });
-
-  if (schedData[date] && schedData[date][time]) {
-    var s = schedData[date][time];
-    if (s.avail > 0) {
-      s.booked++;
-      s.avail--;
-    }
-  }
 }
 
 var PKG = {
@@ -2456,6 +2534,7 @@ function confirmSignOut() {
     selStatus = null;
     selSlot   = null;
     clearInterval(heartbeatTimer);
+    stopScheduleRealtime();
     if (mapObj) { mapObj.remove(); mapObj = null; }
 
     document.getElementById('page-app').style.display   = 'none';
