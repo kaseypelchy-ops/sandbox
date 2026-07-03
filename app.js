@@ -75,8 +75,35 @@ function fetchRepProfileFromSupabase(name) {
     });
 }
 
-function fetchAddressesByTerritoryFromSupabase(territory) {
+function fetchRepTerritoriesFromSupabase(repId, fallbackTerritory) {
   if (!supabaseWarn()) return Promise.resolve([]);
+  if (!repId) {
+    return Promise.resolve(fallbackTerritory ? [String(fallbackTerritory).trim()] : []);
+  }
+
+  return supabaseClient
+    .from('rep_territories')
+    .select('territory, is_primary')
+    .eq('rep_id', repId)
+    .order('is_primary', { ascending: false })
+    .then(function(res) {
+      if (res.error) throw res.error;
+      var rows = res.data || [];
+      var territories = rows
+        .map(function(row){ return String(row.territory || '').trim(); })
+        .filter(function(v, i, arr){ return v && arr.indexOf(v) === i; });
+
+      if (!territories.length && fallbackTerritory) {
+        territories = [String(fallbackTerritory).trim()];
+      }
+      return territories;
+    });
+}
+
+function fetchAddressesByTerritoriesFromSupabase(territories) {
+  if (!supabaseWarn()) return Promise.resolve([]);
+  var terrs = (territories || []).map(function(t){ return String(t || '').trim(); }).filter(Boolean);
+  if (!terrs.length) return Promise.resolve([]);
 
   var pageSize = 1000;
   var allRows = [];
@@ -88,7 +115,8 @@ function fetchAddressesByTerritoryFromSupabase(territory) {
     return supabaseClient
       .from('addresses')
       .select('*')
-      .eq('territory', territory)
+      .in('territory', terrs)
+      .order('territory', { ascending: true })
       .order('address1', { ascending: true })
       .range(from, to)
       .then(function(res) {
@@ -107,6 +135,15 @@ function fetchAddressesByTerritoryFromSupabase(territory) {
   }
 
   return loadPage();
+}
+
+function getScheduleTerritory() {
+  var addr = getAddr();
+  if (addr && addr.territory) return String(addr.territory).trim();
+  if (activeTerritoryTab) return String(activeTerritoryTab).trim();
+  if (activeTerritory) return String(activeTerritory).trim();
+  if (activeTerritories && activeTerritories.length) return String(activeTerritories[0]).trim();
+  return '';
 }
 
 function fetchLatestAddressEventsMap(addressIds) {
@@ -141,11 +178,13 @@ function fetchLatestAddressEventsMap(addressIds) {
 
 function fetchScheduleSlotsFromSupabase(territory) {
   if (!supabaseWarn()) return Promise.resolve([]);
+  var terr = String(territory || '').trim();
+  if (!terr) return Promise.resolve([]);
   var today = new Date().toISOString().split('T')[0];
   return supabaseClient
     .from('schedule_slots')
     .select('*')
-    .eq('territory', territory)
+    .eq('territory', terr)
     .gte('slot_date', today)
     .order('slot_date', { ascending: true })
     .order('time_label', { ascending: true })
@@ -162,6 +201,7 @@ var repPhone   = '';
 var repEmail   = '';
 var repWebsite = 'https://www.zitomedia.net';
 var activeTerritory = '';
+var activeTerritories = [];
 var activeTerritoryTab = '';
 var mapObj     = null;
 var mapMarkers = {};
@@ -516,23 +556,32 @@ function fetchAddressesFromSheet(opts) {
         if (repEmail) localStorage.setItem('zito_rep_email', repEmail);
       } catch(e) {}
 
-      if (profileSt && (repPhone || repEmail)) {
-        profileSt.style.color = '#10b981';
-        profileSt.textContent = '✓ Profile loaded' +
-          (repPhone ? ' • ' + repPhone : '') +
-          (repEmail ? ' • ' + repEmail : '');
-      }
+      return fetchRepTerritoriesFromSupabase(rep.id, activeTerritory)
+        .then(function(territories) {
+          activeTerritories = territories || [];
+          if (!activeTerritories.length && activeTerritory) activeTerritories = [activeTerritory];
+          if (!activeTerritory && activeTerritories.length) activeTerritory = activeTerritories[0];
 
-      return fetchAddressesByTerritoryFromSupabase(activeTerritory)
-        .then(function(rows){
-          return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
-            .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+          if (profileSt) {
+            profileSt.style.color = '#10b981';
+            profileSt.textContent = '✓ Profile loaded' +
+              (repPhone ? ' • ' + repPhone : '') +
+              (repEmail ? ' • ' + repEmail : '') +
+              (activeTerritories.length ? ' • Territories: ' + activeTerritories.join(', ') : '');
+          }
+
+          return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
+            .then(function(rows){
+              return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
+                .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+            });
         });
     })
     .then(function(result){
       var rows = result.rows || [];
       var eventsMap = result.eventsMap || {};
 
+      activeTerritoryTab = '';
       addresses = rows.map(function(row) {
         var ev = eventsMap[row.id] || {};
         var lat = (row.lat !== '' && row.lat != null) ? parseFloat(row.lat) : null;
@@ -669,6 +718,7 @@ function selectTeam(val) {
   if (team) {
     webhookURL = '';
     SCHED_URL  = '';
+    activeTerritories = [];
     addresses = [];
     document.getElementById('fetch-addr-status').textContent = '';
     document.getElementById('fetch-addr-icon').textContent = '📋';
@@ -1773,7 +1823,14 @@ function schedFetch(callback) {
     return;
   }
 
-  fetchScheduleSlotsFromSupabase(activeTerritory || '')
+  var scheduleTerritory = getScheduleTerritory();
+  if (!scheduleTerritory) {
+    schedData = {};
+    callback(false);
+    return;
+  }
+
+  fetchScheduleSlotsFromSupabase(scheduleTerritory)
     .then(function(rows) {
       var data = {};
       rows.forEach(function(row) {
@@ -1786,7 +1843,8 @@ function schedFetch(callback) {
           cap: Number(row.capacity || 0),
           booked: Number(row.booked_count || 0),
           avail: Math.max(0, Number(row.capacity || 0) - Number(row.booked_count || 0)),
-          slotId: row.id
+          slotId: row.id,
+          territory: row.territory || scheduleTerritory
         };
       });
       schedData = data;
@@ -1799,6 +1857,8 @@ function schedFetch(callback) {
 }
 
 function schedShow() {
+  var scheduleTerritory = getScheduleTerritory();
+
   document.getElementById('sched-loading').classList.remove('hidden');
   document.getElementById('sched-picker').classList.add('hidden');
   document.getElementById('sched-error').classList.add('hidden');
@@ -1809,7 +1869,7 @@ function schedShow() {
     document.getElementById('sched-loading').classList.add('hidden');
     if (!ok) {
       document.getElementById('sched-error').classList.remove('hidden');
-      document.getElementById('sched-error').textContent    = '⚠ Could not load schedule.';
+      document.getElementById('sched-error').textContent    = '⚠ Could not load schedule' + (scheduleTerritory ? ' for ' + scheduleTerritory : '') + '.';
       return;
     }
     document.getElementById('sched-picker').classList.remove('hidden');
@@ -1910,12 +1970,12 @@ function schedClearSlot() {
 }
 
 function schedBookSlot(date, time, customerName, address) {
-  if (!supabaseWarn()) return Promise.resolve(false);
+  if (!supabaseWarn()) return;
 
   var slot = schedData[date] && schedData[date][time] ? schedData[date][time] : null;
-  if (!slot || !slot.slotId) return Promise.resolve(false);
+  if (!slot || !slot.slotId) return;
 
-  return supabaseClient
+  supabaseClient
     .from('schedule_bookings')
     .insert([{
       schedule_slot_id: slot.slotId,
@@ -1929,29 +1989,22 @@ function schedBookSlot(date, time, customerName, address) {
     }])
     .then(function(res) {
       if (res.error) throw res.error;
-
-      // Let the database trigger keep schedule_slots.booked_count in sync.
-      // Refresh local schedule data from Supabase so the picker reflects the true count.
-      return new Promise(function(resolve) {
-        schedFetch(function(ok) {
-          if (ok) {
-            if (selSlot && selSlot.date === date && selSlot.time === time) {
-              var fresh = schedData[date] && schedData[date][time] ? schedData[date][time] : null;
-              if (fresh) slot = fresh;
-            }
-            if (!document.getElementById('sched-picker').classList.contains('hidden')) {
-              schedRenderWeek();
-            }
-          }
-          resolve(ok);
-        });
-      });
+      return supabaseClient
+        .from('schedule_slots')
+        .update({ booked_count: Number(slot.booked || 0) + 1 })
+        .eq('id', slot.slotId);
     })
     .catch(function(err) {
       console.error(err);
-      toast('⚠ Failed to book schedule slot', 't-err');
-      return false;
     });
+
+  if (schedData[date] && schedData[date][time]) {
+    var s = schedData[date][time];
+    if (s.avail > 0) {
+      s.booked++;
+      s.avail--;
+    }
+  }
 }
 
 var PKG = {
@@ -2416,6 +2469,8 @@ function confirmSignOut() {
     activeTeam = '';
     webhookURL = '';
     SCHED_URL  = '';
+    activeTerritory = '';
+    activeTerritories = [];
     var teamSel = document.getElementById('team-select');
     if (teamSel) teamSel.value = '';
     applyPresetTeamFromURL();
