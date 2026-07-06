@@ -418,6 +418,7 @@ var toastTimer = null;
 var sidebarOpen  = true;
 var pinDropMode  = false;
 var tempPinMarker = null;
+var focusPulseLayer = null;
 
 // Rep-assistant state
 var OFFLINE_QUEUE_KEY = 'fieldos_offline_queue_v1';
@@ -1579,6 +1580,9 @@ document.addEventListener('click', function(e) {
   var id = row.getAttribute('data-id');
   if (!id) return;
 
+  // When a rep clicks an address in the sidebar, take the map directly to
+  // that house. This works even when the pin is currently inside a cluster.
+  zoomToAddressPin(id, { openPopup: false, zoom: 18 });
   openForm(id);
 
   if (window.innerWidth <= 640 && sidebarOpen) {
@@ -1882,12 +1886,7 @@ function openNextBestDoor(id) {
   var a = findAddressById(id);
   if (!a) return;
   nextBestDoorId = a.id;
-  if (a.lat && a.lng && mapObj) {
-    mapObj.flyTo([a.lat, a.lng], Math.max(mapObj.getZoom(), 18), { duration: .7 });
-    if (mapMarkers[a.id]) {
-      try { mapMarkers[a.id].openPopup(); } catch(e) {}
-    }
-  }
+  zoomToAddressPin(a, { openPopup: true, zoom: 18 });
   openForm(a.id);
   buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
 }
@@ -1896,12 +1895,7 @@ function centerNextBestDoor(id) {
   var a = findAddressById(id);
   if (!a) return;
   nextBestDoorId = a.id;
-  if (a.lat && a.lng && mapObj) {
-    mapObj.flyTo([a.lat, a.lng], Math.max(mapObj.getZoom(), 18), { duration: .7 });
-    if (mapMarkers[a.id]) {
-      try { mapMarkers[a.id].openPopup(); } catch(e) {}
-    }
-  }
+  zoomToAddressPin(a, { openPopup: true, zoom: 18 });
   buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
 }
 
@@ -1921,6 +1915,72 @@ function findAddressById(id) {
     if (String(addresses[i].id) === String(id)) return addresses[i];
   }
   return null;
+}
+
+
+function pulseAddressPin_(addr) {
+  if (!mapObj || !addr || !addr.lat || !addr.lng || typeof L === 'undefined') return;
+  if (focusPulseLayer) {
+    try { mapObj.removeLayer(focusPulseLayer); } catch(e) {}
+    focusPulseLayer = null;
+  }
+  if (typeof L.circleMarker !== 'function') return;
+  focusPulseLayer = L.circleMarker([Number(addr.lat), Number(addr.lng)], {
+    radius: 20,
+    weight: 3,
+    opacity: 1,
+    fillOpacity: 0.12,
+    color: '#22d3ee',
+    fillColor: '#22d3ee'
+  }).addTo(mapObj);
+  setTimeout(function(){
+    if (focusPulseLayer) {
+      try { mapObj.removeLayer(focusPulseLayer); } catch(e) {}
+      focusPulseLayer = null;
+    }
+  }, 1800);
+}
+
+function zoomToAddressPin(idOrAddress, opts) {
+  opts = opts || {};
+  var addr = (idOrAddress && typeof idOrAddress === 'object') ? idOrAddress : findAddressById(idOrAddress);
+  if (!addr || !mapObj || !addr.lat || !addr.lng) return false;
+
+  var lat = Number(addr.lat);
+  var lng = Number(addr.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  var marker = mapMarkers[addr.id];
+  var targetZoom = Math.max(Number(opts.zoom || 18), mapObj.getZoom ? mapObj.getZoom() : 18);
+
+  function finishFocus() {
+    try {
+      mapObj.flyTo([lat, lng], targetZoom, { duration: 0.55 });
+    } catch(e) {
+      try { mapObj.setView([lat, lng], targetZoom); } catch(e2) {}
+    }
+    setTimeout(function(){
+      pulseAddressPin_(addr);
+      if (opts.openPopup !== false && marker) {
+        try { marker.openPopup(); } catch(e) {}
+      }
+    }, 400);
+  }
+
+  // If the marker is clustered, Leaflet.markercluster needs to zoom/spiderfy
+  // the cluster before the individual marker can be shown.
+  if (clusterGroup && marker && typeof clusterGroup.zoomToShowLayer === 'function') {
+    try {
+      clusterGroup.zoomToShowLayer(marker, finishFocus);
+      return true;
+    } catch(e) {
+      finishFocus();
+      return true;
+    }
+  }
+
+  finishFocus();
+  return true;
 }
 
 function buildTodayFocusItems(metrics, next, streets) {
@@ -2203,7 +2263,14 @@ function openForm(id) {
   document.body.classList.add('form-open');
 
   if (addr.lat && addr.lng && mapObj) {
-    mapObj.panTo([addr.lat, addr.lng], { animate: true });
+    // Opening an address should keep the selected pin in view. For sidebar
+    // clicks, zoomToAddressPin() already handled the zoom; this is a safe
+    // fallback for map popups or older entry points.
+    if (mapObj.getZoom && mapObj.getZoom() < 17) {
+      zoomToAddressPin(addr, { openPopup: false, zoom: 18 });
+    } else {
+      mapObj.panTo([addr.lat, addr.lng], { animate: true });
+    }
   }
 
   buildList();
