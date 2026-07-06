@@ -6,6 +6,8 @@
   <title>FieldOS Admin Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <style>
     :root {
       --bg: #020617;
@@ -82,7 +84,30 @@
     .modal-box { width: min(1100px, 100%); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 22px; padding: 20px; }
     .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
     .modal-close { background: #020617; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
-    @media (max-width: 1200px) { .controls, .grid-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2 { grid-template-columns: 1fr; } }
+
+    .route-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(360px, .65fr); gap: 20px; align-items: start; }
+    #route-map { height: 540px; border-radius: 18px; border: 1px solid var(--border); overflow: hidden; background: #020617; }
+    .route-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .route-controls button, .route-controls select {
+      width: 100%; background: #020617; color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; font-size: 14px;
+    }
+    .route-controls button { cursor: pointer; }
+    .route-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .route-stat { background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 12px; }
+    .route-stat-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+    .route-stat-value { margin-top: 7px; font-size: 20px; font-weight: 700; }
+    .ai-summary { display: grid; gap: 12px; }
+    .ai-box { background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 14px; line-height: 1.45; color: #dbeafe; }
+    .ai-box h3 { font-size: 15px; margin-bottom: 8px; color: var(--text); }
+    .ai-box ul { margin: 8px 0 0 18px; padding: 0; color: #cbd5e1; }
+    .ai-box li { margin: 6px 0; }
+    .current-stop { background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.28); border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+    .current-stop-title { font-weight: 700; margin-bottom: 8px; }
+    .current-stop-sub { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .leaflet-container { background: #020617; color: #0f172a; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0f172a; color: #e5e7eb; border: 1px solid #1e293b; }
+    .leaflet-popup-content { font-size: 13px; line-height: 1.4; }
+    @media (max-width: 1200px) { .controls, .grid-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 700px) { .controls, .grid-kpis { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
   </style>
 </head>
@@ -137,6 +162,7 @@
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
+        <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
       <div id="tab-panel-overview" class="tab-panel active">
@@ -220,6 +246,54 @@
           </div>
         </div>
       </div>
+
+      <div id="tab-panel-route" class="tab-panel">
+        <div class="route-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Route Replay</h2>
+                <div class="panel-sub">Replays rep movement from logged address_events GPS points using the territory, rep, and date filters above.</div>
+              </div>
+            </div>
+            <div class="route-controls">
+              <button id="route-render-btn" class="primary">Build Route</button>
+              <button id="route-play-btn">Play</button>
+              <button id="route-pause-btn">Pause</button>
+              <button id="route-reset-btn">Reset</button>
+              <select id="route-speed">
+                <option value="1200">Replay Speed: Normal</option>
+                <option value="700">Replay Speed: Fast</option>
+                <option value="250">Replay Speed: Very Fast</option>
+              </select>
+            </div>
+            <div class="route-meta">
+              <div class="route-stat"><div class="route-stat-label">GPS Stops</div><div id="route-stat-stops" class="route-stat-value">0</div></div>
+              <div class="route-stat"><div class="route-stat-label">Unique Doors</div><div id="route-stat-doors" class="route-stat-value">0</div></div>
+              <div class="route-stat"><div class="route-stat-label">Route Window</div><div id="route-stat-window" class="route-stat-value">—</div></div>
+              <div class="route-stat"><div class="route-stat-label">Knocks / Hour</div><div id="route-stat-pace" class="route-stat-value">—</div></div>
+            </div>
+            <div id="route-map"></div>
+            <div id="route-status" class="status-line">Build a route after selecting territory, rep, and date filters.</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>AI Analysis Summary</h2>
+                <div class="panel-sub">Automated field readout based on the current filtered activity.</div>
+              </div>
+            </div>
+            <div id="current-stop" class="current-stop">
+              <div class="current-stop-title">Current Stop</div>
+              <div class="current-stop-sub">No route point selected yet.</div>
+            </div>
+            <div id="ai-summary" class="ai-summary">
+              <div class="ai-box">Select filters and build the route to generate the territory summary.</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -260,16 +334,20 @@
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
       loginEmail: document.getElementById('login-email'), loginPassword: document.getElementById('login-password'), loginBtn: document.getElementById('login-btn'), authStatus: document.getElementById('auth-status'), authTitle: document.getElementById('auth-title'), authSubtitle: document.getElementById('auth-subtitle'),
       sessionEmail: document.getElementById('session-email'), logoutBtn: document.getElementById('logout-btn'),
-      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'),
-      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'),
+      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabRoute: document.getElementById('tab-route'),
+      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelRoute: document.getElementById('tab-panel-route'),
       salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'),
       territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
+      routeRender: document.getElementById('route-render-btn'), routePlay: document.getElementById('route-play-btn'), routePause: document.getElementById('route-pause-btn'), routeReset: document.getElementById('route-reset-btn'), routeSpeed: document.getElementById('route-speed'), routeStatus: document.getElementById('route-status'), routeStops: document.getElementById('route-stat-stops'), routeDoors: document.getElementById('route-stat-doors'), routeWindow: document.getElementById('route-stat-window'), routePace: document.getElementById('route-stat-pace'), currentStop: document.getElementById('current-stop'), aiSummary: document.getElementById('ai-summary'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
 
     let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [] };
     let currentDetailRows = [];
     let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
+    let routeMap, routeLayer, routeLine, routeReplayMarker, routeReplayTimer;
+    let routeReplayPoints = [];
+    let routeReplayIndex = 0;
     let cachedFilteredEvents = [];
     let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0 };
 
@@ -320,6 +398,41 @@
         if (value !== null && value !== undefined && String(value).trim() !== '') return value;
       }
       return '';
+    }
+
+    function numberFromAny(...values) {
+      for (const value of values) {
+        if (value === null || value === undefined || String(value).trim() === '') continue;
+        const parsed = Number(String(value).replace(/[^0-9.-]/g, ''));
+        if (Number.isFinite(parsed)) return parsed;
+      }
+      return NaN;
+    }
+
+    function getLatLng(row, linkedAddress = null) {
+      const lat = numberFromAny(
+        row?.lat, row?.latitude, row?.gps_lat, row?.gpslat, row?.zito_gpslat, row?.zito_gps_lat, row?.Zito_GPSLat,
+        linkedAddress?.lat, linkedAddress?.latitude, linkedAddress?.gps_lat, linkedAddress?.gpslat, linkedAddress?.zito_gpslat, linkedAddress?.zito_gps_lat, linkedAddress?.Zito_GPSLat
+      );
+      const lng = numberFromAny(
+        row?.lng, row?.lon, row?.long, row?.longitude, row?.gps_lng, row?.gps_long, row?.gpslong, row?.zito_gpslong, row?.zito_gps_long, row?.Zito_GPSLong,
+        linkedAddress?.lng, linkedAddress?.lon, linkedAddress?.long, linkedAddress?.longitude, linkedAddress?.gps_lng, linkedAddress?.gps_long, linkedAddress?.gpslong, linkedAddress?.zito_gpslong, linkedAddress?.zito_gps_long, linkedAddress?.Zito_GPSLong
+      );
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+      if (lat === 0 && lng === 0) return null;
+      return { lat, lng };
+    }
+
+    function getStreetPocket(addressLabel) {
+      const first = String(addressLabel || '').split(',')[0].trim();
+      const withoutUnit = first.replace(/\b(apt|apartment|unit|suite|ste|#)\s*[a-z0-9-]+/ig, '').trim();
+      const withoutNumber = withoutUnit.replace(/^\d+\s+/, '').trim();
+      return withoutNumber || first || 'Unknown Street';
+    }
+
+    function listTopItems(items, max = 5) {
+      return (items || []).slice(0, max).map(item => `<li>${escapeHtml(item)}</li>`).join('');
     }
 
     function escapeHtml(value) {
@@ -680,6 +793,275 @@
         .sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at));
     }
 
+
+    function getRouteFilteredEvents() {
+      const filters = currentFilters();
+      const addressMap = buildAddressMap();
+      const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
+
+      return state.address_events
+        .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
+        .map(ev => {
+          const linkedAddress = getLinkedAddress(ev, addressMap);
+          const coords = getLatLng(ev, linkedAddress);
+          return {
+            raw: ev,
+            coords,
+            time: ev.created_at,
+            rep: getRepName(ev) || '—',
+            territory: getRowTerritory(ev, addressMap, slotMap) || '—',
+            status: String(ev.status || 'pending').toLowerCase(),
+            note: firstNonEmpty(ev.note, ev.notes, ''),
+            address: buildAddressLabel(addressMap, ev),
+            addressKey: idKey(ev.address_id || ev.location_id || ev.zito_location_id || ev.external_id || ev.id)
+          };
+        })
+        .filter(p => p.coords)
+        .sort((a, b) => timeValue(a.time) - timeValue(b.time));
+    }
+
+    function initializeRouteMap() {
+      if (typeof L === 'undefined') {
+        if (els.routeStatus) els.routeStatus.textContent = 'Leaflet map library did not load.';
+        return false;
+      }
+
+      if (!routeMap) {
+        routeMap = L.map('route-map', { zoomControl: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(routeMap);
+        routeMap.setView([39.8283, -98.5795], 4);
+        routeLayer = L.featureGroup().addTo(routeMap);
+      }
+
+      setTimeout(() => routeMap.invalidateSize(), 50);
+      return true;
+    }
+
+    function pointPopup(point, index) {
+      return `<strong>Stop ${index + 1}</strong><br>` +
+        `${escapeHtml(formatDateTime(point.time))}<br>` +
+        `${escapeHtml(point.rep)} • ${escapeHtml(point.status)}<br>` +
+        `${escapeHtml(point.address)}${point.note ? '<br><em>' + escapeHtml(point.note) + '</em>' : ''}`;
+    }
+
+    function updateCurrentStop(point, index) {
+      if (!els.currentStop) return;
+      if (!point) {
+        els.currentStop.innerHTML = '<div class="current-stop-title">Current Stop</div><div class="current-stop-sub">No route point selected yet.</div>';
+        return;
+      }
+
+      els.currentStop.innerHTML = `
+        <div class="current-stop-title">Stop ${formatNumber(index + 1)} of ${formatNumber(routeReplayPoints.length)}</div>
+        <div class="current-stop-sub">
+          <strong>${escapeHtml(formatDateTime(point.time))}</strong><br>
+          ${escapeHtml(point.rep)} • ${escapeHtml(point.territory)}<br>
+          ${escapeHtml(point.address)}<br>
+          Status: ${escapeHtml(point.status)}${point.note ? '<br>Note: ' + escapeHtml(point.note) : ''}
+        </div>`;
+    }
+
+    function updateRouteStats(points) {
+      const uniqueDoors = new Set(points.map(p => p.addressKey || p.address || `${p.coords.lat},${p.coords.lng}`)).size;
+      const first = points[0];
+      const last = points[points.length - 1];
+      const durationHours = points.length > 1 ? Math.max((timeValue(last.time) - timeValue(first.time)) / 3600000, 0) : 0;
+      const pace = durationHours > 0 ? uniqueDoors / durationHours : 0;
+
+      els.routeStops.textContent = formatNumber(points.length);
+      els.routeDoors.textContent = formatNumber(uniqueDoors);
+      els.routeWindow.textContent = points.length > 1 ? `${formatDateTime(first.time)} → ${formatDateTime(last.time)}` : (points.length ? formatDateTime(first.time) : '—');
+      els.routePace.textContent = pace ? pace.toFixed(1) : '—';
+    }
+
+    function renderRouteReplay() {
+      if (!els.tabPanelRoute) return;
+      if (!initializeRouteMap()) return;
+      pauseRouteReplay();
+
+      routeReplayPoints = getRouteFilteredEvents();
+      routeReplayIndex = 0;
+      routeLayer.clearLayers();
+      routeLine = null;
+      routeReplayMarker = null;
+      updateRouteStats(routeReplayPoints);
+
+      if (!routeReplayPoints.length) {
+        els.routeStatus.textContent = 'No GPS points found for the selected filters. Make sure address_events stores lat/lng when reps disposition an address.';
+        updateCurrentStop(null, 0);
+        renderAiSummary([]);
+        return;
+      }
+
+      const latLngs = routeReplayPoints.map(p => [p.coords.lat, p.coords.lng]);
+      routeLine = L.polyline(latLngs, { weight: 4, opacity: .75 }).addTo(routeLayer);
+
+      routeReplayPoints.forEach((point, index) => {
+        const marker = L.circleMarker([point.coords.lat, point.coords.lng], {
+          radius: 6,
+          weight: 2,
+          opacity: .9,
+          fillOpacity: .75
+        }).bindPopup(pointPopup(point, index));
+        marker.on('click', () => {
+          routeReplayIndex = index;
+          moveReplayMarker(index, true);
+        });
+        marker.addTo(routeLayer);
+      });
+
+      routeReplayMarker = L.circleMarker(latLngs[0], {
+        radius: 11,
+        weight: 3,
+        opacity: 1,
+        fillOpacity: .95
+      }).bindPopup(pointPopup(routeReplayPoints[0], 0)).addTo(routeLayer);
+
+      routeMap.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+      moveReplayMarker(0, false);
+      els.routeStatus.textContent = `Route built with ${formatNumber(routeReplayPoints.length)} GPS point(s).`;
+      renderAiSummary(routeReplayPoints);
+    }
+
+    function moveReplayMarker(index, panToPoint = true) {
+      if (!routeReplayMarker || !routeReplayPoints.length) return;
+      routeReplayIndex = Math.max(0, Math.min(index, routeReplayPoints.length - 1));
+      const point = routeReplayPoints[routeReplayIndex];
+      const latLng = [point.coords.lat, point.coords.lng];
+      routeReplayMarker.setLatLng(latLng).bindPopup(pointPopup(point, routeReplayIndex));
+      if (panToPoint && routeMap) routeMap.panTo(latLng);
+      updateCurrentStop(point, routeReplayIndex);
+    }
+
+    function playRouteReplay() {
+      if (!routeReplayPoints.length) renderRouteReplay();
+      if (!routeReplayPoints.length) return;
+      pauseRouteReplay();
+      moveReplayMarker(routeReplayIndex, true);
+      const speed = Number(els.routeSpeed.value || 1200);
+      routeReplayTimer = setInterval(() => {
+        if (routeReplayIndex >= routeReplayPoints.length - 1) {
+          pauseRouteReplay();
+          return;
+        }
+        moveReplayMarker(routeReplayIndex + 1, true);
+      }, speed);
+    }
+
+    function pauseRouteReplay() {
+      if (routeReplayTimer) clearInterval(routeReplayTimer);
+      routeReplayTimer = null;
+    }
+
+    function resetRouteReplay() {
+      pauseRouteReplay();
+      moveReplayMarker(0, true);
+    }
+
+    function renderAiSummary(routePoints) {
+      if (!els.aiSummary) return;
+
+      const filters = currentFilters();
+      const addressMap = buildAddressMap();
+      const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
+      const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
+      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
+      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
+      const latestMap = latestEventsMap(filteredEvents);
+      const workedAddressKeys = new Set(filteredEvents.filter(ev => String(ev.status || '').toLowerCase() !== 'pending').map(ev => idKey(ev.address_id)).filter(Boolean));
+      const uniqueWorked = workedAddressKeys.size;
+      const uniqueSales = salesQueueRows.length;
+      const closeRate = uniqueWorked ? uniqueSales / uniqueWorked : 0;
+
+      const dispositionCounts = {};
+      filteredEvents.forEach(ev => {
+        const status = String(ev.status || 'pending').toLowerCase();
+        dispositionCounts[status] = (dispositionCounts[status] || 0) + 1;
+      });
+      const topDisposition = Object.entries(dispositionCounts).sort((a,b) => b[1] - a[1])[0];
+
+      const softStatuses = new Set(['maybelater', 'sendinfo', 'talktospouse', 'goback', 'priceconcern', 'notdecisionmaker']);
+      const softFollowUps = filteredEvents
+        .filter(ev => softStatuses.has(String(ev.status || '').toLowerCase()))
+        .sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at))
+        .slice(0, 8)
+        .map(ev => `${buildAddressLabel(addressMap, ev)} — ${String(ev.status || '').toLowerCase()}`);
+
+      const pendingPockets = {};
+      filteredAddresses.forEach(addr => {
+        const ev = latestMap.get(idKey(addr.id));
+        const latestStatus = String(ev?.status || 'pending').toLowerCase();
+        if (ev && latestStatus !== 'pending') return;
+        const label = addressLabelFromAddressRow(addr);
+        const street = getStreetPocket(label);
+        const city = firstNonEmpty(addr.city, 'Unknown City');
+        const key = `${street}, ${city}`;
+        pendingPockets[key] = (pendingPockets[key] || 0) + 1;
+      });
+      const topPendingPockets = Object.entries(pendingPockets)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([pocket, count]) => `${pocket}: ${formatNumber(count)} pending/home-passed address(es)`);
+
+      const repCounts = {};
+      filteredEvents.forEach(ev => {
+        const rep = getRepName(ev);
+        if (!rep) return;
+        repCounts[rep] = (repCounts[rep] || 0) + 1;
+      });
+      const topRep = Object.entries(repCounts).sort((a,b) => b[1] - a[1])[0];
+
+      const firstPoint = routePoints[0];
+      const lastPoint = routePoints[routePoints.length - 1];
+      const routeWindow = routePoints.length > 1 ? `${formatDateTime(firstPoint.time)} through ${formatDateTime(lastPoint.time)}` : (routePoints.length ? formatDateTime(firstPoint.time) : 'no GPS route points');
+      const notHomeCount = Object.entries(dispositionCounts)
+        .filter(([status]) => status.startsWith('nothome') || status === 'not_home')
+        .reduce((sum, [,count]) => sum + count, 0);
+      const notHomeRate = filteredEvents.length ? notHomeCount / filteredEvents.length : 0;
+
+      let recommendation = 'Keep working the selected territory and prioritize streets with the most pending homes passed.';
+      if (topPendingPockets.length) {
+        recommendation = `Head next to ${topPendingPockets[0].split(':')[0]}. It has the largest remaining unworked/pending pocket in the current filter.`;
+      }
+      if (softFollowUps.length) {
+        recommendation += ' Also schedule a follow-up pass for the soft-interest addresses because those are warmer than cold doors.';
+      }
+
+      const coachingNotes = [];
+      if (notHomeRate >= .55) coachingNotes.push('Not-home volume is high. Try a later evening or weekend pass before counting this pocket as exhausted.');
+      if (closeRate >= .08 && uniqueSales >= 2) coachingNotes.push('Close rate looks strong in this filter. Expand into adjacent pending streets while the offer is landing.');
+      if (filteredEvents.length > 0 && uniqueSales === 0) coachingNotes.push('No sales are showing in this slice. Review talk tracks, package positioning, and whether the selected area is a weak fit.');
+      if (!routePoints.length && filteredEvents.length) coachingNotes.push('Activity exists, but no route appears because the events do not have usable GPS coordinates.');
+      if (!coachingNotes.length) coachingNotes.push('Maintain steady coverage and keep the follow-up list clean so the team is not only re-knocking cold doors.');
+
+      els.aiSummary.innerHTML = `
+        <div class="ai-box">
+          <h3>Field Readout</h3>
+          Based on the current filters, the dashboard shows <strong>${formatNumber(filteredEvents.length)}</strong> logged disposition event(s),
+          <strong>${formatNumber(uniqueWorked)}</strong> worked address(es), <strong>${formatNumber(uniqueSales)}</strong> sale(s), and a
+          <strong>${formatPercent(closeRate)}</strong> close rate. The route replay window is <strong>${escapeHtml(routeWindow)}</strong>.
+          ${topDisposition ? `The most common disposition is <strong>${escapeHtml(topDisposition[0])}</strong> with <strong>${formatNumber(topDisposition[1])}</strong> event(s).` : ''}
+          ${topRep ? `The most active rep in this filter is <strong>${escapeHtml(topRep[0])}</strong> with <strong>${formatNumber(topRep[1])}</strong> event(s).` : ''}
+        </div>
+        <div class="ai-box">
+          <h3>Where to Head Next</h3>
+          ${escapeHtml(recommendation)}
+          ${topPendingPockets.length ? `<ul>${listTopItems(topPendingPockets)}</ul>` : '<ul><li>No pending pockets found for this filter.</li></ul>'}
+        </div>
+        <div class="ai-box">
+          <h3>Follow-Up Opportunities</h3>
+          ${softFollowUps.length ? `<ul>${listTopItems(softFollowUps, 8)}</ul>` : '<ul><li>No soft-interest follow-ups found in this filter.</li></ul>'}
+        </div>
+        <div class="ai-box">
+          <h3>Coaching Notes</h3>
+          <ul>${listTopItems(coachingNotes, 5)}</ul>
+        </div>`;
+    }
+
     function renderAll() {
       const filters = currentFilters();
       const addressMap = buildAddressMap();
@@ -785,6 +1167,7 @@
       renderScheduleList(utilizationRows);
       renderActivity(activityRows);
       renderSalesQueue(salesQueueRows);
+      if (els.tabPanelRoute && els.tabPanelRoute.classList.contains('active')) setTimeout(renderRouteReplay, 80);
 
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
       els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', salesQueueRows);
@@ -863,11 +1246,17 @@
     }
 
     function setActiveTab(tabName) {
-      const showOverview = tabName !== 'sales';
+      const showSales = tabName === 'sales';
+      const showRoute = tabName === 'route';
+      const showOverview = !showSales && !showRoute;
       els.tabOverview.classList.toggle('active', showOverview);
-      els.tabSales.classList.toggle('active', !showOverview);
+      els.tabSales.classList.toggle('active', showSales);
+      els.tabRoute.classList.toggle('active', showRoute);
       els.tabPanelOverview.classList.toggle('active', showOverview);
-      els.tabPanelSales.classList.toggle('active', !showOverview);
+      els.tabPanelSales.classList.toggle('active', showSales);
+      els.tabPanelRoute.classList.toggle('active', showRoute);
+      if (showRoute) setTimeout(renderRouteReplay, 120);
+      else pauseRouteReplay();
     }
 
     function openDetail(title, rows) {
@@ -902,6 +1291,11 @@
     els.logoutBtn.onclick = signOut;
     els.tabOverview.onclick = () => setActiveTab('overview');
     els.tabSales.onclick = () => setActiveTab('sales');
+    els.tabRoute.onclick = () => setActiveTab('route');
+    els.routeRender.onclick = renderRouteReplay;
+    els.routePlay.onclick = playRouteReplay;
+    els.routePause.onclick = pauseRouteReplay;
+    els.routeReset.onclick = resetRouteReplay;
     els.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') signIn(); });
 
     supabaseClient.auth.onAuthStateChange(async (_event, session) => {
