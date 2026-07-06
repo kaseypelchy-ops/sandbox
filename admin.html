@@ -107,8 +107,23 @@
     .leaflet-container { background: #020617; color: #0f172a; }
     .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #0f172a; color: #e5e7eb; border: 1px solid #1e293b; }
     .leaflet-popup-content { font-size: 13px; line-height: 1.4; }
-    @media (max-width: 1200px) { .controls, .grid-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 700px) { .controls, .grid-kpis { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
+
+    .pricing-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .pricing-card { background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 14px; }
+    .pricing-card-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+    .pricing-card-value { margin-top: 8px; font-size: 24px; font-weight: 700; }
+    .pricing-card-sub { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .warning-list { display: grid; gap: 10px; }
+    .warning-item { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.28); color: #fde68a; border-radius: 14px; padding: 12px 14px; line-height: 1.45; }
+    .warning-item.good { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.28); color: #bbf7d0; }
+    .warning-item.bad { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.30); color: #fecaca; }
+    .mini-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: rgba(34,211,238,.12); color: #a5f3fc; border: 1px solid rgba(34,211,238,.24); font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .mini-badge.warn { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.28); }
+    .mini-badge.good { background: rgba(34,197,94,.12); color: #bbf7d0; border-color: rgba(34,197,94,.28); }
+    .compact-cell { min-width: 160px; line-height: 1.35; }
+
+    @media (max-width: 1200px) { .controls, .grid-kpis, .pricing-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 700px) { .controls, .grid-kpis, .pricing-summary { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
   </style>
 </head>
 <body>
@@ -162,6 +177,7 @@
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
+        <button id="tab-pricing" class="tab-btn">Offers & Pricing</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -236,12 +252,82 @@
                   <th>Email</th>
                   <th>Address</th>
                   <th>Package</th>
+                  <th>Offer / Promo</th>
+                  <th>Promo Term</th>
+                  <th>Monthly Total</th>
+                  <th>First Bill Est.</th>
+                  <th>After Promo</th>
+                  <th>Snapshot</th>
                   <th>Install Date</th>
                   <th>Install Time</th>
                   <th>Notes</th>
                 </tr>
               </thead>
               <tbody id="sales-queue-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
+      <div id="tab-panel-pricing" class="tab-panel">
+        <div class="pricing-summary">
+          <div class="pricing-card"><div class="pricing-card-label">Active Offers</div><div id="pricing-active-count" class="pricing-card-value">0</div><div class="pricing-card-sub">Rows visible from fieldos_pricing_offers.</div></div>
+          <div class="pricing-card"><div class="pricing-card-label">Covered Territories</div><div id="pricing-territory-count" class="pricing-card-value">0</div><div class="pricing-card-sub">Exact territory or all-territory coverage.</div></div>
+          <div class="pricing-card"><div class="pricing-card-label">Sales Missing Snapshot</div><div id="pricing-missing-snapshot" class="pricing-card-value">0</div><div class="pricing-card-sub">Submitted sales without offer_snapshot.</div></div>
+          <div class="pricing-card"><div class="pricing-card-label">Modem Fee Flags</div><div id="pricing-modem-flags" class="pricing-card-value">0</div><div class="pricing-card-sub">Active offers where modem fee is not $0.</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Pricing / Promo Warnings</h2>
+                <div class="panel-sub">Checks for missing offer snapshots, modem-fee mistakes, duplicate offers, and uncovered territory/package combinations.</div>
+              </div>
+            </div>
+            <div id="promo-warning-list" class="warning-list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Offer Coverage</h2>
+                <div class="panel-sub">Compares address territories against active Mega/Gig offers.</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Territory</th><th>Mega</th><th>Gig</th></tr></thead>
+                <tbody id="pricing-coverage-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Active Pricing Offers</h2>
+              <div class="panel-sub">The active offer rows the dashboard can read from Supabase. These should match what reps can quote in the field app.</div>
+            </div>
+            <button id="export-pricing-offers-btn">Export Active Offers</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>Territory</th>
+                  <th>Package</th>
+                  <th>Offer</th>
+                  <th>Promo</th>
+                  <th>Phase Schedule</th>
+                  <th>Required Charges</th>
+                  <th>After Promo</th>
+                  <th>Dates</th>
+                </tr>
+              </thead>
+              <tbody id="pricing-offers-body"></tbody>
             </table>
           </div>
         </div>
@@ -334,22 +420,22 @@
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
       loginEmail: document.getElementById('login-email'), loginPassword: document.getElementById('login-password'), loginBtn: document.getElementById('login-btn'), authStatus: document.getElementById('auth-status'), authTitle: document.getElementById('auth-title'), authSubtitle: document.getElementById('auth-subtitle'),
       sessionEmail: document.getElementById('session-email'), logoutBtn: document.getElementById('logout-btn'),
-      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabRoute: document.getElementById('tab-route'),
-      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelRoute: document.getElementById('tab-panel-route'),
-      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'),
+      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabPricing: document.getElementById('tab-pricing'), tabRoute: document.getElementById('tab-route'),
+      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelPricing: document.getElementById('tab-panel-pricing'), tabPanelRoute: document.getElementById('tab-panel-route'),
+      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'), pricingOffersBody: document.getElementById('pricing-offers-body'), pricingCoverageBody: document.getElementById('pricing-coverage-body'), promoWarnings: document.getElementById('promo-warning-list'), exportPricingOffers: document.getElementById('export-pricing-offers-btn'),
       territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
       routeRender: document.getElementById('route-render-btn'), routePlay: document.getElementById('route-play-btn'), routePause: document.getElementById('route-pause-btn'), routeReset: document.getElementById('route-reset-btn'), routeSpeed: document.getElementById('route-speed'), routeStatus: document.getElementById('route-status'), routeStops: document.getElementById('route-stat-stops'), routeDoors: document.getElementById('route-stat-doors'), routeWindow: document.getElementById('route-stat-window'), routePace: document.getElementById('route-stat-pace'), currentStop: document.getElementById('current-stop'), aiSummary: document.getElementById('ai-summary'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
 
-    let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [] };
+    let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
     let currentDetailRows = [];
     let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
     let routeMap, routeLayer, routeLine, routeReplayMarker, routeReplayTimer;
     let routeReplayPoints = [];
     let routeReplayIndex = 0;
     let cachedFilteredEvents = [];
-    let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0 };
+    let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0, fieldos_pricing_offers: 0 };
 
     function setDashboardHeader() {
       if (isCompanyView) {
@@ -446,6 +532,75 @@
 
     function formatNumber(value) { return new Intl.NumberFormat('en-US').format(value || 0); }
     function formatPercent(value) { return Number.isFinite(value) ? (value * 100).toFixed(1) + '%' : '0.0%'; }
+
+    function formatMoney(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '';
+      return '$' + n.toFixed(2);
+    }
+
+    function safeJson(value) {
+      if (!value) return null;
+      if (typeof value === 'object') return value;
+      try { return JSON.parse(value); } catch (e) { return null; }
+    }
+
+    function arrayFromJson(value) {
+      const parsed = safeJson(value);
+      return Array.isArray(parsed) ? parsed : (Array.isArray(value) ? value : []);
+    }
+
+    function phaseLabel(p) {
+      if (!p) return 'Internet';
+      if (p.label) return p.label;
+      if (p.month_end === null || p.month_end === undefined || p.month_end === '') return 'Month ' + (p.month_start || 1) + '+';
+      if (Number(p.month_start || 1) === Number(p.month_end || 1)) return 'Month ' + p.month_start;
+      return 'Months ' + (p.month_start || 1) + '–' + p.month_end;
+    }
+
+    function phaseSummary(phases) {
+      return (phases || []).map(p => {
+        const price = Number(p.internet_price || 0) === 0 ? 'FREE' : formatMoney(p.internet_price) + '/mo';
+        return phaseLabel(p) + ': ' + price;
+      }).join(' | ');
+    }
+
+    function chargeSummary(charges) {
+      return (charges || []).filter(c => c && c.required !== false && c.recurring !== false).map(c => `${c.label || c.key || 'Charge'}: ${formatMoney(c.amount || 0)}/mo`).join(' | ');
+    }
+
+    function modemFeeAmount(charges) {
+      const modem = (charges || []).find(c => String(c?.key || c?.label || '').toLowerCase().includes('modem'));
+      return modem ? Number(modem.amount || 0) : 0;
+    }
+
+    function pricingOfferMatchesTeam(row) {
+      if (!row) return false;
+      if (isCompanyView) return true;
+      const team = String(row.team_slug || '').toLowerCase().trim();
+      if (team && team !== 'all' && team !== activeTeam) return false;
+      const territory = normalizeTerritory(row.territory || 'all');
+      if (!territory || territory === 'all') return true;
+      return allowedTerritoryKeys ? allowedTerritoryKeys.includes(territory) : true;
+    }
+
+    function activeDateStatus(row) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const start = row.active_start ? new Date(String(row.active_start) + 'T00:00:00') : null;
+      const end = row.active_end ? new Date(String(row.active_end) + 'T23:59:59') : null;
+      if (start && !isNaN(start.getTime()) && today < start) return 'Upcoming';
+      if (end && !isNaN(end.getTime()) && today > end) return 'Expired';
+      return row.is_active === false ? 'Inactive' : 'Active';
+    }
+
+    function getSaleSnapshot(row) {
+      return safeJson(row?.offer_snapshot) || null;
+    }
+
+    function snapshotValue(snapshot, key, fallback) {
+      return firstNonEmpty(snapshot && snapshot[key], fallback);
+    }
+
 
     function formatDate(value) {
       if (!value) return '';
@@ -652,6 +807,16 @@
       return rows;
     }
 
+
+    async function fetchOptionalAllPages(table, opts = {}) {
+      try {
+        return await fetchAllPages(table, opts);
+      } catch (err) {
+        console.warn(`${table} could not be loaded as an optional dashboard table:`, err);
+        return [];
+      }
+    }
+
     async function loadData() {
       const { data: authData } = await supabaseClient.auth.getSession();
       if (!authData.session) { showAuthScreen('Your session expired. Please sign in again.'); return; }
@@ -675,13 +840,14 @@
           bookingFilters.push({ type: 'lte', column: 'created_at', value: filters.end + 'T23:59:59' });
         }
 
-        const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings] = await Promise.all([
+        const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings, fieldos_pricing_offers] = await Promise.all([
           fetchAllPages('addresses', { order: { column: 'address1', ascending: true } }),
           fetchAllPages('reps', { order: { column: 'full_name', ascending: true } }),
           fetchAllPages('address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
           fetchAllPages('sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
           fetchAllPages('schedule_slots', { order: { column: 'slot_date', ascending: true } }),
-          fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters })
+          fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters }),
+          fetchOptionalAllPages('fieldos_pricing_offers', { order: { column: 'priority', ascending: true } })
         ]);
 
         loadedCounts = {
@@ -690,7 +856,8 @@
           address_events: address_events.length,
           sales_orders: sales_orders.length,
           schedule_slots: schedule_slots.length,
-          schedule_bookings: schedule_bookings.length
+          schedule_bookings: schedule_bookings.length,
+          fieldos_pricing_offers: fieldos_pricing_offers.length
         };
 
         const allAddressMap = buildAddressMapFromRows(addresses);
@@ -706,7 +873,8 @@
           address_events: address_events.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
           sales_orders: sales_orders.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
           schedule_slots: teamSlots,
-          schedule_bookings: schedule_bookings.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap))
+          schedule_bookings: schedule_bookings.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
+          fieldos_pricing_offers: fieldos_pricing_offers.filter(pricingOfferMatchesTeam)
         };
 
         populateFilters();
@@ -753,6 +921,13 @@
       const orderRows = filteredSales.map(s => {
         const addressKey = idKey(s.address_id || s.location_id || s.zito_location_id || s.external_id);
         if (addressKey) orderAddressKeys.add(addressKey);
+        const snapshot = getSaleSnapshot(s);
+        const promoDisplay = firstNonEmpty(s.promo_price, snapshotValue(snapshot, 'promo_display', ''));
+        const promoTerm = firstNonEmpty(s.promo_term, snapshotValue(snapshot, 'promo_term_label', ''));
+        const standardRate = firstNonEmpty(s.standard_rate, snapshotValue(snapshot, 'standard_rate_label', ''));
+        const monthlyTotalRaw = firstNonEmpty(s.monthly_total, snapshotValue(snapshot, 'month_one_total', ''));
+        const firstBillRaw = firstNonEmpty(s.first_bill_estimate, snapshotValue(snapshot, 'first_bill_estimate', ''));
+        const offerCode = snapshotValue(snapshot, 'offer_code', firstNonEmpty(s.offer_code, ''));
         return {
           created_at: s.created_at,
           rep_name: getRepName(s),
@@ -761,7 +936,15 @@
           phone: firstNonEmpty(s.phone, s.customer_phone, s.mobile, s.cell_phone),
           email: firstNonEmpty(s.email, s.customer_email),
           address: buildAddressLabel(addressMap, s),
-          package_name: getPackageName(s),
+          package_name: firstNonEmpty(snapshotValue(snapshot, 'package_name', ''), getPackageName(s)),
+          offer_promo: promoDisplay,
+          promo_term: promoTerm,
+          monthly_total: formatMoney(monthlyTotalRaw) || String(monthlyTotalRaw || ''),
+          first_bill_estimate: formatMoney(firstBillRaw) || String(firstBillRaw || ''),
+          standard_rate: standardRate,
+          offer_code: offerCode,
+          offer_snapshot_status: snapshot ? 'Snapshot saved' : 'Missing snapshot',
+          offer_snapshot: snapshot,
           install_date: firstNonEmpty(s.install_date, s.preferred_install_date, s.appointment_date),
           install_time: firstNonEmpty(s.install_time, s.install_slot, s.preferred_install_time, s.appointment_time),
           notes: firstNonEmpty(s.notes, s.note, s.work_order_note, s.comments),
@@ -781,6 +964,14 @@
           email: '',
           address: buildAddressLabel(addressMap, ev),
           package_name: String(ev.status || '').toLowerCase().trim(),
+          offer_promo: '',
+          promo_term: '',
+          monthly_total: '',
+          first_bill_estimate: '',
+          standard_rate: '',
+          offer_code: '',
+          offer_snapshot_status: 'No sales_order row',
+          offer_snapshot: null,
           install_date: '',
           install_time: '',
           notes: firstNonEmpty(ev.note, 'Sale disposition found in address_events, but no matching row was found in sales_orders.'),
@@ -1432,6 +1623,7 @@
       renderScheduleList(utilizationRows);
       renderActivity(activityRows);
       renderSalesQueue(salesQueueRows);
+      renderPricingAdmin(salesQueueRows);
       if (els.tabPanelRoute && els.tabPanelRoute.classList.contains('active')) setTimeout(renderRouteReplay, 80);
 
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
@@ -1504,21 +1696,120 @@
       [...els.activityBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Activity Detail', [rows[idx]]); });
     }
 
+
+
+    function findOfferForTerritoryPackage(offers, territory, packageKey) {
+      const terr = normalizeTerritory(territory);
+      const exact = offers.find(o => String(o.package_key || '').toLowerCase() === packageKey && normalizeTerritory(o.territory) === terr && activeDateStatus(o) === 'Active');
+      if (exact) return exact;
+      return offers.find(o => String(o.package_key || '').toLowerCase() === packageKey && (!normalizeTerritory(o.territory) || normalizeTerritory(o.territory) === 'all') && activeDateStatus(o) === 'Active') || null;
+    }
+
+    function renderPricingAdmin(salesQueueRows) {
+      const offers = (state.fieldos_pricing_offers || []).filter(o => o && o.is_active !== false);
+      const activeOffers = offers.filter(o => activeDateStatus(o) === 'Active');
+      const territories = [...new Set(state.addresses.map(a => a.territory).filter(Boolean))].sort((a,b) => normalizeTerritory(a).localeCompare(normalizeTerritory(b)));
+      const missingSnapshots = (salesQueueRows || []).filter(r => r.source === 'sales_orders' && !r.offer_snapshot).length;
+      const modemFlags = activeOffers.filter(o => modemFeeAmount(arrayFromJson(o.charges)) !== 0).length;
+      const coveredTerritories = new Set(activeOffers.map(o => normalizeTerritory(o.territory || 'all')).filter(Boolean));
+
+      const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+      setText('pricing-active-count', formatNumber(activeOffers.length));
+      setText('pricing-territory-count', formatNumber(coveredTerritories.size));
+      setText('pricing-missing-snapshot', formatNumber(missingSnapshots));
+      setText('pricing-modem-flags', formatNumber(modemFlags));
+
+      if (els.pricingCoverageBody) {
+        els.pricingCoverageBody.innerHTML = territories.length ? territories.map(t => {
+          const mega = findOfferForTerritoryPackage(activeOffers, t, 'mega');
+          const gig = findOfferForTerritoryPackage(activeOffers, t, 'gig');
+          const badge = offer => offer ? `<span class="mini-badge good">${escapeHtml(offer.offer_title || offer.offer_code || 'Covered')}</span>` : '<span class="mini-badge warn">Missing</span>';
+          return `<tr><td>${escapeHtml(t)}</td><td>${badge(mega)}</td><td>${badge(gig)}</td></tr>`;
+        }).join('') : '<tr><td colspan="3" style="color:#94a3b8;">No territories loaded.</td></tr>';
+      }
+
+      if (els.pricingOffersBody) {
+        els.pricingOffersBody.innerHTML = activeOffers.length ? activeOffers.map(o => {
+          const phases = arrayFromJson(o.phases);
+          const charges = arrayFromJson(o.charges);
+          const modemFlag = modemFeeAmount(charges) !== 0 ? '<br><span class="mini-badge warn">Modem fee not $0</span>' : '';
+          return `<tr class="row-btn">
+            <td>${escapeHtml(o.team_slug || 'all')}</td>
+            <td>${escapeHtml(o.territory || 'all')}</td>
+            <td>${escapeHtml(o.package_name || o.package_key || '—')}</td>
+            <td class="compact-cell"><strong>${escapeHtml(o.offer_title || o.offer_code || '—')}</strong><br><span style="color:#94a3b8;">${escapeHtml(o.offer_code || '')}</span></td>
+            <td>${escapeHtml(o.promo_display || '')}<br><span style="color:#94a3b8;">${escapeHtml(o.promo_term_label || '')}</span></td>
+            <td class="compact-cell">${escapeHtml(phaseSummary(phases) || '—')}</td>
+            <td class="compact-cell">${escapeHtml(chargeSummary(charges) || '—')}${modemFlag}</td>
+            <td>${escapeHtml(o.standard_rate_label || (o.standard_rate ? formatMoney(o.standard_rate) : ''))}</td>
+            <td>${escapeHtml((o.active_start || 'Start now') + ' → ' + (o.active_end || 'No end'))}</td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No active pricing offers loaded. Confirm RLS/grants on fieldos_pricing_offers.</td></tr>';
+        [...els.pricingOffersBody.querySelectorAll('tr.row-btn')].forEach((tr, idx) => { tr.onclick = () => openDetail('Pricing Offer Detail', [activeOffers[idx]]); });
+      }
+
+      const warnings = [];
+      if (!activeOffers.length) warnings.push({ type: 'bad', text: 'No active pricing offers are visible to this dashboard. Reps may still see fallback pricing if the pricing table cannot be read.' });
+      if (missingSnapshots) warnings.push({ type: 'bad', text: `${formatNumber(missingSnapshots)} submitted sale(s) are missing an offer snapshot. These may have been created before dynamic pricing was deployed or while optional sales_orders columns were missing.` });
+      if (modemFlags) warnings.push({ type: 'bad', text: `${formatNumber(modemFlags)} active offer(s) have a modem fee other than $0. Review immediately before reps quote pricing.` });
+
+      const duplicates = new Map();
+      activeOffers.forEach(o => {
+        const key = [String(o.team_slug || 'all').toLowerCase(), normalizeTerritory(o.territory || 'all'), String(o.package_key || '').toLowerCase()].join('|');
+        duplicates.set(key, (duplicates.get(key) || 0) + 1);
+      });
+      const duplicateCount = [...duplicates.values()].filter(v => v > 1).length;
+      if (duplicateCount) warnings.push({ type: 'warn', text: `${formatNumber(duplicateCount)} team/territory/package combination(s) have multiple active offers. The rep app will pick the lowest priority/sort order, but this should be cleaned up.` });
+
+      const uncovered = [];
+      territories.forEach(t => ['mega','gig'].forEach(pkg => { if (!findOfferForTerritoryPackage(activeOffers, t, pkg)) uncovered.push(`${t} ${pkg.toUpperCase()}`); }));
+      if (uncovered.length) warnings.push({ type: 'warn', text: `${formatNumber(uncovered.length)} territory/package combination(s) do not have exact or all-territory coverage: ${uncovered.slice(0, 8).join(', ')}${uncovered.length > 8 ? '…' : ''}` });
+      if (!warnings.length) warnings.push({ type: 'good', text: 'Pricing setup looks good for the currently loaded dashboard filters. Active offers are visible, snapshots are present, and modem fee flags are clear.' });
+
+      if (els.promoWarnings) {
+        els.promoWarnings.innerHTML = warnings.map(w => `<div class="warning-item ${w.type === 'bad' ? 'bad' : w.type === 'good' ? 'good' : ''}">${escapeHtml(w.text)}</div>`).join('');
+      }
+
+      if (els.exportPricingOffers) {
+        els.exportPricingOffers.onclick = () => csvDownload('fieldos_active_pricing_offers.csv', activeOffers.map(o => ({
+          team_slug: o.team_slug || 'all',
+          territory: o.territory || 'all',
+          package_key: o.package_key || '',
+          package_name: o.package_name || '',
+          offer_code: o.offer_code || '',
+          offer_title: o.offer_title || '',
+          promo_display: o.promo_display || '',
+          promo_term_label: o.promo_term_label || '',
+          phase_schedule: phaseSummary(arrayFromJson(o.phases)),
+          required_charges: chargeSummary(arrayFromJson(o.charges)),
+          standard_rate_label: o.standard_rate_label || '',
+          active_start: o.active_start || '',
+          active_end: o.active_end || '',
+          priority: o.priority,
+          sort_order: o.sort_order,
+          disclosure: o.disclosure || ''
+        })));
+      }
+    }
+
     function renderSalesQueue(rows) {
-      els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}</td><td>${escapeHtml(r.phone || '—')}</td><td>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.address || '—')}</td><td>${escapeHtml(r.package_name || '—')}</td><td>${escapeHtml(r.install_date || '—')}</td><td>${escapeHtml(r.install_time || '—')}</td><td>${escapeHtml(r.notes || '—')}</td></tr>`).join('') : '<tr><td colspan="11" style="color:#94a3b8;">No submitted sales found.</td></tr>';
+      els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}</td><td>${escapeHtml(r.phone || '—')}</td><td>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.address || '—')}</td><td>${escapeHtml(r.package_name || '—')}</td><td>${escapeHtml(r.offer_promo || '—')}<br><span style="color:#94a3b8;">${escapeHtml(r.offer_code || '')}</span></td><td>${escapeHtml(r.promo_term || '—')}</td><td>${escapeHtml(r.monthly_total || '—')}</td><td>${escapeHtml(r.first_bill_estimate || '—')}</td><td>${escapeHtml(r.standard_rate || '—')}</td><td><span class="mini-badge ${r.offer_snapshot ? 'good' : 'warn'}">${escapeHtml(r.offer_snapshot_status || '—')}</span></td><td>${escapeHtml(r.install_date || '—')}</td><td>${escapeHtml(r.install_time || '—')}</td><td>${escapeHtml(r.notes || '—')}</td></tr>`).join('') : '<tr><td colspan="17" style="color:#94a3b8;">No submitted sales found.</td></tr>';
       if (!rows.length) return;
       [...els.salesQueueBody.querySelectorAll('tr')].forEach((tr, idx) => { tr.onclick = () => openDetail('Sales Submission Detail', [rows[idx]]); });
     }
 
     function setActiveTab(tabName) {
       const showSales = tabName === 'sales';
+      const showPricing = tabName === 'pricing';
       const showRoute = tabName === 'route';
-      const showOverview = !showSales && !showRoute;
+      const showOverview = !showSales && !showPricing && !showRoute;
       els.tabOverview.classList.toggle('active', showOverview);
       els.tabSales.classList.toggle('active', showSales);
+      els.tabPricing.classList.toggle('active', showPricing);
       els.tabRoute.classList.toggle('active', showRoute);
       els.tabPanelOverview.classList.toggle('active', showOverview);
       els.tabPanelSales.classList.toggle('active', showSales);
+      els.tabPanelPricing.classList.toggle('active', showPricing);
       els.tabPanelRoute.classList.toggle('active', showRoute);
       if (showRoute) setTimeout(renderRouteReplay, 120);
       else pauseRouteReplay();
@@ -1556,6 +1847,7 @@
     els.logoutBtn.onclick = signOut;
     els.tabOverview.onclick = () => setActiveTab('overview');
     els.tabSales.onclick = () => setActiveTab('sales');
+    els.tabPricing.onclick = () => setActiveTab('pricing');
     els.tabRoute.onclick = () => setActiveTab('route');
     els.routeRender.onclick = renderRouteReplay;
     els.routePlay.onclick = playRouteReplay;
