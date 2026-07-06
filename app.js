@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.2';
-var BUILD_ID    = '2026.06.17-pin-lock';
+var APP_VERSION = '2.0.3';
+var BUILD_ID    = '2026.07.06-auto-boundaries';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -630,39 +630,231 @@ document.getElementById('csv-file').addEventListener('change', function() {
 
 // ── KMZ / KML ────────────────────────────────────────────
 var kmlFiles = [];
+var kmlLeafletLayers = [];
+var activeBoundaryLoadKey = '';
+var BOUNDARY_STORAGE_BUCKET = 'fieldos-boundaries';
 
 document.getElementById('kml-file').addEventListener('change', function() {
   var files = Array.from(this.files);
   if (!files.length) return;
   var input = this;
   lazyLoad(JSZIP_URL, function() {
-    files.forEach(function(f) { loadKmlFile(f); });
-    input.value = '';
+    Promise.allSettled(files.map(function(f) { return loadKmlFile(f, { source: 'manual' }); }))
+      .finally(function(){ input.value = ''; });
   });
 });
 
-function loadKmlFile(f) {
-  var ext = f.name.split('.').pop().toLowerCase();
+function getBoundaryFileName(row) {
+  var raw = String((row && (row.display_name || row.file_name || row.file_path || row.path)) || 'territory_boundary.kmz').trim();
+  raw = raw.split('/').pop() || raw;
+  var ext = String((row && row.file_type) || '').toLowerCase().replace('.', '').trim();
+
+  if (!/\.(kmz|kml)$/i.test(raw)) {
+    raw += '.' + (ext === 'kml' ? 'kml' : 'kmz');
+  }
+
+  return raw;
+}
+
+function makeNamedBoundaryFile(blob, fileName, fileType) {
+  var mime = fileType === 'kml'
+    ? 'application/vnd.google-earth.kml+xml'
+    : 'application/vnd.google-earth.kmz';
+
+  try {
+    return new File([blob], fileName, { type: mime });
+  } catch (e) {
+    // Older mobile browsers may not support File(). loadKmlFile only needs .name
+    // plus Blob/FileReader compatibility, so assigning name is enough.
+    blob.name = fileName;
+    return blob;
+  }
+}
+
+function loadKmlFile(f, opts) {
+  opts = opts || {};
+  var fileName = String(f && f.name ? f.name : 'territory_boundary.kmz');
+  var ext = fileName.split('.').pop().toLowerCase();
+
   if (ext === 'kmz') {
-    JSZip.loadAsync(f).then(function(zip) {
+    return JSZip.loadAsync(f).then(function(zip) {
       var kmlEntry = null;
       zip.forEach(function(path, file) {
         if (!kmlEntry && path.toLowerCase().endsWith('.kml')) kmlEntry = file;
       });
-      if (!kmlEntry) { addKmlFileRow(f.name, [], '⚠ No KML inside'); return; }
-      kmlEntry.async('string').then(function(text) {
+      if (!kmlEntry) {
+        addKmlFileRow(fileName, [], '⚠ No KML inside', opts);
+        return [];
+      }
+      return kmlEntry.async('string').then(function(text) {
         var features = parseKmlFeatures(text);
-        addKmlFileRow(f.name, features, features.length ? null : '⚠ No polygons found');
+        addKmlFileRow(fileName, features, features.length ? null : '⚠ No polygons found', opts);
+        return features;
       });
-    }).catch(function() { addKmlFileRow(f.name, [], '⚠ Could not unzip'); });
-  } else {
+    }).catch(function(err) {
+      console.warn('Could not unzip KMZ', err);
+      addKmlFileRow(fileName, [], '⚠ Could not unzip', opts);
+      return [];
+    });
+  }
+
+  return new Promise(function(resolve) {
     var reader = new FileReader();
     reader.onload = function(e) {
       var features = parseKmlFeatures(e.target.result);
-      addKmlFileRow(f.name, features, features.length ? null : '⚠ No polygons found');
+      addKmlFileRow(fileName, features, features.length ? null : '⚠ No polygons found', opts);
+      resolve(features);
+    };
+    reader.onerror = function() {
+      addKmlFileRow(fileName, [], '⚠ Could not read file', opts);
+      resolve([]);
     };
     reader.readAsText(f);
+  });
+}
+
+function fetchBoundaryFilesForTerritoriesFromSupabase(territories) {
+  if (!hasSupabase()) return Promise.resolve([]);
+
+  var terrs = (territories || [])
+    .map(function(t){ return String(t || '').trim(); })
+    .filter(Boolean)
+    .filter(function(v, i, arr){ return arr.indexOf(v) === i; });
+
+  if (!terrs.length) return Promise.resolve([]);
+
+  var teamSlug = '';
+  try {
+    teamSlug = (TEAMS[activeTeam] && TEAMS[activeTeam].slug) ? TEAMS[activeTeam].slug : '';
+  } catch (e) {
+    teamSlug = '';
   }
+
+  var query = supabaseClient
+    .from('territory_boundary_files')
+    .select('*')
+    .in('territory', terrs)
+    .eq('is_active', true);
+
+  // If team_slug is populated, only load rows for the current vendor/team.
+  // If team_slug is null/blank, treat the boundary as generally available.
+  if (teamSlug) {
+    query = query.or('team_slug.is.null,team_slug.eq.' + teamSlug);
+  }
+
+  return query
+    .order('sort_order', { ascending: true })
+    .order('display_name', { ascending: true })
+    .then(function(res) {
+      if (res.error) throw res.error;
+      return res.data || [];
+    });
+}
+
+function loadRemoteBoundaryFile(row) {
+  var bucket = String(row.bucket_name || BOUNDARY_STORAGE_BUCKET).trim();
+  var path = String(row.file_path || row.storage_path || row.path || '').trim();
+  var fileType = String(row.file_type || path.split('.').pop() || 'kmz').toLowerCase().replace('.', '').trim();
+
+  if (!bucket || !path) {
+    return Promise.reject(new Error('Boundary file row is missing bucket_name or file_path'));
+  }
+
+  return supabaseClient
+    .storage
+    .from(bucket)
+    .download(path)
+    .then(function(res) {
+      if (res.error) throw res.error;
+
+      var fileName = getBoundaryFileName(row);
+      var file = makeNamedBoundaryFile(res.data, fileName, fileType);
+
+      return loadKmlFile(file, {
+        source: 'supabase',
+        territory: row.territory || '',
+        filePath: path,
+        bucketName: bucket,
+        displayName: row.display_name || fileName
+      }).then(function(){ return fileName; });
+    });
+}
+
+function clearKmlFiles(remoteOnly) {
+  var removed = [];
+  kmlFiles = kmlFiles.filter(function(f) {
+    var shouldRemove = !remoteOnly || f.source === 'supabase';
+    if (shouldRemove) removed.push(f.uid);
+    return !shouldRemove;
+  });
+
+  removed.forEach(function(uid) {
+    var row = document.getElementById(uid);
+    if (row) row.remove();
+  });
+
+  rebuildKmlGeoJSON();
+  renderKmlLayersOnMap(false);
+}
+
+function loadBoundaryFilesForActiveTerritories(territories, opts) {
+  opts = opts || {};
+
+  var terrs = (territories || [])
+    .map(function(t){ return String(t || '').trim(); })
+    .filter(Boolean)
+    .filter(function(v, i, arr){ return arr.indexOf(v) === i; });
+
+  if (!terrs.length) return Promise.resolve([]);
+
+  var teamSlug = '';
+  try {
+    teamSlug = (TEAMS[activeTeam] && TEAMS[activeTeam].slug) ? TEAMS[activeTeam].slug : '';
+  } catch (e) {
+    teamSlug = '';
+  }
+
+  var loadKey = teamSlug + '|' + terrs.slice().sort().join('|');
+  if (!opts.force && activeBoundaryLoadKey === loadKey) {
+    return Promise.resolve([]);
+  }
+
+  activeBoundaryLoadKey = loadKey;
+  clearKmlFiles(true);
+
+  return new Promise(function(resolve) {
+    lazyLoad(JSZIP_URL, function() {
+      fetchBoundaryFilesForTerritoriesFromSupabase(terrs)
+        .then(function(rows) {
+          if (!rows.length) {
+            console.info('No automatic boundary files found for territories:', terrs);
+            resolve([]);
+            return;
+          }
+
+          return Promise.allSettled(rows.map(loadRemoteBoundaryFile)).then(function(results) {
+            var loaded = results.filter(function(r){ return r.status === 'fulfilled'; }).length;
+            var failed = results.length - loaded;
+
+            if (loaded) {
+              toast('🗺️ Loaded ' + loaded + ' territory boundary file' + (loaded === 1 ? '' : 's'), 't-ok');
+            }
+            if (failed) {
+              toast('⚠ ' + failed + ' boundary file' + (failed === 1 ? '' : 's') + ' could not load', 't-err');
+              console.warn('Some boundary files failed to load', results);
+            }
+
+            resolve(results);
+          });
+        })
+        .catch(function(err) {
+          console.warn('Automatic boundary file load failed:', err);
+          // Do not block address loading if the table/policy/file is missing.
+          toast('⚠ Could not auto-load territory boundary', 't-err');
+          resolve([]);
+        });
+    });
+  });
 }
 
 function parseKmlFeatures(text) {
@@ -682,21 +874,43 @@ function parseKmlFeatures(text) {
   } catch(e) { return []; }
 }
 
-function addKmlFileRow(name, features, errMsg) {
+function addKmlFileRow(name, features, errMsg, opts) {
+  opts = opts || {};
   var ok = !errMsg && features.length > 0;
   var uid = 'kf-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+  var source = opts.source || 'manual';
+  var displayName = opts.displayName || name;
+  var territoryLabel = opts.territory ? ' • ' + opts.territory : '';
+
   if (ok) {
-    kmlFiles.push({ uid: uid, name: name, features: features });
+    kmlFiles.push({
+      uid: uid,
+      name: name,
+      displayName: displayName,
+      features: features,
+      source: source,
+      territory: opts.territory || '',
+      filePath: opts.filePath || '',
+      bucketName: opts.bucketName || ''
+    });
     rebuildKmlGeoJSON();
+    renderKmlLayersOnMap(true);
   }
+
   var list = document.getElementById('kml-file-list');
+  if (!list) return;
+
   var row  = document.createElement('div');
-  row.className = 'kml-file-row ' + (ok ? 'ok' : 'err');
+  row.className = 'kml-file-row ' + (ok ? 'ok' : 'err') + (source === 'supabase' ? ' auto' : '');
   row.id = uid;
   row.innerHTML =
-    '<span class="kml-file-icon">' + (ok ? '🗺️' : '⚠️') + '</span>' +
-    '<span class="kml-file-name" title="' + escHtml(name) + '">' + escHtml(name) + '</span>' +
-    '<span class="kml-file-status">' + (ok ? features.length + ' polygon' + (features.length !== 1 ? 's' : '') : errMsg) + '</span>' +
+    '<span class="kml-file-icon">' + (ok ? (source === 'supabase' ? '☁️' : '🗺️') : '⚠️') + '</span>' +
+    '<span class="kml-file-name" title="' + escHtml(displayName) + '">' + escHtml(displayName) + '</span>' +
+    '<span class="kml-file-status">' +
+      (ok
+        ? features.length + ' polygon' + (features.length !== 1 ? 's' : '') + (source === 'supabase' ? ' • auto-loaded' : '') + escHtml(territoryLabel)
+        : errMsg) +
+    '</span>' +
     (ok ? '<button class="kml-file-remove" onclick="removeKmlFile(\'' + uid + '\')" title="Remove">✕</button>' : '');
   list.appendChild(row);
 }
@@ -706,6 +920,7 @@ function removeKmlFile(uid) {
   var row = document.getElementById(uid);
   if (row) row.remove();
   rebuildKmlGeoJSON();
+  renderKmlLayersOnMap(false);
 }
 
 function rebuildKmlGeoJSON() {
@@ -714,6 +929,55 @@ function rebuildKmlGeoJSON() {
   kmlGeoJSON = allFeatures.length > 0
     ? { type:'FeatureCollection', features: allFeatures }
     : null;
+}
+
+function renderKmlLayersOnMap(shouldFit) {
+  if (!mapObj || typeof L === 'undefined') return;
+
+  kmlLeafletLayers.forEach(function(layer) {
+    try { mapObj.removeLayer(layer); } catch (e) {}
+  });
+  kmlLeafletLayers = [];
+
+  if (!kmlFiles.length) return;
+
+  var palette = [
+    { stroke:'#2563eb', fill:'#3b82f6' },
+    { stroke:'#d97706', fill:'#f59e0b' },
+    { stroke:'#059669', fill:'#10b981' },
+    { stroke:'#dc2626', fill:'#ef4444' },
+    { stroke:'#7c3aed', fill:'#8b5cf6' },
+    { stroke:'#0891b2', fill:'#06b6d4' }
+  ];
+  var allBounds = [];
+
+  kmlFiles.forEach(function(kf, i) {
+    if (!kf.features || !kf.features.length) return;
+
+    var col = palette[i % palette.length];
+    var layer = L.geoJSON({ type:'FeatureCollection', features: kf.features }, {
+      style: {
+        color: col.stroke,
+        weight: 3,
+        fillColor: col.fill,
+        fillOpacity: 0.12,
+        dashArray: '8 4'
+      }
+    }).addTo(mapObj);
+
+    kmlLeafletLayers.push(layer);
+
+    try {
+      var bounds = layer.getBounds();
+      if (bounds && bounds.isValid && bounds.isValid()) allBounds.push(bounds);
+    } catch (e) {}
+  });
+
+  if (shouldFit && allBounds.length) {
+    var combined = allBounds[0];
+    allBounds.forEach(function(b){ combined.extend(b); });
+    setTimeout(function(){ mapObj.fitBounds(combined, { padding:[40,40] }); }, 100);
+  }
 }
 
 ['dz-csv','dz-kml'].forEach(function(id) {
@@ -783,6 +1047,11 @@ function fetchAddressesFromSheet(opts) {
               (repEmail ? ' • ' + repEmail : '') +
               (activeTerritories.length ? ' • Territories: ' + activeTerritories.join(', ') : '');
           }
+
+          // Automatically load the fiber footprint boundary files assigned to
+          // this rep's territory/territories. This replaces the manual KMZ step,
+          // while still leaving manual upload available as a fallback.
+          loadBoundaryFilesForActiveTerritories(activeTerritories, { force: !isRefresh });
 
           return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
             .then(function(rows){
@@ -937,7 +1206,9 @@ function selectTeam(val) {
     webhookURL = '';
     SCHED_URL  = '';
     activeTerritories = [];
+    activeBoundaryLoadKey = '';
     addresses = [];
+    clearKmlFiles(false);
     document.getElementById('fetch-addr-status').textContent = '';
     document.getElementById('fetch-addr-icon').textContent = '📋';
     document.getElementById('btn-fetch-addr').disabled = false;
@@ -1140,30 +1411,7 @@ function initMap() {
     mapObj.setView([39.5, -98.35], 5);
   }
 
-  if (kmlGeoJSON && kmlGeoJSON.features.length > 0) {
-    var palette = [
-      { stroke:'#2563eb', fill:'#3b82f6' },
-      { stroke:'#d97706', fill:'#f59e0b' },
-      { stroke:'#059669', fill:'#10b981' },
-      { stroke:'#dc2626', fill:'#ef4444' },
-      { stroke:'#7c3aed', fill:'#8b5cf6' },
-      { stroke:'#0891b2', fill:'#06b6d4' }
-    ];
-    var allBounds = [];
-    kmlFiles.forEach(function(kf, i) {
-      if (!kf.features.length) return;
-      var col = palette[i % palette.length];
-      var layer = L.geoJSON({ type:'FeatureCollection', features: kf.features }, {
-        style: { color: col.stroke, weight: 3, fillColor: col.fill, fillOpacity: 0.12, dashArray: '8 4' }
-      }).addTo(mapObj);
-      allBounds.push(layer.getBounds());
-    });
-    if (allBounds.length) {
-      var combined = allBounds[0];
-      allBounds.forEach(function(b){ combined.extend(b); });
-      setTimeout(function(){ mapObj.fitBounds(combined, { padding:[40,40] }); }, 100);
-    }
-  }
+  renderKmlLayersOnMap(true);
 
   clusterGroup = L.markerClusterGroup({
     maxClusterRadius: 50,
