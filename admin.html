@@ -961,6 +961,155 @@
       moveReplayMarker(0, true);
     }
 
+    function isSaleStatus(status) {
+      return SALE_STATUSES.has(String(status || '').toLowerCase().trim());
+    }
+
+    function isNotHomeStatus(status) {
+      const s = String(status || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      return s.startsWith('nothome') || s === 'not_home' || s === 'noanswer' || s === 'noonehome';
+    }
+
+    function dispositionBucket(status) {
+      const s = String(status || 'pending').toLowerCase().trim();
+      if (s === 'pending') return 'pending';
+      if (isSaleStatus(s)) return 'sale';
+      if (isNotHomeStatus(s)) return 'no_contact';
+      if (['maybelater', 'sendinfo', 'talktospouse', 'goback', 'priceconcern', 'notdecisionmaker'].includes(s)) return 'soft_interest';
+      if (['notinterested', 'hardno', 'hard_no', 'do_not_knock', 'donotknock'].includes(s)) return 'hard_no';
+      if (['vacant', 'business', 'activecustomer', 'active_customer', 'incontract', 'competitor', 'fibercompetitor'].includes(s)) return 'not_a_fit';
+      return 'other_contact';
+    }
+
+    function bucketLabel(bucket) {
+      return {
+        sale: 'Sale',
+        soft_interest: 'Soft interest / follow-up',
+        other_contact: 'Other contact',
+        hard_no: 'Hard no',
+        no_contact: 'No contact / not home',
+        not_a_fit: 'Not a fit / blocked',
+        pending: 'Pending'
+      }[bucket] || bucket;
+    }
+
+    function eventHour(value) {
+      const d = new Date(value || '');
+      if (isNaN(d.getTime())) return null;
+      return d.getHours() + (d.getMinutes() / 60);
+    }
+
+    function timeBucket(value) {
+      const hour = eventHour(value);
+      if (hour === null) return 'Unknown time';
+      if (hour < 12) return 'Morning, before noon';
+      if (hour < 16) return 'Afternoon, 12–4 PM';
+      if (hour < 20) return 'Prime evening, 4–8 PM';
+      return 'Late evening, after 8 PM';
+    }
+
+    function formatHours(hours) {
+      if (!Number.isFinite(hours) || hours <= 0) return '—';
+      const whole = Math.floor(hours);
+      const mins = Math.round((hours - whole) * 60);
+      if (!whole) return `${mins} min`;
+      if (!mins) return `${whole} hr`;
+      return `${whole} hr ${mins} min`;
+    }
+
+    function safeRate(numerator, denominator) {
+      return denominator ? numerator / denominator : 0;
+    }
+
+    function htmlList(items, emptyText = 'No signal found.', max = 6) {
+      const trimmed = (items || []).filter(Boolean).slice(0, max);
+      if (!trimmed.length) return `<ul><li>${escapeHtml(emptyText)}</li></ul>`;
+      return `<ul>${trimmed.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    }
+
+    function getEventAddressKey(ev, addressMap) {
+      return idKey(ev.address_id || ev.location_id || ev.zito_location_id || ev.external_id || ev.id || buildAddressLabel(addressMap, ev));
+    }
+
+    function buildTimeStats(rows) {
+      const order = ['Morning, before noon', 'Afternoon, 12–4 PM', 'Prime evening, 4–8 PM', 'Late evening, after 8 PM', 'Unknown time'];
+      const stats = {};
+      order.forEach(label => stats[label] = { label, events: 0, worked: 0, sales: 0, noContact: 0, soft: 0, hard: 0, contact: 0 });
+
+      rows.forEach(row => {
+        const label = timeBucket(row.time);
+        const item = stats[label] || (stats[label] = { label, events: 0, worked: 0, sales: 0, noContact: 0, soft: 0, hard: 0, contact: 0 });
+        item.events++;
+        if (row.bucket !== 'pending') item.worked++;
+        if (row.bucket === 'sale') item.sales++;
+        if (row.bucket === 'no_contact') item.noContact++;
+        if (row.bucket === 'soft_interest') item.soft++;
+        if (row.bucket === 'hard_no') item.hard++;
+        if (!['pending', 'no_contact'].includes(row.bucket)) item.contact++;
+      });
+
+      return order.map(label => stats[label]).filter(item => item.events > 0);
+    }
+
+    function buildRepStats(rows) {
+      const byRep = {};
+      rows.forEach(row => {
+        const rep = row.rep || 'Unknown Rep';
+        if (!byRep[rep]) byRep[rep] = { rep, events: 0, worked: 0, sales: 0, noContact: 0, soft: 0, hard: 0, notes: 0, softNoNotes: 0, first: null, last: null, rows: [] };
+        const item = byRep[rep];
+        item.events++;
+        item.rows.push(row);
+        if (row.bucket !== 'pending') item.worked++;
+        if (row.bucket === 'sale') item.sales++;
+        if (row.bucket === 'no_contact') item.noContact++;
+        if (row.bucket === 'soft_interest') item.soft++;
+        if (row.bucket === 'hard_no') item.hard++;
+        if (row.note) item.notes++;
+        if (row.bucket === 'soft_interest' && !row.note) item.softNoNotes++;
+        const ms = timeValue(row.time);
+        if (ms) {
+          if (!item.first || ms < item.first) item.first = ms;
+          if (!item.last || ms > item.last) item.last = ms;
+        }
+      });
+
+      return Object.values(byRep).map(item => {
+        const activeHours = item.first && item.last && item.last > item.first ? (item.last - item.first) / 3600000 : 0;
+        item.activeHours = activeHours;
+        item.eventsPerHour = activeHours ? item.events / activeHours : 0;
+        item.closeRate = safeRate(item.sales, item.worked);
+        item.noContactRate = safeRate(item.noContact, item.worked);
+        item.softRate = safeRate(item.soft, item.worked);
+        item.noteRate = safeRate(item.notes, item.events);
+        return item;
+      }).sort((a,b) => b.sales - a.sales || b.worked - a.worked || b.events - a.events);
+    }
+
+    function analyzeGapsByRep(rows) {
+      const byRep = {};
+      rows.forEach(row => {
+        const rep = row.rep || 'Unknown Rep';
+        if (!byRep[rep]) byRep[rep] = [];
+        byRep[rep].push(row);
+      });
+
+      const gaps = [];
+      Object.entries(byRep).forEach(([rep, repRows]) => {
+        repRows.sort((a,b) => timeValue(a.time) - timeValue(b.time));
+        for (let i = 1; i < repRows.length; i++) {
+          const gapMinutes = (timeValue(repRows[i].time) - timeValue(repRows[i - 1].time)) / 60000;
+          if (Number.isFinite(gapMinutes) && gapMinutes >= 45) {
+            gaps.push(`${rep}: ${Math.round(gapMinutes)} minute gap between ${formatDateTime(repRows[i - 1].time)} and ${formatDateTime(repRows[i].time)}`);
+          }
+        }
+      });
+      return gaps.sort((a,b) => {
+        const am = Number((a.match(/: (\d+) minute/) || [])[1] || 0);
+        const bm = Number((b.match(/: (\d+) minute/) || [])[1] || 0);
+        return bm - am;
+      });
+    }
+
     function renderAiSummary(routePoints) {
       if (!els.aiSummary) return;
 
@@ -968,28 +1117,135 @@
       const addressMap = buildAddressMap();
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
-      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
+      const filteredEvents = state.address_events
+        .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
+        .sort((a, b) => timeValue(a.created_at) - timeValue(b.created_at));
       const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
       const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
       const latestMap = latestEventsMap(filteredEvents);
-      const workedAddressKeys = new Set(filteredEvents.filter(ev => String(ev.status || '').toLowerCase() !== 'pending').map(ev => idKey(ev.address_id)).filter(Boolean));
-      const uniqueWorked = workedAddressKeys.size;
-      const uniqueSales = salesQueueRows.length;
-      const closeRate = uniqueWorked ? uniqueSales / uniqueWorked : 0;
 
-      const dispositionCounts = {};
-      filteredEvents.forEach(ev => {
-        const status = String(ev.status || 'pending').toLowerCase();
-        dispositionCounts[status] = (dispositionCounts[status] || 0) + 1;
+      if (!filteredEvents.length) {
+        els.aiSummary.innerHTML = `
+          <div class="ai-box">
+            <h3>Manager Readout</h3>
+            No disposition activity exists for the current filters. Select a territory, rep, and date range that has logged address_events.
+          </div>`;
+        return;
+      }
+
+      const eventRows = filteredEvents.map(ev => {
+        const status = String(ev.status || 'pending').toLowerCase().trim();
+        const bucket = dispositionBucket(status);
+        const address = buildAddressLabel(addressMap, ev);
+        return {
+          raw: ev,
+          status,
+          bucket,
+          time: ev.created_at,
+          rep: getRepName(ev) || 'Unknown Rep',
+          territory: getRowTerritory(ev, addressMap, slotMap) || 'Unknown Territory',
+          note: String(firstNonEmpty(ev.note, ev.notes, ev.comment, ev.comments, '')).trim(),
+          address,
+          addressKey: getEventAddressKey(ev, addressMap),
+          street: getStreetPocket(address)
+        };
       });
-      const topDisposition = Object.entries(dispositionCounts).sort((a,b) => b[1] - a[1])[0];
 
-      const softStatuses = new Set(['maybelater', 'sendinfo', 'talktospouse', 'goback', 'priceconcern', 'notdecisionmaker']);
-      const softFollowUps = filteredEvents
-        .filter(ev => softStatuses.has(String(ev.status || '').toLowerCase()))
-        .sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at))
+      const workedRows = eventRows.filter(r => r.bucket !== 'pending');
+      const uniqueWorked = new Set(workedRows.map(r => r.addressKey).filter(Boolean)).size;
+      const uniqueSales = salesQueueRows.length;
+      const closeRate = safeRate(uniqueSales, uniqueWorked);
+      const firstEvent = eventRows[0];
+      const lastEvent = eventRows[eventRows.length - 1];
+      const activeHours = firstEvent && lastEvent ? Math.max((timeValue(lastEvent.time) - timeValue(firstEvent.time)) / 3600000, 0) : 0;
+      const eventsPerHour = activeHours ? workedRows.length / activeHours : 0;
+
+      const bucketCounts = {};
+      const dispositionCounts = {};
+      eventRows.forEach(row => {
+        bucketCounts[row.bucket] = (bucketCounts[row.bucket] || 0) + 1;
+        dispositionCounts[row.status] = (dispositionCounts[row.status] || 0) + 1;
+      });
+
+      const noContactCount = bucketCounts.no_contact || 0;
+      const softCount = bucketCounts.soft_interest || 0;
+      const hardNoCount = bucketCounts.hard_no || 0;
+      const notFitCount = bucketCounts.not_a_fit || 0;
+      const contactCount = workedRows.filter(r => !['no_contact', 'pending'].includes(r.bucket)).length;
+      const noContactRate = safeRate(noContactCount, workedRows.length);
+      const contactRate = safeRate(contactCount, workedRows.length);
+      const softRate = safeRate(softCount, workedRows.length);
+      const hardNoRate = safeRate(hardNoCount, workedRows.length);
+      const noteCount = eventRows.filter(r => r.note).length;
+      const noteRate = safeRate(noteCount, eventRows.length);
+      const softNoNoteCount = eventRows.filter(r => r.bucket === 'soft_interest' && !r.note).length;
+
+      const topStatuses = Object.entries(dispositionCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([status, count]) => `${status}: ${formatNumber(count)} event(s), ${formatPercent(safeRate(count, eventRows.length))} of activity`);
+
+      const timeStats = buildTimeStats(eventRows);
+      const bestSalesWindow = timeStats
+        .filter(t => t.worked >= 3)
+        .sort((a,b) => safeRate(b.sales, b.worked) - safeRate(a.sales, a.worked) || b.sales - a.sales)[0];
+      const highestNoContactWindow = timeStats
+        .filter(t => t.worked >= 3)
+        .sort((a,b) => safeRate(b.noContact, b.worked) - safeRate(a.noContact, a.worked))[0];
+      const primeEvening = timeStats.find(t => t.label === 'Prime evening, 4–8 PM');
+      const beforeFourWorked = timeStats.filter(t => ['Morning, before noon', 'Afternoon, 12–4 PM'].includes(t.label)).reduce((sum, t) => sum + t.worked, 0);
+      const beforeFourNoContact = timeStats.filter(t => ['Morning, before noon', 'Afternoon, 12–4 PM'].includes(t.label)).reduce((sum, t) => sum + t.noContact, 0);
+      const beforeFourNoContactRate = safeRate(beforeFourNoContact, beforeFourWorked);
+
+      const timeReadout = timeStats.map(t => {
+        const saleText = t.sales ? `${formatNumber(t.sales)} sale(s)` : 'no sales';
+        return `${t.label}: ${formatNumber(t.worked)} worked, ${saleText}, ${formatPercent(safeRate(t.noContact, t.worked))} no-contact rate`;
+      });
+
+      const repStats = buildRepStats(eventRows);
+      const repSignals = [];
+      repStats.slice(0, 8).forEach(rep => {
+        const pieces = [];
+        pieces.push(`${formatNumber(rep.worked)} worked`);
+        pieces.push(`${formatNumber(rep.sales)} sale(s)`);
+        pieces.push(`${formatPercent(rep.closeRate)} close`);
+        pieces.push(`${formatPercent(rep.noContactRate)} no-contact`);
+        if (rep.activeHours) pieces.push(`${rep.eventsPerHour.toFixed(1)} events/hr over ${formatHours(rep.activeHours)}`);
+        if (rep.softNoNotes) pieces.push(`${formatNumber(rep.softNoNotes)} warm lead(s) missing notes`);
+        repSignals.push(`${rep.rep}: ${pieces.join(', ')}`);
+      });
+
+      const coachingSignals = [];
+      if (noContactRate >= .6) coachingSignals.push(`No-contact rate is high at ${formatPercent(noContactRate)}. This usually means the pass is happening at a poor time, the route is too cold, or reps are moving too quickly through doors.`);
+      if (beforeFourWorked >= 10 && beforeFourNoContactRate >= .6) coachingSignals.push(`The before-4 PM pass is producing ${formatPercent(beforeFourNoContactRate)} no-contact outcomes. Rework those same streets after 4 PM before labeling the area weak.`);
+      if (primeEvening && primeEvening.worked >= 3 && safeRate(primeEvening.noContact, primeEvening.worked) < noContactRate) coachingSignals.push(`The 4–8 PM window is outperforming the overall no-contact rate. Push more rep coverage into that window.`);
+      if (softRate >= .18 && closeRate < .05) coachingSignals.push(`Soft-interest volume is meaningful at ${formatPercent(softRate)}, but conversion is only ${formatPercent(closeRate)}. That points to a follow-up/talk-track gap, not just a territory problem.`);
+      if (hardNoRate >= .25) coachingSignals.push(`Hard-no outcomes are elevated at ${formatPercent(hardNoRate)}. Review whether reps are leading with price too early or whether this pocket has stronger competitor/contract pressure.`);
+      if (noteRate < .35 && softCount > 0) coachingSignals.push(`Only ${formatPercent(noteRate)} of events have notes, and ${formatNumber(softNoNoteCount)} soft-interest event(s) are missing notes. Warm leads need detail or the follow-up queue loses value.`);
+      if (eventsPerHour > 35 && workedRows.length >= 20) coachingSignals.push(`The pace is very fast at ${eventsPerHour.toFixed(1)} worked events/hr. This may be fine for dense streets, but it is worth checking route replay for drive-by style knocking.`);
+      if (eventsPerHour > 0 && eventsPerHour < 8 && activeHours >= 2) coachingSignals.push(`The pace is slow at ${eventsPerHour.toFixed(1)} worked events/hr. Look for long gaps, travel time, or reps spending too long away from the next door.`);
+      if (!routePoints.length && filteredEvents.length) coachingSignals.push('Activity exists, but the route cannot replay because the filtered address_events do not have usable lat/lng. Add GPS to disposition writes for better accountability.');
+
+      const notHomeByAddress = {};
+      eventRows.filter(r => r.bucket === 'no_contact').forEach(row => {
+        const key = row.addressKey || row.address;
+        if (!notHomeByAddress[key]) notHomeByAddress[key] = { address: row.address, count: 0, latest: row.time };
+        notHomeByAddress[key].count++;
+        if (timeValue(row.time) > timeValue(notHomeByAddress[key].latest)) notHomeByAddress[key].latest = row.time;
+      });
+      const repeatNoHomes = Object.values(notHomeByAddress)
+        .filter(item => item.count >= 2)
+        .sort((a,b) => b.count - a.count || timeValue(b.latest) - timeValue(a.latest))
+        .slice(0, 6)
+        .map(item => `${item.address}: ${formatNumber(item.count)} no-contact attempts, latest ${formatDateTime(item.latest)}`);
+
+      const gaps = analyzeGapsByRep(eventRows);
+
+      const softFollowUps = eventRows
+        .filter(row => row.bucket === 'soft_interest')
+        .sort((a,b) => timeValue(b.time) - timeValue(a.time))
         .slice(0, 8)
-        .map(ev => `${buildAddressLabel(addressMap, ev)} — ${String(ev.status || '').toLowerCase()}`);
+        .map(row => `${row.address} — ${row.status}${row.note ? ` — ${row.note}` : ' — no note captured'}`);
 
       const pendingPockets = {};
       filteredAddresses.forEach(addr => {
@@ -1007,58 +1263,67 @@
         .slice(0, 5)
         .map(([pocket, count]) => `${pocket}: ${formatNumber(count)} pending/home-passed address(es)`);
 
-      const repCounts = {};
-      filteredEvents.forEach(ev => {
-        const rep = getRepName(ev);
-        if (!rep) return;
-        repCounts[rep] = (repCounts[rep] || 0) + 1;
-      });
-      const topRep = Object.entries(repCounts).sort((a,b) => b[1] - a[1])[0];
+      const nextMove = [];
+      if (softFollowUps.length) nextMove.push('Start with the soft-interest follow-up list because those doors already had some level of engagement.');
+      if (repeatNoHomes.length) nextMove.push('Do not keep hitting repeat not-homes at the same time of day. Move those addresses into an evening/weekend retry bucket.');
+      if (topPendingPockets.length) nextMove.push(`For new cold coverage, send the team to ${topPendingPockets[0].split(':')[0]} because it has the largest remaining pending pocket.`);
+      if (bestSalesWindow && bestSalesWindow.sales > 0) nextMove.push(`Schedule more coverage during ${bestSalesWindow.label}; it is currently the best sales window in this filter.`);
+      if (!nextMove.length) nextMove.push('Keep coverage steady, but watch the disposition mix and note quality before deciding the market is tapped out.');
 
       const firstPoint = routePoints[0];
       const lastPoint = routePoints[routePoints.length - 1];
-      const routeWindow = routePoints.length > 1 ? `${formatDateTime(firstPoint.time)} through ${formatDateTime(lastPoint.time)}` : (routePoints.length ? formatDateTime(firstPoint.time) : 'no GPS route points');
-      const notHomeCount = Object.entries(dispositionCounts)
-        .filter(([status]) => status.startsWith('nothome') || status === 'not_home')
-        .reduce((sum, [,count]) => sum + count, 0);
-      const notHomeRate = filteredEvents.length ? notHomeCount / filteredEvents.length : 0;
+      const gpsWindow = routePoints.length > 1 ? `${formatDateTime(firstPoint.time)} through ${formatDateTime(lastPoint.time)}` : (routePoints.length ? formatDateTime(firstPoint.time) : 'no GPS route points');
+      const eventWindow = firstEvent && lastEvent ? `${formatDateTime(firstEvent.time)} through ${formatDateTime(lastEvent.time)}` : 'no event window';
 
-      let recommendation = 'Keep working the selected territory and prioritize streets with the most pending homes passed.';
-      if (topPendingPockets.length) {
-        recommendation = `Head next to ${topPendingPockets[0].split(':')[0]}. It has the largest remaining unworked/pending pocket in the current filter.`;
-      }
-      if (softFollowUps.length) {
-        recommendation += ' Also schedule a follow-up pass for the soft-interest addresses because those are warmer than cold doors.';
-      }
-
-      const coachingNotes = [];
-      if (notHomeRate >= .55) coachingNotes.push('Not-home volume is high. Try a later evening or weekend pass before counting this pocket as exhausted.');
-      if (closeRate >= .08 && uniqueSales >= 2) coachingNotes.push('Close rate looks strong in this filter. Expand into adjacent pending streets while the offer is landing.');
-      if (filteredEvents.length > 0 && uniqueSales === 0) coachingNotes.push('No sales are showing in this slice. Review talk tracks, package positioning, and whether the selected area is a weak fit.');
-      if (!routePoints.length && filteredEvents.length) coachingNotes.push('Activity exists, but no route appears because the events do not have usable GPS coordinates.');
-      if (!coachingNotes.length) coachingNotes.push('Maintain steady coverage and keep the follow-up list clean so the team is not only re-knocking cold doors.');
+      const managerInterpretation = [];
+      if (contactRate >= .5 && closeRate < .04) managerInterpretation.push(`The team is getting conversations (${formatPercent(contactRate)} contact rate), but not enough closes. That points more to offer positioning, objection handling, or follow-up discipline than to pure door access.`);
+      if (contactRate < .35 && noContactRate >= .55) managerInterpretation.push(`The team is mostly not reaching decision makers. The first fix is timing and route sequencing, not changing the offer.`);
+      if (softCount > uniqueSales * 2 && uniqueSales <= 2) managerInterpretation.push(`There are several warmer dispositions compared with closed sales. Management should inspect these notes and make sure reps are setting clear next steps.`);
+      if (notFitCount >= workedRows.length * .2) managerInterpretation.push(`A notable share of doors are blocked/not a fit. Validate whether the list has active customers, businesses, vacant homes, contract-heavy pockets, or competitor-heavy areas mixed in.`);
+      if (!managerInterpretation.length) managerInterpretation.push(`This looks like a normal canvassing slice. The biggest improvement lever is tightening follow-up handling and shifting repeat not-homes into better time windows.`);
 
       els.aiSummary.innerHTML = `
         <div class="ai-box">
-          <h3>Field Readout</h3>
-          Based on the current filters, the dashboard shows <strong>${formatNumber(filteredEvents.length)}</strong> logged disposition event(s),
-          <strong>${formatNumber(uniqueWorked)}</strong> worked address(es), <strong>${formatNumber(uniqueSales)}</strong> sale(s), and a
-          <strong>${formatPercent(closeRate)}</strong> close rate. The route replay window is <strong>${escapeHtml(routeWindow)}</strong>.
-          ${topDisposition ? `The most common disposition is <strong>${escapeHtml(topDisposition[0])}</strong> with <strong>${formatNumber(topDisposition[1])}</strong> event(s).` : ''}
-          ${topRep ? `The most active rep in this filter is <strong>${escapeHtml(topRep[0])}</strong> with <strong>${formatNumber(topRep[1])}</strong> event(s).` : ''}
+          <h3>Manager Readout</h3>
+          <strong>${formatNumber(workedRows.length)}</strong> worked event(s), <strong>${formatNumber(uniqueWorked)}</strong> unique worked door(s), <strong>${formatNumber(uniqueSales)}</strong> sale(s), and <strong>${formatPercent(closeRate)}</strong> close rate.<br>
+          Event window: <strong>${escapeHtml(eventWindow)}</strong>. GPS replay window: <strong>${escapeHtml(gpsWindow)}</strong>. Pace: <strong>${eventsPerHour ? eventsPerHour.toFixed(1) + ' worked events/hr' : 'not enough time data'}</strong>.
+          ${htmlList(managerInterpretation, 'No interpretation available.', 4)}
         </div>
+
+        <div class="ai-box">
+          <h3>Disposition Quality</h3>
+          Contact rate is <strong>${formatPercent(contactRate)}</strong>; no-contact/not-home rate is <strong>${formatPercent(noContactRate)}</strong>; soft-interest rate is <strong>${formatPercent(softRate)}</strong>; hard-no rate is <strong>${formatPercent(hardNoRate)}</strong>; note capture is <strong>${formatPercent(noteRate)}</strong>.
+          ${htmlList(topStatuses, 'No disposition mix available.', 6)}
+        </div>
+
+        <div class="ai-box">
+          <h3>Time-of-Day Pattern</h3>
+          ${bestSalesWindow && bestSalesWindow.sales ? `Best current sales window: <strong>${escapeHtml(bestSalesWindow.label)}</strong> with ${formatNumber(bestSalesWindow.sales)} sale(s) on ${formatNumber(bestSalesWindow.worked)} worked event(s).` : 'No clear sales window yet.'}
+          ${highestNoContactWindow ? ` Highest no-contact window: <strong>${escapeHtml(highestNoContactWindow.label)}</strong> at ${formatPercent(safeRate(highestNoContactWindow.noContact, highestNoContactWindow.worked))}.` : ''}
+          ${htmlList(timeReadout, 'No time pattern available.', 6)}
+        </div>
+
+        <div class="ai-box">
+          <h3>Rep Coaching Signals</h3>
+          ${htmlList(repSignals, 'No rep-level signal available.', 8)}
+          ${htmlList(coachingSignals, 'No coaching flags triggered.', 8)}
+        </div>
+
+        <div class="ai-box">
+          <h3>Repeat Not-Homes + Gaps</h3>
+          ${htmlList(repeatNoHomes, 'No repeat not-home pattern found.', 6)}
+          ${htmlList(gaps, 'No 45+ minute activity gaps found in this filter.', 4)}
+        </div>
+
         <div class="ai-box">
           <h3>Where to Head Next</h3>
-          ${escapeHtml(recommendation)}
-          ${topPendingPockets.length ? `<ul>${listTopItems(topPendingPockets)}</ul>` : '<ul><li>No pending pockets found for this filter.</li></ul>'}
+          ${htmlList(nextMove, 'No next move generated.', 5)}
+          ${topPendingPockets.length ? htmlList(topPendingPockets, 'No pending pockets found.', 5) : ''}
         </div>
+
         <div class="ai-box">
-          <h3>Follow-Up Opportunities</h3>
-          ${softFollowUps.length ? `<ul>${listTopItems(softFollowUps, 8)}</ul>` : '<ul><li>No soft-interest follow-ups found in this filter.</li></ul>'}
-        </div>
-        <div class="ai-box">
-          <h3>Coaching Notes</h3>
-          <ul>${listTopItems(coachingNotes, 5)}</ul>
+          <h3>Warm Follow-Up Queue</h3>
+          ${htmlList(softFollowUps, 'No soft-interest follow-ups found in this filter.', 8)}
         </div>`;
     }
 
