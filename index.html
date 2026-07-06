@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"/>
-<link rel="stylesheet" href="style.css?v=field-lite-gig30-20260602">
+<link rel="stylesheet" href="style.css?v=fieldos-nextdoor-offline-20260706">
 </head>
 <body>
 
@@ -137,7 +137,32 @@
     <div class="tb-stat sched">✅ Scheduled: <strong id="st-sched">0</strong></div>
     <div class="tb-stat">Pending: <strong id="st-pend">0</strong></div>
     <div class="tb-actions">
+      <button class="tb-btn sync-btn" id="offline-sync-btn" onclick="processOfflineQueue(true)" title="Sync queued field activity">Synced</button>
       <button class="tb-btn btn-logout" onclick="openSignOutConfirm()" title="Sign out">Log Out</button>
+    </div>
+  </div>
+
+  <div id="fieldos-game-plan" class="game-plan-panel">
+    <div class="gp-head">
+      <div>
+        <div class="gp-eyebrow">Today's Game Plan</div>
+        <div class="gp-title" id="gp-title">Load addresses to build your plan</div>
+      </div>
+      <button class="gp-collapse" onclick="toggleGamePlan()" id="gp-collapse-btn">Hide</button>
+    </div>
+    <div id="gp-body" class="gp-body">
+      <div class="gp-card">
+        <div class="gp-card-title">Next Best Door</div>
+        <div id="next-best-door" class="gp-muted">Waiting for territory data…</div>
+      </div>
+      <div class="gp-card">
+        <div class="gp-card-title">Street / Route Completion</div>
+        <div id="street-completion" class="gp-muted">No street progress yet.</div>
+      </div>
+      <div class="gp-card">
+        <div class="gp-card-title">Today's Focus</div>
+        <div id="today-focus" class="gp-muted">Your best plan will appear after addresses load.</div>
+      </div>
     </div>
   </div>
 
@@ -390,7 +415,7 @@
 </script>
 
 <!-- App logic -->
-<script defer src="app.js?v=supabase-sandbox-20260703-statusfix"></script>
+<script defer src="app.js?v=fieldos-nextdoor-offline-20260706"></script>
 <!-- Service worker -->
 <script>
   if ('serviceWorker' in navigator) {

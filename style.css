@@ -3365,3 +3365,240 @@ select.team-select option { background: var(--card); color: var(--text); }
   color: #fff;
   border-color: var(--accent);
 }
+
+/* ──────────────────────────────────────────────────────────
+   FIELDOS REP ASSISTANT — Game Plan, Next Best Door, Offline Queue
+   ────────────────────────────────────────────────────────── */
+.sync-btn {
+  position: relative;
+  background: rgba(15, 23, 42, .92) !important;
+  border: 1px solid rgba(148, 163, 184, .28) !important;
+  color: #cbd5e1 !important;
+}
+.sync-btn.pending {
+  background: rgba(245, 158, 11, .16) !important;
+  border-color: rgba(245, 158, 11, .55) !important;
+  color: #fde68a !important;
+}
+.sync-btn.syncing {
+  background: rgba(6, 182, 212, .16) !important;
+  border-color: rgba(6, 182, 212, .55) !important;
+  color: #a5f3fc !important;
+}
+.sync-btn.error {
+  background: rgba(239, 68, 68, .18) !important;
+  border-color: rgba(248, 113, 113, .55) !important;
+  color: #fecaca !important;
+}
+
+.game-plan-panel {
+  position: absolute;
+  top: 76px;
+  left: 388px;
+  right: 18px;
+  z-index: 790;
+  padding: 14px;
+  border: 1px solid rgba(34, 211, 238, .28);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(2, 6, 23, .94), rgba(15, 23, 42, .91));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(18px);
+}
+.game-plan-panel.collapsed .gp-body { display: none; }
+.game-plan-panel.collapsed { width: min(480px, calc(100% - 32px)); right: auto; }
+.gp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gp-eyebrow {
+  color: #22d3ee;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: 10px;
+  font-weight: 800;
+}
+.gp-title {
+  margin-top: 4px;
+  color: #e5e7eb;
+  font-size: 15px;
+  font-weight: 800;
+}
+.gp-collapse,
+.gp-action {
+  border: 1px solid rgba(148, 163, 184, .28);
+  color: #dbeafe;
+  background: rgba(15, 23, 42, .82);
+  border-radius: 12px;
+  padding: 9px 11px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 800;
+}
+.gp-action.primary {
+  background: linear-gradient(135deg, #22d3ee, #38bdf8);
+  color: #082f49;
+  border: none;
+}
+.gp-body {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.gp-card {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(15, 23, 42, .74);
+}
+.gp-card-title {
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 10px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.gp-muted { color: #94a3b8; font-size: 12px; line-height: 1.45; }
+.gp-door-main {
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+.gp-door-sub {
+  margin-top: 5px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.gp-door-reason {
+  margin-top: 8px;
+  color: #a5f3fc;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.gp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.gp-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+.gp-metric {
+  background: rgba(2, 6, 23, .45);
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 12px;
+  padding: 9px;
+}
+.gp-metric-value {
+  color: #f8fafc;
+  font-size: 18px;
+  font-weight: 900;
+}
+.gp-metric-label {
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.street-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid rgba(148, 163, 184, .12);
+}
+.street-row:first-child { border-top: 0; padding-top: 0; }
+.street-name {
+  color: #e5e7eb;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.street-detail {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-top: 3px;
+}
+.street-pct {
+  color: #f8fafc;
+  font-weight: 900;
+  font-size: 14px;
+  text-align: right;
+}
+.street-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, .85);
+  overflow: hidden;
+}
+.street-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22d3ee, #22c55e);
+}
+.focus-list {
+  display: grid;
+  gap: 8px;
+}
+.focus-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.focus-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22d3ee;
+  margin-top: 5px;
+}
+.addr-row.next-best-highlight {
+  outline: 2px solid rgba(34, 211, 238, .95);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, .14);
+}
+.ar-progress {
+  margin-top: 5px;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .game-plan-panel {
+    left: 12px;
+    right: 12px;
+    top: 72px;
+  }
+  .gp-body { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .game-plan-panel {
+    top: 70px;
+    max-height: 44vh;
+    overflow: auto;
+    border-radius: 16px;
+  }
+  .game-plan-panel.collapsed { width: calc(100% - 24px); }
+  .gp-title { font-size: 13px; }
+  .gp-metric-grid { grid-template-columns: repeat(3, 1fr); }
+}

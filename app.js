@@ -125,6 +125,147 @@ function supabaseWarn() {
   return true;
 }
 
+function readOfflineQueue() {
+  try {
+    var raw = localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]';
+    var rows = JSON.parse(raw);
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeOfflineQueue(rows) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(rows || [])); } catch (e) {}
+  updateOfflineQueueUI();
+}
+
+function offlineId() {
+  return 'oq_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+function enqueueOfflineTask(type, table, payload, label) {
+  var q = readOfflineQueue();
+  q.push({
+    id: offlineId(),
+    type: type,
+    table: table,
+    payload: payload || {},
+    label: label || type,
+    created_at: new Date().toISOString(),
+    attempts: 0
+  });
+  writeOfflineQueue(q);
+  toast('📴 Saved offline — will sync automatically', 't-info');
+  return true;
+}
+
+function updateOfflineQueueUI() {
+  var btn = document.getElementById('offline-sync-btn');
+  if (!btn) return;
+  var q = readOfflineQueue();
+  btn.classList.remove('pending', 'syncing', 'error');
+  if (offlineSyncRunning) {
+    btn.classList.add('syncing');
+    btn.textContent = 'Syncing…';
+    return;
+  }
+  if (q.length > 0) {
+    btn.classList.add(navigator.onLine === false ? 'error' : 'pending');
+    btn.textContent = q.length + ' pending';
+    btn.title = q.length + ' queued item(s). Tap to sync.';
+  } else {
+    btn.textContent = 'Synced';
+    btn.title = 'All field activity is synced.';
+  }
+}
+
+function isMissingOptionalColumnError(err) {
+  var msg = String((err && (err.message || err.details || err.hint || err.code)) || '').toLowerCase();
+  return msg.indexOf('column') >= 0 && (msg.indexOf('lat') >= 0 || msg.indexOf('lng') >= 0 || msg.indexOf('knocked_at') >= 0);
+}
+
+function stripOptionalEventFields(payload) {
+  var copy = Object.assign({}, payload || {});
+  delete copy.lat;
+  delete copy.lng;
+  delete copy.knocked_lat;
+  delete copy.knocked_lng;
+  return copy;
+}
+
+function insertSupabaseRow(table, payload) {
+  if (!hasSupabase()) return Promise.reject(new Error('Supabase not configured'));
+  return supabaseClient.from(table).insert([payload]).then(function(res) {
+    if (res.error && table === 'address_events' && isMissingOptionalColumnError(res.error)) {
+      return supabaseClient.from(table).insert([stripOptionalEventFields(payload)]).then(function(retry) {
+        if (retry.error) throw retry.error;
+        return retry;
+      });
+    }
+    if (res.error) throw res.error;
+    return res;
+  });
+}
+
+function processOfflineQueue(manual) {
+  updateOfflineQueueUI();
+  if (offlineSyncRunning) return Promise.resolve(false);
+  var q = readOfflineQueue();
+  if (!q.length) {
+    if (manual) toast('✅ Everything is already synced', 't-ok');
+    updateOfflineQueueUI();
+    return Promise.resolve(true);
+  }
+  if (!hasSupabase()) {
+    if (manual) toast('⚠ Supabase is not configured — queue kept locally', 't-err');
+    updateOfflineQueueUI();
+    return Promise.resolve(false);
+  }
+  if (navigator.onLine === false) {
+    if (manual) toast('📴 Device is offline — queue kept locally', 't-err');
+    updateOfflineQueueUI();
+    return Promise.resolve(false);
+  }
+
+  offlineSyncRunning = true;
+  updateOfflineQueueUI();
+
+  var remaining = [];
+  var synced = 0;
+
+  return q.reduce(function(chain, task) {
+    return chain.then(function() {
+      var payload = Object.assign({}, task.payload || {});
+      return insertSupabaseRow(task.table, payload).then(function() {
+        synced++;
+      }).catch(function(err) {
+        console.error('Offline sync failed for task', task, err);
+        task.attempts = Number(task.attempts || 0) + 1;
+        task.last_error = String((err && err.message) || err || 'Sync failed');
+        remaining.push(task);
+      });
+    });
+  }, Promise.resolve()).then(function() {
+    writeOfflineQueue(remaining);
+    offlineSyncRunning = false;
+    updateOfflineQueueUI();
+    if (synced && manual) toast('✅ Synced ' + synced + ' queued item(s)', 't-ok');
+    if (!synced && manual && remaining.length) toast('⚠ Still could not sync queued items', 't-err');
+    return remaining.length === 0;
+  }).catch(function(err) {
+    console.error(err);
+    offlineSyncRunning = false;
+    updateOfflineQueueUI();
+    if (manual) toast('⚠ Offline queue sync failed', 't-err');
+    return false;
+  });
+}
+
+window.addEventListener('online', function(){ processOfflineQueue(false); });
+window.addEventListener('offline', updateOfflineQueueUI);
+setTimeout(updateOfflineQueueUI, 0);
+
 function fetchRepProfileFromSupabase(name) {
   if (!supabaseWarn()) return Promise.resolve(null);
   var clean = String(name || '').trim();
@@ -277,6 +418,12 @@ var toastTimer = null;
 var sidebarOpen  = true;
 var pinDropMode  = false;
 var tempPinMarker = null;
+
+// Rep-assistant state
+var OFFLINE_QUEUE_KEY = 'fieldos_offline_queue_v1';
+var offlineSyncRunning = false;
+var nextBestDoorId = null;
+var gamePlanCollapsed = false;
 
 // ──────────────────────────────────────────────────────────
 //  COLORS
@@ -674,7 +821,11 @@ function fetchAddressesFromSheet(opts) {
           saleMade: ev.sale_made ? 'Y' : 'N',
           technology: (row.technology || '').trim(),
           serviceability: (row.serviceability || '').trim(),
-          externalLocationId: row.external_location_id || ''
+          externalLocationId: row.external_location_id || '',
+          primaryCampaign: row.primary_campaign || '',
+          priorityRank: row.priority_rank_within_territory || row.primary_campaign_priority_rank || row.priority_rank || null,
+          targetDate: row.target_date || '',
+          targetWeek: row.target_week || ''
         };
       });
 
@@ -864,6 +1015,8 @@ function launchApp() {
     startGPSPing();
     prefetchTiles();
     geocodeAll();
+    processOfflineQueue(false);
+    renderGamePlan();
     maybeAutoCollapse();
   } catch (err) {
     try { clearTimeout(fadeTimer); } catch(e) {}
@@ -1463,6 +1616,7 @@ function buildList(filter) {
   buildTerritoryTabs();
   // Update stale badge every time list rebuilds
   updateStaleBadge();
+  updateOfflineQueueUI();
 
   var list;
 
@@ -1526,6 +1680,9 @@ function buildList(filter) {
     });
   }
 
+  var currentNextBest = getNextBestDoor();
+  nextBestDoorId = currentNextBest && currentNextBest.address ? currentNextBest.address.id : null;
+  var streetCompletionMapForList = buildStreetCompletionMap(currentTerritoryAddresses());
   var html = list.map(function(a) {
     var sub   = [a.city, a.state, a.zip].filter(Boolean).join(', ') || '—';
     var tag   = TAG_HTML[a.status] || '';
@@ -1543,6 +1700,7 @@ function buildList(filter) {
     var noteLine = (a.note && a.note.trim())
       ? '<div class="ar-note">' + escHtml(a.note.trim()) + '</div>'
       : '';
+    var nextC = String(a.id) === String(nextBestDoorId || '') ? ' next-best-highlight' : '';
 
     // Route mode: show distance from current GPS position
     var modeLine = '';
@@ -1558,18 +1716,25 @@ function buildList(filter) {
       modeLine = '<div class="ar-dist" style="color:#d97706">⏱ ' + ageStr + '</div>';
     }
 
-    return '<div class="addr-row' + selC + '" data-id="' + a.id + '">' +
+    var streetMeta = streetCompletionMapForList[streetKeyForAddress(a)];
+    var streetLine = streetMeta && streetMeta.total > 3
+      ? '<div class="ar-progress">' + streetMeta.worked + '/' + streetMeta.total + ' worked on this street • ' + streetMeta.pending + ' pending</div>'
+      : '';
+
+    return '<div class="addr-row' + selC + nextC + '" data-id="' + a.id + '">' +
       '<div class="ar-dot">' + icon + '</div>' +
       '<div class="ar-info">' +
         '<div class="ar-st">'  + escHtml(a.address) + '</div>' +
         '<div class="ar-sub">' + escHtml(sub)        + '</div>' +
         noteLine +
         modeLine +
+        streetLine +
       '</div>' + tag + '</div>';
   }).join('');
 
   var container = document.getElementById('addr-items');
   container.innerHTML = html || '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">No addresses found</div>';
+  renderGamePlan();
   // No per-row listeners needed — delegated listener above handles all clicks
 }
 
@@ -1580,6 +1745,277 @@ function filterByDisposition(val) {
   buildList(document.getElementById('addr-search').value || null);
   refreshMapMarkers();
 }
+
+// ──────────────────────────────────────────────────────────
+//  REP ASSISTANT — Today’s Game Plan, Next Best Door, Street Completion
+// ──────────────────────────────────────────────────────────
+function statusKey(a) { return String((a && a.status) || '').toLowerCase().trim(); }
+function isPendingLikeStatus(s) { return !s || s === 'pending' || s === 'homes passed' || s === 'homespassed'; }
+function isSaleStatus(s) { return s === 'mega' || s === 'gig'; }
+function isNoContactStatus(s) { return s === 'nothome' || s === 'nothome2' || s === 'nothome3' || s === 'nothome4'; }
+function isSoftInterestStatus(s) { return s === 'goback' || s === 'maybelater' || s === 'sendinfo' || s === 'talktospouse' || s === 'priceconcern' || s === 'notdecisionmaker'; }
+function isHardStopStatus(s) { return s === 'notinterested' || s === 'vacant' || s === 'business' || s === 'activecustomer' || s === 'fibercompetitor' || s === 'competitor' || s === 'incontract'; }
+
+function currentTerritoryAddresses() {
+  return (addresses || []).filter(function(a) {
+    if (!a) return false;
+    if (activeTerritoryTab && String(a.territory || '').trim() !== activeTerritoryTab) return false;
+    return true;
+  });
+}
+
+function normalizeStreetName(address) {
+  var s = String(address || '').toUpperCase();
+  s = s.replace(/\b(APT|UNIT|STE|SUITE|#)\b.*$/i, '');
+  s = s.replace(/^\s*\d+[A-Z]?\s+/, '');
+  s = s.replace(/\b(NORTH|SOUTH|EAST|WEST)\b/g, function(m){ return ({NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W'})[m] || m; });
+  s = s.replace(/\b(STREET)\b/g, 'ST').replace(/\b(AVENUE)\b/g, 'AVE').replace(/\b(ROAD)\b/g, 'RD')
+       .replace(/\b(DRIVE)\b/g, 'DR').replace(/\b(LANE)\b/g, 'LN').replace(/\b(BOULEVARD)\b/g, 'BLVD')
+       .replace(/\b(COURT)\b/g, 'CT').replace(/\b(CIRCLE)\b/g, 'CIR').replace(/\b(PLACE)\b/g, 'PL')
+       .replace(/\b(TERRACE)\b/g, 'TER').replace(/\b(HIGHWAY)\b/g, 'HWY');
+  return s.replace(/[^A-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim() || 'UNKNOWN STREET';
+}
+
+function streetKeyForAddress(a) {
+  return [String((a && a.territory) || '').trim(), normalizeStreetName(a && a.address)].join('|');
+}
+
+function buildStreetCompletionMap(list) {
+  var map = {};
+  (list || currentTerritoryAddresses()).forEach(function(a) {
+    if (!a || !isKnockable(a)) return;
+    var key = streetKeyForAddress(a);
+    var street = normalizeStreetName(a.address);
+    if (!map[key]) map[key] = { key:key, street: street, territory: a.territory || '', total:0, worked:0, pending:0, sales:0, soft:0, noContact:0, latSum:0, lngSum:0, geoCount:0 };
+    var row = map[key];
+    var s = statusKey(a);
+    row.total++;
+    if (isPendingLikeStatus(s)) row.pending++;
+    else row.worked++;
+    if (isSaleStatus(s)) row.sales++;
+    if (isSoftInterestStatus(s)) row.soft++;
+    if (isNoContactStatus(s)) row.noContact++;
+    if (a.lat && a.lng) { row.latSum += Number(a.lat); row.lngSum += Number(a.lng); row.geoCount++; }
+  });
+  Object.keys(map).forEach(function(k) {
+    var r = map[k];
+    r.completion = r.total ? r.worked / r.total : 0;
+    r.closeRate = r.worked ? r.sales / r.worked : 0;
+    if (r.geoCount) { r.lat = r.latSum / r.geoCount; r.lng = r.lngSum / r.geoCount; }
+  });
+  return map;
+}
+
+function streetProgressForAddress(a) {
+  if (!a || !a.address) return null;
+  var map = buildStreetCompletionMap(currentTerritoryAddresses());
+  return map[streetKeyForAddress(a)] || null;
+}
+
+function getTopStreetRows() {
+  var rows = Object.values(buildStreetCompletionMap(currentTerritoryAddresses()))
+    .filter(function(r){ return r.total >= 3; })
+    .sort(function(a,b){
+      return (b.pending - a.pending) || (a.completion - b.completion) || (b.total - a.total);
+    });
+  return rows.slice(0, 4);
+}
+
+function priorityScoreForAddress(a) {
+  var raw = a && a.priorityRank;
+  if (raw === null || raw === undefined || raw === '') return 0;
+  var n = Number(raw);
+  if (!isFinite(n) || n <= 0) return 0;
+  return Math.max(0, 24 - Math.min(24, n));
+}
+
+function scoreNextBestDoor(a, streetMap) {
+  if (!a || !isKnockable(a) || !a.address) return null;
+  var s = statusKey(a);
+  if (isSaleStatus(s) || isHardStopStatus(s) || s === 'nothome4') return null;
+
+  var now = new Date();
+  var hour = now.getHours();
+  var isPrime = hour >= 16 && hour <= 20;
+  var score = 0;
+  var reasons = [];
+
+  if (isPendingLikeStatus(s)) { score += 55; reasons.push('still unworked'); }
+  if (isSoftInterestStatus(s)) { score += isPrime ? 78 : 52; reasons.push('warm follow-up'); }
+  if (isNoContactStatus(s)) { score += isPrime ? 48 : 18; reasons.push(isPrime ? 'good retry window' : 'retry later if no answer'); }
+
+  var st = streetMap[streetKeyForAddress(a)];
+  if (st) {
+    score += Math.min(22, st.pending * 3);
+    if (st.total >= 5) reasons.push(st.pending + ' pending on this street');
+    if (st.completion > 0 && st.completion < .8) score += 8;
+  }
+
+  score += priorityScoreForAddress(a);
+  if (a.primaryCampaign) { score += 8; reasons.push('campaign priority'); }
+
+  if (lastGPS && a.lat && a.lng) {
+    var mi = haversineMiles(lastGPS.lat, lastGPS.lng, a.lat, a.lng);
+    score += Math.max(-35, 30 - (mi * 28));
+    if (mi < .15) reasons.push('near you');
+    else if (mi < .5) reasons.push(mi.toFixed(2) + ' mi away');
+  } else if (a.lat && a.lng) {
+    score += 5;
+  }
+
+  if (a.followUpNeeded === 'Y') { score += 14; reasons.push('marked follow-up'); }
+  if (a.note && isSoftInterestStatus(s)) score += 8;
+  if (!a.note && isSoftInterestStatus(s)) score -= 6;
+
+  return { address: a, score: score, reasons: reasons.filter(function(v,i,arr){ return v && arr.indexOf(v) === i; }) };
+}
+
+function getNextBestDoor() {
+  var list = currentTerritoryAddresses();
+  var streetMap = buildStreetCompletionMap(list);
+  var scored = list.map(function(a){ return scoreNextBestDoor(a, streetMap); }).filter(Boolean);
+  scored.sort(function(a,b){ return b.score - a.score; });
+  return scored[0] || null;
+}
+
+function openNextBestDoor(id) {
+  var a = findAddressById(id);
+  if (!a) return;
+  nextBestDoorId = a.id;
+  if (a.lat && a.lng && mapObj) {
+    mapObj.flyTo([a.lat, a.lng], Math.max(mapObj.getZoom(), 18), { duration: .7 });
+    if (mapMarkers[a.id]) {
+      try { mapMarkers[a.id].openPopup(); } catch(e) {}
+    }
+  }
+  openForm(a.id);
+  buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
+}
+
+function centerNextBestDoor(id) {
+  var a = findAddressById(id);
+  if (!a) return;
+  nextBestDoorId = a.id;
+  if (a.lat && a.lng && mapObj) {
+    mapObj.flyTo([a.lat, a.lng], Math.max(mapObj.getZoom(), 18), { duration: .7 });
+    if (mapMarkers[a.id]) {
+      try { mapMarkers[a.id].openPopup(); } catch(e) {}
+    }
+  }
+  buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
+}
+
+function focusStreet(street) {
+  var search = document.getElementById('addr-search');
+  if (search) search.value = street || '';
+  buildList(street || null);
+  var rows = currentTerritoryAddresses().filter(function(a){ return normalizeStreetName(a.address) === normalizeStreetName(street); }).filter(function(a){ return a.lat && a.lng; });
+  if (rows.length && mapObj) {
+    var bounds = L.latLngBounds(rows.map(function(a){ return [a.lat, a.lng]; }));
+    mapObj.fitBounds(bounds, { padding:[60,60], maxZoom:18 });
+  }
+}
+
+function findAddressById(id) {
+  for (var i = 0; i < addresses.length; i++) {
+    if (String(addresses[i].id) === String(id)) return addresses[i];
+  }
+  return null;
+}
+
+function buildTodayFocusItems(metrics, next, streets) {
+  var items = [];
+  var hour = new Date().getHours();
+  if (next) items.push('Start with the next-best door, then finish the surrounding street before jumping pockets.');
+  if (metrics.soft > 0) items.push('Work ' + metrics.soft + ' warm follow-up' + (metrics.soft === 1 ? '' : 's') + ' before cold pending homes.');
+  if (metrics.noContact >= 5 && hour < 16) items.push('You have several no-contact homes. Save repeat not-homes for after 4 PM when answer rates should improve.');
+  if (metrics.pending > 0 && streets.length) items.push('Finish ' + streets[0].street + ' first — it has ' + streets[0].pending + ' pending door' + (streets[0].pending === 1 ? '' : 's') + '.');
+  if (!items.length && metrics.pending > 0) items.push('Keep working nearest pending homes and capture notes on every real conversation.');
+  if (!items.length) items.push('No obvious pending route left in the current filter. Refresh data or switch territory.');
+  return items.slice(0, 4);
+}
+
+function renderGamePlan() {
+  var panel = document.getElementById('fieldos-game-plan');
+  if (!panel) return;
+  panel.classList.toggle('collapsed', gamePlanCollapsed);
+  var btn = document.getElementById('gp-collapse-btn');
+  if (btn) btn.textContent = gamePlanCollapsed ? 'Show' : 'Hide';
+
+  var list = currentTerritoryAddresses().filter(isKnockable);
+  var metrics = { total:list.length, pending:0, worked:0, sales:0, soft:0, noContact:0 };
+  list.forEach(function(a) {
+    var s = statusKey(a);
+    if (isPendingLikeStatus(s)) metrics.pending++; else metrics.worked++;
+    if (isSaleStatus(s)) metrics.sales++;
+    if (isSoftInterestStatus(s)) metrics.soft++;
+    if (isNoContactStatus(s)) metrics.noContact++;
+  });
+
+  var title = document.getElementById('gp-title');
+  if (title) {
+    var territoryLabel = activeTerritoryTab || (activeTerritories && activeTerritories.length === 1 ? activeTerritories[0] : 'assigned territory');
+    title.textContent = metrics.pending + ' pending • ' + metrics.soft + ' warm follow-up' + (metrics.soft === 1 ? '' : 's') + ' • ' + metrics.sales + ' sale' + (metrics.sales === 1 ? '' : 's') + ' in ' + territoryLabel;
+  }
+
+  var next = getNextBestDoor();
+  nextBestDoorId = next && next.address ? next.address.id : null;
+  var nextEl = document.getElementById('next-best-door');
+  if (nextEl) {
+    if (!next) {
+      nextEl.innerHTML = '<div class="gp-muted">No knockable next door found in the current filter.</div>';
+    } else {
+      var a = next.address;
+      var sub = [a.city, a.state, a.zip].filter(Boolean).join(', ');
+      var dist = (lastGPS && a.lat && a.lng) ? haversineMiles(lastGPS.lat, lastGPS.lng, a.lat, a.lng) : null;
+      var distText = dist !== null ? (dist < .1 ? 'Nearby' : dist.toFixed(2) + ' mi away') : 'GPS not available';
+      nextEl.innerHTML =
+        '<div class="gp-door-main">' + escHtml(a.address) + '</div>' +
+        '<div class="gp-door-sub">' + escHtml(sub || a.territory || '') + ' • ' + escHtml(distText) + '</div>' +
+        '<div class="gp-door-reason">Why: ' + escHtml(next.reasons.slice(0, 3).join(' • ') || 'best overall score') + '</div>' +
+        '<div class="gp-actions">' +
+          '<button class="gp-action primary" onclick="openNextBestDoor(\'' + String(a.id).replace(/'/g,"\\'") + '\')">Open Door</button>' +
+          '<button class="gp-action" onclick="centerNextBestDoor(\'' + String(a.id).replace(/'/g,"\\'") + '\')">Show on Map</button>' +
+        '</div>';
+    }
+  }
+
+  var streetRows = getTopStreetRows();
+  var streetEl = document.getElementById('street-completion');
+  if (streetEl) {
+    streetEl.innerHTML = streetRows.length ? streetRows.map(function(r) {
+      var pct = Math.round(r.completion * 100);
+      return '<div class="street-row">' +
+        '<div><div class="street-name">' + escHtml(r.street) + '</div>' +
+        '<div class="street-detail">' + r.worked + '/' + r.total + ' worked • ' + r.pending + ' pending • ' + r.sales + ' sales</div></div>' +
+        '<div class="street-pct">' + pct + '%</div>' +
+        '<div class="street-bar"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="gp-actions" style="grid-column:1/-1;margin-top:0"><button class="gp-action" onclick="focusStreet(\'' + String(r.street).replace(/'/g,"\\'") + '\')">Finish this street</button></div>' +
+      '</div>';
+    }).join('') : '<div class="gp-muted">No street with enough homes to score yet.</div>';
+  }
+
+  var focusEl = document.getElementById('today-focus');
+  if (focusEl) {
+    var items = buildTodayFocusItems(metrics, next, streetRows);
+    var metricHtml = '<div class="gp-metric-grid">' +
+      '<div class="gp-metric"><div class="gp-metric-value">' + metrics.pending + '</div><div class="gp-metric-label">Pending</div></div>' +
+      '<div class="gp-metric"><div class="gp-metric-value">' + metrics.soft + '</div><div class="gp-metric-label">Warm</div></div>' +
+      '<div class="gp-metric"><div class="gp-metric-value">' + Math.round(metrics.worked ? (metrics.sales / metrics.worked) * 100 : 0) + '%</div><div class="gp-metric-label">Close</div></div>' +
+    '</div>';
+    focusEl.innerHTML = metricHtml + '<div class="focus-list" style="margin-top:10px">' + items.map(function(item){
+      return '<div class="focus-item"><span class="focus-dot"></span><span>' + escHtml(item) + '</span></div>';
+    }).join('') + '</div>';
+  }
+}
+
+function toggleGamePlan() {
+  gamePlanCollapsed = !gamePlanCollapsed;
+  try { localStorage.setItem('fieldos_game_plan_collapsed', gamePlanCollapsed ? '1' : '0'); } catch(e) {}
+  renderGamePlan();
+}
+
+try { gamePlanCollapsed = localStorage.getItem('fieldos_game_plan_collapsed') === '1'; } catch(e) {}
 
 function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2037,51 +2473,55 @@ function schedClearSlot() {
 }
 
 function schedBookSlot(date, time, customerName, address) {
-  if (!supabaseWarn()) return Promise.resolve(false);
-
   var slot = schedData[date] && schedData[date][time] ? schedData[date][time] : null;
   if (!slot || !slot.slotId) return Promise.resolve(false);
 
-  return supabaseClient
-    .from('schedule_bookings')
-    .insert([{
-      schedule_slot_id: slot.slotId,
-      address_id: getAddr() && getAddr().id ? getAddr().id : null,
-      rep_name: repName || '',
-      customer_name: customerName || '',
-      phone: (document.getElementById('f-phone') ? document.getElementById('f-phone').value : ''),
-      email: (document.getElementById('f-email') ? document.getElementById('f-email').value : ''),
-      notes: (document.getElementById('f-notes') ? document.getElementById('f-notes').value : ''),
-      status: 'booked'
-    }])
-    .then(function(res) {
-      if (res.error) throw res.error;
+  var bookingPayload = {
+    schedule_slot_id: slot.slotId,
+    address_id: getAddr() && getAddr().id ? getAddr().id : null,
+    rep_name: repName || '',
+    customer_name: customerName || '',
+    phone: (document.getElementById('f-phone') ? document.getElementById('f-phone').value : ''),
+    email: (document.getElementById('f-email') ? document.getElementById('f-email').value : ''),
+    notes: (document.getElementById('f-notes') ? document.getElementById('f-notes').value : ''),
+    status: 'booked'
+  };
 
-      if (schedData[date] && schedData[date][time]) {
-        schedData[date][time].booked = Number(schedData[date][time].booked || 0) + 1;
-        schedData[date][time].avail = Math.max(
-          0,
-          Number(schedData[date][time].cap || 0) - Number(schedData[date][time].booked || 0)
-        );
-      }
+  function markLocalBooked() {
+    if (schedData[date] && schedData[date][time]) {
+      schedData[date][time].booked = Number(schedData[date][time].booked || 0) + 1;
+      schedData[date][time].avail = Math.max(
+        0,
+        Number(schedData[date][time].cap || 0) - Number(schedData[date][time].booked || 0)
+      );
+    }
+    var picker = document.getElementById('sched-picker');
+    if (picker && !picker.classList.contains('hidden')) schedRenderWeek();
+  }
 
-      if (!document.getElementById('sched-picker').classList.contains('hidden')) {
-        schedRenderWeek();
-      }
+  if (!hasSupabase() || navigator.onLine === false) {
+    enqueueOfflineTask('schedule_booking', 'schedule_bookings', bookingPayload, 'Booking: ' + customerName);
+    markLocalBooked();
+    return Promise.resolve(true);
+  }
 
+  return insertSupabaseRow('schedule_bookings', bookingPayload)
+    .then(function() {
+      markLocalBooked();
       return new Promise(function(resolve) {
         schedFetch(function(ok) {
-          if (ok && !document.getElementById('sched-picker').classList.contains('hidden')) {
-            schedRenderWeek();
-          }
+          var picker = document.getElementById('sched-picker');
+          if (ok && picker && !picker.classList.contains('hidden')) schedRenderWeek();
+          processOfflineQueue(false);
           resolve(ok);
         });
       });
     })
     .catch(function(err) {
       console.error(err);
-      toast('⚠ Failed to book schedule slot', 't-err');
-      return false;
+      enqueueOfflineTask('schedule_booking', 'schedule_bookings', bookingPayload, 'Booking: ' + customerName);
+      markLocalBooked();
+      return true;
     });
 }
 
@@ -2333,6 +2773,8 @@ async function submitSale(pkgLabel) {
   await updateAddressStatus(addr, addr.status, notes, outcomeFlags);
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
+  buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
+  refreshMapMarkers();
   sendHeartbeat();
   toast('✅ ' + pkgLabel + ' sold to ' + first + ' ' + last + '!', 't-ok');
   closeForm();
@@ -2391,6 +2833,8 @@ async function submitStatus() {
   if (!statusSaved) return;
   if (addr.lat && addr.lng) placeMarker(addr);
   updateStats();
+  buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
+  refreshMapMarkers();
   toast('📋 "' + selStatus + '" logged', 't-info');
   var nsNoteEl = document.getElementById('ns-note');
   if (nsNoteEl) nsNoteEl.value = '';
@@ -2404,58 +2848,73 @@ async function updateAddressStatus(addr, status, note, flags) {
     saleMade: addr.saleMade || 'N'
   };
 
-  if (!supabaseWarn() || !addr || !addr.id) return false;
+  if (!addr || !addr.id) return false;
 
-  var res = await supabaseClient
-    .from('address_events')
-    .insert([{
-      address_id: addr.id,
-      rep_name: repName,
-      territory: (addr.territory || activeTerritory || ''),
-      status: status,
-      note: (note || ''),
-      knocked_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      decision_maker_spoken_to: outcomeFlags.decisionMakerSpokenTo === 'Y',
-      follow_up_needed: outcomeFlags.followUpNeeded === 'Y',
-      sale_made: outcomeFlags.saleMade === 'Y'
-    }]);
+  var nowIso = new Date().toISOString();
+  var eventPayload = {
+    address_id: addr.id,
+    rep_name: repName,
+    territory: (addr.territory || activeTerritory || ''),
+    status: status,
+    note: (note || ''),
+    knocked_at: nowIso,
+    created_at: nowIso,
+    decision_maker_spoken_to: outcomeFlags.decisionMakerSpokenTo === 'Y',
+    follow_up_needed: outcomeFlags.followUpNeeded === 'Y',
+    sale_made: outcomeFlags.saleMade === 'Y'
+  };
 
-  if (res.error) {
-    console.error(res.error);
-    toast('⚠ Failed to save status update', 't-err');
-    return false;
+  if (addr.lat != null && addr.lng != null) {
+    eventPayload.lat = Number(addr.lat);
+    eventPayload.lng = Number(addr.lng);
   }
-  return true;
+
+  if (!hasSupabase() || navigator.onLine === false) {
+    enqueueOfflineTask('address_event', 'address_events', eventPayload, 'Disposition: ' + status);
+    return true;
+  }
+
+  try {
+    await insertSupabaseRow('address_events', eventPayload);
+    processOfflineQueue(false);
+    return true;
+  } catch (err) {
+    console.error(err);
+    enqueueOfflineTask('address_event', 'address_events', eventPayload, 'Disposition: ' + status);
+    return true;
+  }
 }
 
 async function sendData(payload) {
-  if (!supabaseWarn()) return false;
-
   var addr = getAddr ? getAddr() : null;
   var fullName = ((payload.firstName || '') + ' ' + (payload.lastName || '')).trim();
 
-  var salesRes = await supabaseClient
-    .from('sales_orders')
-    .insert([{
-      address_id: addr && addr.id ? addr.id : null,
-      rep_name: repName || '',
-      customer_name: fullName,
-      phone: payload.phone || '',
-      email: payload.email || '',
-      package_name: payload.package || payload.packageName || '',
-      install_date: payload.installDate || null,
-      install_time: payload.installTime || '',
-      notes: payload.notes || payload.note || ''
-    }]);
+  var salesPayload = {
+    address_id: addr && addr.id ? addr.id : null,
+    rep_name: repName || '',
+    customer_name: fullName,
+    phone: payload.phone || '',
+    email: payload.email || '',
+    package_name: payload.package || payload.packageName || '',
+    install_date: payload.installDate || null,
+    install_time: payload.installTime || '',
+    notes: payload.notes || payload.note || ''
+  };
 
-  if (salesRes.error) {
-    console.error(salesRes.error);
-    toast('⚠ Failed to save sale', 't-err');
-    return false;
+  if (!hasSupabase() || navigator.onLine === false) {
+    enqueueOfflineTask('sales_order', 'sales_orders', salesPayload, 'Sale: ' + fullName);
+    return true;
   }
 
-  return true;
+  try {
+    await insertSupabaseRow('sales_orders', salesPayload);
+    processOfflineQueue(false);
+    return true;
+  } catch (err) {
+    console.error(err);
+    enqueueOfflineTask('sales_order', 'sales_orders', salesPayload, 'Sale: ' + fullName);
+    return true;
+  }
 }
 
 // ──────────────────────────────────────────────────────────
@@ -2480,6 +2939,8 @@ function updateStats() {
       stSched.parentElement.title = tCount + ' territories loaded';
     }
   }
+  updateOfflineQueueUI();
+  renderGamePlan();
 }
 
 // ──────────────────────────────────────────────────────────
