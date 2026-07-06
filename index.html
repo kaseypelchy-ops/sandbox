@@ -247,15 +247,15 @@
             <span class="pkg-check">✓</span>
             <div class="pkg-icon">⚡</div>
             <div class="pkg-name">Mega Speed</div>
-            <div class="pkg-speed">500 Mbps</div>
-            <div class="pkg-price">$44.95/mo</div>
+            <div class="pkg-speed">Loading offer…</div>
+            <div class="pkg-price">Current promo</div>
           </div>
           <div class="pkg-card gig-card" id="pkg-gig" onclick="pickPkg('gig')">
             <span class="pkg-check">✓</span>
             <div class="pkg-icon">🚀</div>
             <div class="pkg-name">Gig Speed</div>
-            <div class="pkg-speed">1,000 Mbps</div>
-            <div class="pkg-price">$30.00/mo</div>
+            <div class="pkg-speed">Loading offer…</div>
+            <div class="pkg-price">Current promo</div>
           </div>
         </div>
 
@@ -294,19 +294,21 @@
 
           <div class="sec-head">Pricing Breakdown</div>
           <div class="price-table">
+            <div class="price-section-label" id="pr-offer-title">Selected Offer</div>
+            <div id="pr-phase-list"></div>
             <div class="price-section-label">Monthly Bill (recurring)</div>
             <div class="price-row"><span>Internet Service</span><span id="pr-internet">—</span></div>
-            <div class="price-row"><span>Modem Fee</span><span>$10.00</span></div>
-            <div class="price-row"><span>eero 6+ WiFi Router</span><span>$5.00</span></div>
-            <div class="price-row"><span>Payment Processing Fee</span><span>$1.00</span></div>
+            <div class="price-row"><span id="pr-modem-label">Modem Fee</span><span id="pr-modem">$0.00</span></div>
+            <div class="price-row"><span id="pr-eero-label">eero WiFi Router</span><span id="pr-eero">$5.00</span></div>
+            <div class="price-row"><span id="pr-processing-label">Payment Processing Fee</span><span id="pr-processing">$1.00</span></div>
             <div class="price-row price-total"><span>Monthly Total</span><span id="pr-monthly">—</span></div>
 
-            <div class="price-section-label mt-14">First Month Bill (promo: internet is free)</div>
-            <div class="price-row promo-row"><span>Internet Service</span><span class="free-tag">FREE</span></div>
-            <div class="price-row"><span>Modem Fee</span><span>$10.00</span></div>
-            <div class="price-row"><span>eero 6+ WiFi Router</span><span>$5.00</span></div>
-            <div class="price-row"><span>Payment Processing Fee</span><span>$1.00</span></div>
-            <div class="price-row price-total"><span>First Month Bill (fees only)</span><span id="pr-firstbill-fees">$16.00</span></div>
+            <div class="price-section-label mt-14">First Bill Estimate</div>
+            <div class="price-row promo-row"><span>Internet Service</span><span id="pr-first-internet" class="free-tag">Based on offer</span></div>
+            <div class="price-row"><span id="pr-first-modem-label">Modem Fee</span><span id="pr-first-modem">$0.00</span></div>
+            <div class="price-row"><span id="pr-first-eero-label">eero WiFi Router</span><span id="pr-first-eero">$5.00</span></div>
+            <div class="price-row"><span id="pr-first-processing-label">Payment Processing Fee</span><span id="pr-first-processing">$1.00</span></div>
+            <div class="price-row price-total"><span>Required Monthly Charges</span><span id="pr-firstbill-fees">$0.00</span></div>
             <div class="price-row"><span class="opacity-85">+ Estimated Proration (below)</span><span class="opacity-85">—</span></div>
             <div class="price-row price-total"><span>Estimated First Bill Total</span><span id="pr-firstbill-total">—</span></div>
 
@@ -323,7 +325,7 @@
 
             <div class="price-note">
               📅 Bills are generated on the <strong>1st</strong> of each month and due by the <strong>10th</strong>.
-              <br>💡 Promo: First month includes <strong>free internet service</strong>, but standard monthly fees still apply (modem $10, eero $5, processing $1).
+              <br><span id="pr-disclosure">Pricing is loaded from Supabase. Final billing is subject to serviceability, approved promo, equipment selection, taxes, and account setup.</span>
             </div>
           </div>
         </div>

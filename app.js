@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.3';
-var BUILD_ID    = '2026.07.06-auto-boundaries';
+var APP_VERSION = '2.0.4';
+var BUILD_ID    = '2026.07.06-dynamic-pricing';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -47,6 +47,376 @@ var supabaseClient = (window.supabase && typeof window.supabase.createClient ===
   : null;
 
 var scheduleRealtimeChannel = null;
+
+
+// ──────────────────────────────────────────────────────────
+//  PRICING / PROMO CONFIG — Supabase-backed offer engine
+//  Source of truth: public.fieldos_pricing_offers
+// ──────────────────────────────────────────────────────────
+var FIELDOS_PRICING_TABLE = 'fieldos_pricing_offers';
+var pricingOffersLoaded = false;
+var pricingOffersByPackage = {};
+var pricingOfferRows = [];
+var pricingLoadError = '';
+
+var DEFAULT_PRICING_OFFERS = {
+  mega: {
+    id: null,
+    offer_code: 'fallback_mega',
+    package_key: 'mega',
+    package_name: 'Mega Speed Internet',
+    speed_label: '400 Mbps',
+    promo_display: '$39.95/mo for 24 months',
+    promo_term_label: '24 months',
+    standard_rate_label: '$87.39/mo after promo',
+    standard_rate: 87.39,
+    phases: [
+      { label: 'Months 1–24', month_start: 1, month_end: 24, internet_price: 39.95 },
+      { label: 'Month 25+', month_start: 25, month_end: null, internet_price: 87.39 }
+    ],
+    charges: [
+      { key: 'modem', label: 'Modem Rental', amount: 0, recurring: true, required: true, prorate: true },
+      { key: 'eero', label: 'eero WiFi Router', amount: 5, recurring: true, required: true, prorate: true },
+      { key: 'processing', label: 'Payment Processing Fee', amount: 1, recurring: true, required: true, prorate: false }
+    ],
+    disclosure: 'Fallback pricing shown because no active Supabase offer was loaded. Confirm current promo before quoting.'
+  },
+  gig: {
+    id: null,
+    offer_code: 'fallback_gig',
+    package_key: 'gig',
+    package_name: 'Gig Speed Internet',
+    speed_label: '1,000 Mbps',
+    promo_display: '$30.00/mo for 24 months',
+    promo_term_label: '24 months',
+    standard_rate_label: '$90.95/mo after promo',
+    standard_rate: 90.95,
+    phases: [
+      { label: 'Months 1–24', month_start: 1, month_end: 24, internet_price: 30.00 },
+      { label: 'Month 25+', month_start: 25, month_end: null, internet_price: 90.95 }
+    ],
+    charges: [
+      { key: 'modem', label: 'Modem Rental', amount: 0, recurring: true, required: true, prorate: true },
+      { key: 'eero', label: 'eero WiFi Router', amount: 5, recurring: true, required: true, prorate: true },
+      { key: 'processing', label: 'Payment Processing Fee', amount: 1, recurring: true, required: true, prorate: false }
+    ],
+    disclosure: 'Fallback pricing shown because no active Supabase offer was loaded. Confirm current promo before quoting.'
+  }
+};
+
+function normalizePricingTerritory(value) {
+  return String(value || '').toLowerCase().trim()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_+/g, '_');
+}
+
+function money(n) {
+  var val = Number(n || 0);
+  return '$' + val.toFixed(2);
+}
+
+function parseJsonMaybe(value, fallback) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') return value;
+  if (typeof value === 'string' && value.trim()) {
+    try { return JSON.parse(value); } catch(e) {}
+  }
+  return fallback;
+}
+
+function normalizeCharge(row) {
+  row = row || {};
+  return {
+    key: String(row.key || row.charge_key || row.label || '').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+    label: String(row.label || row.name || row.charge_label || 'Charge'),
+    amount: Number(row.amount || row.monthly_fee || row.price || 0),
+    recurring: row.recurring === false ? false : true,
+    required: row.required === false ? false : true,
+    prorate: row.prorate === false ? false : true
+  };
+}
+
+function normalizePhase(row) {
+  row = row || {};
+  var price = row.internet_price;
+  if (price === undefined || price === null) price = row.monthly_price;
+  if (price === undefined || price === null) price = row.price;
+  return {
+    label: String(row.label || row.phase_label || ''),
+    month_start: row.month_start === null || row.month_start === undefined ? 1 : Number(row.month_start),
+    month_end: row.month_end === null || row.month_end === undefined || row.month_end === '' ? null : Number(row.month_end),
+    internet_price: Number(price || 0),
+    description: String(row.description || '')
+  };
+}
+
+function normalizePricingOffer(row) {
+  row = row || {};
+  var key = String(row.package_key || row.package || '').toLowerCase().trim();
+  var phases = parseJsonMaybe(row.phases, []);
+  phases = Array.isArray(phases) ? phases.map(normalizePhase) : [];
+  if (!phases.length) {
+    var promoPrice = row.promo_price;
+    if (promoPrice === undefined || promoPrice === null) promoPrice = row.price;
+    phases = [{ label: row.promo_term_label || 'Promo term', month_start: 1, month_end: null, internet_price: Number(promoPrice || 0) }];
+  }
+
+  var charges = parseJsonMaybe(row.charges, []);
+  charges = Array.isArray(charges) ? charges.map(normalizeCharge) : [];
+  if (!charges.length) {
+    charges = [
+      { key: 'modem', label: 'Modem Rental', amount: Number(row.modem_fee || 0), recurring: true, required: true, prorate: true },
+      { key: 'eero', label: row.eero_label || 'eero WiFi Router', amount: Number(row.eero_fee == null ? 5 : row.eero_fee), recurring: true, required: true, prorate: true },
+      { key: 'processing', label: 'Payment Processing Fee', amount: Number(row.processing_fee == null ? 1 : row.processing_fee), recurring: true, required: true, prorate: false }
+    ];
+  }
+
+  phases.sort(function(a,b){ return Number(a.month_start || 1) - Number(b.month_start || 1); });
+  return {
+    id: row.id || null,
+    offer_code: row.offer_code || row.code || '',
+    team_slug: row.team_slug || '',
+    territory: row.territory || '',
+    package_key: key,
+    package_name: row.package_name || (key === 'gig' ? 'Gig Speed Internet' : 'Mega Speed Internet'),
+    speed_label: row.speed_label || row.internet_speed || (key === 'gig' ? '1,000 Mbps' : '400 Mbps'),
+    offer_title: row.offer_title || row.title || '',
+    offer_badge: row.offer_badge || row.badge || '',
+    promo_display: row.promo_display || derivePromoDisplayFromPhases(phases),
+    promo_term_label: row.promo_term_label || derivePromoTermFromPhases(phases),
+    standard_rate: Number(row.standard_rate || 0),
+    standard_rate_label: row.standard_rate_label || (row.standard_rate ? (money(row.standard_rate) + '/mo after promo') : ''),
+    active_start: row.active_start || row.effective_start || row.promo_effective_date || '',
+    active_end: row.active_end || row.effective_end || '',
+    priority: Number(row.priority || 100),
+    sort_order: Number(row.sort_order || 100),
+    phases: phases,
+    charges: charges,
+    disclosure: row.disclosure || row.legal_disclaimer || row.note || ''
+  };
+}
+
+function derivePromoDisplayFromPhases(phases) {
+  phases = phases || [];
+  if (!phases.length) return 'Current offer';
+  var p = phases[0];
+  if (Number(p.internet_price || 0) === 0) {
+    var end = p.month_end ? (' for ' + p.month_end + ' month' + (p.month_end === 1 ? '' : 's')) : '';
+    return 'Internet FREE' + end;
+  }
+  return money(p.internet_price) + '/mo' + (p.month_end ? (' through month ' + p.month_end) : '');
+}
+
+function derivePromoTermFromPhases(phases) {
+  phases = phases || [];
+  if (!phases.length) return '';
+  var lastFinite = null;
+  phases.forEach(function(p){ if (p.month_end) lastFinite = p.month_end; });
+  return lastFinite ? (lastFinite + ' months') : '';
+}
+
+function activeTeamSlug() {
+  var team = TEAMS && activeTeam ? TEAMS[activeTeam] : null;
+  return team && team.slug ? String(team.slug).trim() : '';
+}
+
+function pricingDateIsActive(row) {
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var start = row.active_start || row.effective_start;
+  var end = row.active_end || row.effective_end;
+  if (start) {
+    var sd = new Date(String(start) + 'T00:00:00');
+    if (!isNaN(sd.getTime()) && today < sd) return false;
+  }
+  if (end) {
+    var ed = new Date(String(end) + 'T23:59:59');
+    if (!isNaN(ed.getTime()) && today > ed) return false;
+  }
+  return true;
+}
+
+function pickBestPricingOffer(rows, pkgKey, territories) {
+  var teamSlug = activeTeamSlug();
+  var terrKeys = (territories || []).map(normalizePricingTerritory).filter(Boolean);
+  var candidates = (rows || []).map(normalizePricingOffer).filter(function(o) {
+    if (o.package_key !== pkgKey) return false;
+    if (o.team_slug && o.team_slug !== 'all' && teamSlug && o.team_slug !== teamSlug) return false;
+    if (!pricingDateIsActive(o)) return false;
+    var ot = normalizePricingTerritory(o.territory);
+    if (!ot || ot === 'all' || terrKeys.indexOf(ot) >= 0) return true;
+    return false;
+  });
+
+  candidates.sort(function(a,b) {
+    var at = normalizePricingTerritory(a.territory), bt = normalizePricingTerritory(b.territory);
+    var aExact = terrKeys.indexOf(at) >= 0 ? 1 : 0;
+    var bExact = terrKeys.indexOf(bt) >= 0 ? 1 : 0;
+    if (aExact !== bExact) return bExact - aExact;
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return a.sort_order - b.sort_order;
+  });
+
+  return candidates[0] || DEFAULT_PRICING_OFFERS[pkgKey];
+}
+
+function fetchPricingOffersForActiveTerritories(territories) {
+  pricingOffersLoaded = false;
+  pricingLoadError = '';
+  pricingOffersByPackage = {
+    mega: DEFAULT_PRICING_OFFERS.mega,
+    gig: DEFAULT_PRICING_OFFERS.gig
+  };
+
+  if (!hasSupabase()) {
+    renderPackageCards();
+    return Promise.resolve(pricingOffersByPackage);
+  }
+
+  return supabaseClient
+    .from(FIELDOS_PRICING_TABLE)
+    .select('*')
+    .eq('is_active', true)
+    .order('priority', { ascending: true })
+    .order('sort_order', { ascending: true })
+    .then(function(res) {
+      if (res.error) throw res.error;
+      pricingOfferRows = res.data || [];
+      pricingOffersByPackage = {
+        mega: pickBestPricingOffer(pricingOfferRows, 'mega', territories),
+        gig: pickBestPricingOffer(pricingOfferRows, 'gig', territories)
+      };
+      pricingOffersLoaded = true;
+      renderPackageCards();
+      return pricingOffersByPackage;
+    })
+    .catch(function(err) {
+      console.error('Pricing offer load failed:', err);
+      pricingLoadError = String((err && err.message) || err || 'Could not load pricing');
+      pricingOffersByPackage = {
+        mega: DEFAULT_PRICING_OFFERS.mega,
+        gig: DEFAULT_PRICING_OFFERS.gig
+      };
+      renderPackageCards();
+      toast('⚠ Could not load current pricing — using fallback', 't-err');
+      return pricingOffersByPackage;
+    });
+}
+
+function getCurrentOffer(pkgKey) {
+  return (pricingOffersByPackage && pricingOffersByPackage[pkgKey]) || DEFAULT_PRICING_OFFERS[pkgKey] || null;
+}
+
+function requiredRecurringCharges(offer) {
+  return (offer && offer.charges ? offer.charges : []).filter(function(c) {
+    return c && c.recurring !== false && c.required !== false;
+  });
+}
+
+function sumCharges(charges) {
+  return (charges || []).reduce(function(s,c){ return s + Number(c.amount || 0); }, 0);
+}
+
+function getInternetPriceForMonth(offer, monthNumber) {
+  monthNumber = Number(monthNumber || 1);
+  var phases = offer && offer.phases ? offer.phases : [];
+  for (var i = 0; i < phases.length; i++) {
+    var p = phases[i];
+    var start = Number(p.month_start || 1);
+    var end = p.month_end === null || p.month_end === undefined ? 999999 : Number(p.month_end);
+    if (monthNumber >= start && monthNumber <= end) return Number(p.internet_price || 0);
+  }
+  return phases.length ? Number(phases[0].internet_price || 0) : 0;
+}
+
+function phaseLabel(p) {
+  if (!p) return 'Internet';
+  if (p.label) return p.label;
+  if (p.month_end === null || p.month_end === undefined || p.month_end === '') return 'Month ' + (p.month_start || 1) + '+';
+  if (Number(p.month_start || 1) === Number(p.month_end || 1)) return 'Month ' + p.month_start;
+  return 'Months ' + (p.month_start || 1) + '–' + p.month_end;
+}
+
+function offerPhaseSummary(offer) {
+  var phases = offer && offer.phases ? offer.phases : [];
+  return phases.map(function(p) {
+    var price = Number(p.internet_price || 0) === 0 ? 'FREE' : money(p.internet_price) + '/mo';
+    return phaseLabel(p) + ': ' + price;
+  }).join(' | ');
+}
+
+function renderPackageCards() {
+  ['mega', 'gig'].forEach(function(key) {
+    var offer = getCurrentOffer(key);
+    var card = document.getElementById('pkg-' + key);
+    if (!card || !offer) return;
+    var nameEl = card.querySelector('.pkg-name');
+    var speedEl = card.querySelector('.pkg-speed');
+    var priceEl = card.querySelector('.pkg-price');
+    if (nameEl) nameEl.textContent = offer.package_name || (key === 'gig' ? 'Gig Speed' : 'Mega Speed');
+    if (speedEl) speedEl.textContent = offer.speed_label || '';
+    if (priceEl) priceEl.textContent = offer.promo_display || derivePromoDisplayFromPhases(offer.phases || []);
+    card.title = (offer.offer_title ? offer.offer_title + ' — ' : '') + offerPhaseSummary(offer);
+  });
+}
+
+function buildSelectedOfferSnapshot(pkgKey, installDate) {
+  var offer = getCurrentOffer(pkgKey);
+  if (!offer) return null;
+  var charges = requiredRecurringCharges(offer);
+  var chargeTotal = sumCharges(charges);
+  var monthOneInternet = getInternetPriceForMonth(offer, 1);
+  var monthOneTotal = monthOneInternet + chargeTotal;
+  var firstBillEstimate = monthOneTotal;
+  var prorationTotal = 0;
+
+  if (installDate) {
+    var install = new Date(installDate + 'T12:00:00');
+    if (!isNaN(install.getTime())) {
+      var nextFirst = new Date(install.getFullYear(), install.getMonth() + 1, 1);
+      var diffDays = Math.max(0, Math.round((nextFirst - install) / (1000 * 60 * 60 * 24)));
+      var daysInMonth = new Date(install.getFullYear(), install.getMonth() + 1, 0).getDate();
+      var proratableCharges = charges.filter(function(c){ return c.prorate !== false; });
+      prorationTotal = ((monthOneInternet + sumCharges(proratableCharges)) / daysInMonth) * diffDays;
+      firstBillEstimate = monthOneTotal + prorationTotal;
+    }
+  }
+
+  return {
+    offer_id: offer.id || null,
+    offer_code: offer.offer_code || '',
+    package_key: pkgKey,
+    package_name: offer.package_name,
+    speed_label: offer.speed_label,
+    promo_display: offer.promo_display,
+    promo_term_label: offer.promo_term_label,
+    standard_rate_label: offer.standard_rate_label,
+    phases: offer.phases || [],
+    charges: offer.charges || [],
+    recurring_charges_total: Number(chargeTotal.toFixed(2)),
+    month_one_internet: Number(monthOneInternet.toFixed(2)),
+    month_one_total: Number(monthOneTotal.toFixed(2)),
+    proration_estimate: Number(prorationTotal.toFixed(2)),
+    first_bill_estimate: Number(firstBillEstimate.toFixed(2)),
+    disclosure: offer.disclosure || ''
+  };
+}
+
+function pricingSummaryText(snapshot) {
+  if (!snapshot) return '';
+  var parts = [
+    snapshot.package_name,
+    snapshot.speed_label,
+    'Promo: ' + (snapshot.promo_display || offerPhaseSummary({ phases: snapshot.phases })),
+    'Promo Schedule: ' + offerPhaseSummary({ phases: snapshot.phases }),
+    'Required Monthly Charges: ' + money(snapshot.recurring_charges_total),
+    'Estimated First Bill: ' + money(snapshot.first_bill_estimate)
+  ];
+  if (snapshot.standard_rate_label) parts.push('After Promo: ' + snapshot.standard_rate_label);
+  return parts.filter(Boolean).join(' | ');
+}
 
 function startScheduleRealtime() {
   if (!supabaseClient) return;
@@ -194,11 +564,43 @@ function stripOptionalEventFields(payload) {
   return copy;
 }
 
+
+function isMissingOptionalSalesColumnError(err) {
+  var msg = String((err && (err.message || err.details || err.hint || err.code)) || '').toLowerCase();
+  return msg.indexOf('column') >= 0 && (
+    msg.indexOf('offer_id') >= 0 ||
+    msg.indexOf('offer_snapshot') >= 0 ||
+    msg.indexOf('monthly_total') >= 0 ||
+    msg.indexOf('first_bill_estimate') >= 0 ||
+    msg.indexOf('promo_price') >= 0 ||
+    msg.indexOf('promo_term') >= 0 ||
+    msg.indexOf('standard_rate') >= 0
+  );
+}
+
+function stripOptionalSalesFields(payload) {
+  var copy = Object.assign({}, payload || {});
+  delete copy.offer_id;
+  delete copy.offer_snapshot;
+  delete copy.monthly_total;
+  delete copy.first_bill_estimate;
+  delete copy.promo_price;
+  delete copy.promo_term;
+  delete copy.standard_rate;
+  return copy;
+}
+
 function insertSupabaseRow(table, payload) {
   if (!hasSupabase()) return Promise.reject(new Error('Supabase not configured'));
   return supabaseClient.from(table).insert([payload]).then(function(res) {
     if (res.error && table === 'address_events' && isMissingOptionalColumnError(res.error)) {
       return supabaseClient.from(table).insert([stripOptionalEventFields(payload)]).then(function(retry) {
+        if (retry.error) throw retry.error;
+        return retry;
+      });
+    }
+    if (res.error && table === 'sales_orders' && isMissingOptionalSalesColumnError(res.error)) {
+      return supabaseClient.from(table).insert([stripOptionalSalesFields(payload)]).then(function(retry) {
         if (retry.error) throw retry.error;
         return retry;
       });
@@ -1053,10 +1455,13 @@ function fetchAddressesFromSheet(opts) {
           // while still leaving manual upload available as a fallback.
           loadBoundaryFilesForActiveTerritories(activeTerritories, { force: !isRefresh });
 
-          return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
-            .then(function(rows){
-              return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
-                .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+          return fetchPricingOffersForActiveTerritories(activeTerritories)
+            .then(function() {
+              return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
+                .then(function(rows){
+                  return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
+                    .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
+                });
             });
         });
     })
@@ -2442,12 +2847,13 @@ function openForm(id) {
 
   selPkg    = null;
   selStatus = null;
+  renderPackageCards();
   document.getElementById('pkg-mega').className = 'pkg-card mega-card';
   document.getElementById('pkg-gig').className  = 'pkg-card gig-card';
   document.getElementById('btn-mega').disabled  = true;
   document.getElementById('btn-gig').disabled   = true;
-  document.getElementById('btn-mega').textContent = '⚡ Submit — Mega Speed';
-  document.getElementById('btn-gig').textContent  = '🚀 Submit — Gig Speed';
+  document.getElementById('btn-mega').textContent = '⚡ Submit — ' + ((getCurrentOffer('mega') || {}).package_name || 'Mega Speed');
+  document.getElementById('btn-gig').textContent  = '🚀 Submit — ' + ((getCurrentOffer('gig') || {}).package_name || 'Gig Speed');
   document.getElementById('pricing-box').classList.add('hidden');
   document.getElementById('proration-section').classList.add('hidden');
   document.getElementById('sched-confirmed').classList.add('hidden');
@@ -2587,10 +2993,15 @@ function toggleFormCollapse() {
 
 function pickPkg(p) {
   selPkg = p;
+  renderPackageCards();
+  var megaOffer = getCurrentOffer('mega') || {};
+  var gigOffer = getCurrentOffer('gig') || {};
   document.getElementById('pkg-mega').className = 'pkg-card mega-card' + (p === 'mega' ? ' active' : '');
   document.getElementById('pkg-gig').className  = 'pkg-card gig-card'  + (p === 'gig'  ? ' active' : '');
   document.getElementById('btn-mega').disabled  = (p !== 'mega');
   document.getElementById('btn-gig').disabled   = (p !== 'gig');
+  document.getElementById('btn-mega').textContent = '⚡ Submit — ' + (megaOffer.package_name || 'Mega Speed');
+  document.getElementById('btn-gig').textContent  = '🚀 Submit — ' + (gigOffer.package_name || 'Gig Speed');
   document.getElementById('pricing-box').classList.remove('hidden');
   schedShow();
   calcPricing();
@@ -2771,8 +3182,10 @@ function schedPickSlot(date, time) {
   document.getElementById('sched-confirmed').classList.remove('hidden');
 
   var mo = MO[d.getMonth()];
-  document.getElementById('btn-mega').textContent = '⚡ Submit Mega — '+mo+' '+d.getDate()+' @ '+time;
-  document.getElementById('btn-gig').textContent  = '🚀 Submit Gig — ' +mo+' '+d.getDate()+' @ '+time;
+  var megaName = ((getCurrentOffer('mega') || {}).package_name || 'Mega Speed');
+  var gigName  = ((getCurrentOffer('gig') || {}).package_name || 'Gig Speed');
+  document.getElementById('btn-mega').textContent = '⚡ Submit ' + megaName + ' — '+mo+' '+d.getDate()+' @ '+time;
+  document.getElementById('btn-gig').textContent  = '🚀 Submit ' + gigName  + ' — ' +mo+' '+d.getDate()+' @ '+time;
 }
 
 function schedClearSlot() {
@@ -2782,8 +3195,8 @@ function schedClearSlot() {
   document.getElementById('sched-confirmed').classList.add('hidden');
   document.getElementById('sched-picker').classList.remove('hidden');
   document.getElementById('proration-section').classList.add('hidden');
-  document.getElementById('btn-mega').textContent = '⚡ Submit — Mega Speed';
-  document.getElementById('btn-gig').textContent  = '🚀 Submit — Gig Speed';
+  document.getElementById('btn-mega').textContent = '⚡ Submit — ' + ((getCurrentOffer('mega') || {}).package_name || 'Mega Speed');
+  document.getElementById('btn-gig').textContent  = '🚀 Submit — ' + ((getCurrentOffer('gig') || {}).package_name || 'Gig Speed');
   schedRenderWeek();
 }
 
@@ -2840,44 +3253,91 @@ function schedBookSlot(date, time, customerName, address) {
     });
 }
 
-var PKG = {
-  mega: { base: 29.95, label: '$29.95' },
-  gig:  { base: 30.00, label: '$30.00' }
-};
-var EERO = 5.00;
-var PROC = 1.00;
-var MODEM = 10.00;
+function setText(id, value) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function setHidden(id, hidden) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden', !!hidden);
+}
+
+function renderPromoPhaseList(offer) {
+  var el = document.getElementById('pr-phase-list');
+  if (!el || !offer) return;
+  var rows = (offer.phases || []).map(function(p) {
+    var price = Number(p.internet_price || 0) === 0 ? '<span class="free-tag">FREE</span>' : money(p.internet_price) + '/mo';
+    return '<div class="price-row"><span>' + escHtml(phaseLabel(p)) + '</span><span>' + price + '</span></div>';
+  }).join('');
+  el.innerHTML = '<div class="price-section-label">Promo Schedule</div>' + rows;
+}
+
+function updateChargeRows(offer) {
+  var charges = requiredRecurringCharges(offer);
+  var modem = charges.find(function(c){ return c.key === 'modem'; }) || { label:'Modem Rental', amount:0 };
+  var eero = charges.find(function(c){ return c.key === 'eero'; }) || { label:'eero WiFi Router', amount:0 };
+  var processing = charges.find(function(c){ return c.key === 'processing'; }) || { label:'Payment Processing Fee', amount:0 };
+  setText('pr-modem-label', modem.label || 'Modem Rental');
+  setText('pr-modem', money(modem.amount));
+  setText('pr-eero-label', eero.label || 'eero WiFi Router');
+  setText('pr-eero', money(eero.amount));
+  setText('pr-processing-label', processing.label || 'Payment Processing Fee');
+  setText('pr-processing', money(processing.amount));
+  setText('pr-first-modem-label', modem.label || 'Modem Rental');
+  setText('pr-first-modem', money(modem.amount));
+  setText('pr-first-eero-label', eero.label || 'eero WiFi Router');
+  setText('pr-first-eero', money(eero.amount));
+  setText('pr-first-processing-label', processing.label || 'Payment Processing Fee');
+  setText('pr-first-processing', money(processing.amount));
+}
 
 function calcPricing() {
   if (!selPkg) return;
-  var pkg = PKG[selPkg];
-  document.getElementById('pr-internet').textContent = pkg.label;
-  document.getElementById('pr-monthly').textContent  = '$' + (pkg.base + MODEM + EERO + PROC).toFixed(2);
+  var offer = getCurrentOffer(selPkg);
+  if (!offer) return;
+  var charges = requiredRecurringCharges(offer);
+  var chargeTotal = sumCharges(charges);
+  var monthOneInternet = getInternetPriceForMonth(offer, 1);
+  var monthOneTotal = monthOneInternet + chargeTotal;
+
+  setText('pr-offer-title', offer.offer_title || offer.package_name || 'Selected Offer');
+  renderPromoPhaseList(offer);
+  setText('pr-internet', monthOneInternet === 0 ? 'FREE' : money(monthOneInternet));
+  setText('pr-first-internet', monthOneInternet === 0 ? 'FREE' : money(monthOneInternet));
+  setText('pr-monthly', money(monthOneTotal));
+  updateChargeRows(offer);
+  setText('pr-firstbill-fees', money(chargeTotal));
+  setText('pr-firstbill-total', money(monthOneTotal));
+  setText('pr-disclosure', offer.disclosure || 'Pricing is an estimate. Final billing is subject to serviceability, approved promo, equipment selection, taxes, and account setup.');
 
   var dateEl = document.getElementById('f-install-date');
   var proSection = document.getElementById('proration-section');
-  if (!dateEl.value) { proSection.classList.add('hidden'); return; }
+  if (!dateEl || !dateEl.value) {
+    if (proSection) proSection.classList.add('hidden');
+    return;
+  }
 
   var install = new Date(dateEl.value + 'T12:00:00');
+  if (isNaN(install.getTime())) {
+    if (proSection) proSection.classList.add('hidden');
+    return;
+  }
   var nextFirst = new Date(install.getFullYear(), install.getMonth() + 1, 1);
-  var diffDays = Math.round((nextFirst - install) / (1000 * 60 * 60 * 24));
+  var diffDays = Math.max(0, Math.round((nextFirst - install) / (1000 * 60 * 60 * 24)));
   var daysInMonth = new Date(install.getFullYear(), install.getMonth() + 1, 0).getDate();
-  var proratedInternet = (pkg.base / daysInMonth) * diffDays;
-  var proratedEero     = (EERO / daysInMonth) * diffDays;
-  var prorateToFirstBill = proratedInternet + proratedEero + PROC;
+  var proratableCharges = charges.filter(function(c){ return c.prorate !== false; });
+  var proratedInternet = (monthOneInternet / daysInMonth) * diffDays;
+  var proratedCharges  = (sumCharges(proratableCharges) / daysInMonth) * diffDays;
+  var prorateToFirstBill = proratedInternet + proratedCharges;
 
-  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var day = install.getDate();
-
-  document.getElementById('pr-prorate-label').textContent      = 'Internet (' + diffDays + ' days @ $' + (pkg.base / daysInMonth).toFixed(3) + '/day)';
-  document.getElementById('pr-prorate-internet').textContent   = '$' + proratedInternet.toFixed(2);
-  document.getElementById('pr-prorate-eero-label').textContent = 'eero 6+ (' + diffDays + ' days @ $' + (EERO / daysInMonth).toFixed(3) + '/day)';
-  document.getElementById('pr-prorate-eero').textContent       = '$' + proratedEero.toFixed(2);
-  document.getElementById('pr-prorate-total').textContent      = '$' + prorateToFirstBill.toFixed(2);
-  var firstBillFeesOnly = MODEM + EERO + PROC;
-  document.getElementById('pr-firstbill-total').textContent   = '$' + (firstBillFeesOnly + prorateToFirstBill).toFixed(2);
-  document.getElementById('pr-firstbill-fees').textContent    = '$' + firstBillFeesOnly.toFixed(2);
-  proSection.classList.remove('hidden');
+  setText('pr-prorate-label', 'Internet (' + diffDays + ' days @ $' + (monthOneInternet / daysInMonth).toFixed(3) + '/day)');
+  setText('pr-prorate-internet', money(proratedInternet));
+  setText('pr-prorate-eero-label', 'Prorated recurring equipment/fees (' + diffDays + ' days)');
+  setText('pr-prorate-eero', money(proratedCharges));
+  setText('pr-prorate-total', money(prorateToFirstBill));
+  setText('pr-firstbill-total', money(monthOneTotal + prorateToFirstBill));
+  if (proSection) proSection.classList.remove('hidden');
 }
 
 function pickStatus(s) {
@@ -3023,19 +3483,13 @@ async function submitSale(pkgLabel) {
     return;
   }
 
-  var pkg = PKG[selPkg];
-  var monthlyTotal = (pkg.base + EERO + PROC).toFixed(2);
-  var pricingSummary = pkgLabel + ' | Monthly: $' + monthlyTotal + ' | First Month: $16.00 (internet free)';
-  if (install) {
-    var installDate      = new Date(install + 'T12:00:00');
-    var daysInMonth      = new Date(installDate.getFullYear(), installDate.getMonth() + 1, 0).getDate();
-    var nextFirst        = new Date(installDate.getFullYear(), installDate.getMonth() + 1, 1);
-    var diffDays         = Math.round((nextFirst - installDate) / (1000 * 60 * 60 * 24));
-    var proratedInternet = (pkg.base / daysInMonth) * diffDays;
-    var proratedEero     = (EERO / daysInMonth) * diffDays;
-    var dueAtInstall     = (proratedInternet + proratedEero + PROC).toFixed(2);
-    pricingSummary += ' | Estimated Proration: $' + dueAtInstall + ' (' + diffDays + ' day proration)';
+  var offer = getCurrentOffer(selPkg);
+  if (!offer) {
+    toast('⚠ No offer found for selected package', 't-err');
+    return;
   }
+  var offerSnapshot = buildSelectedOfferSnapshot(selPkg, install);
+  var pricingSummary = pricingSummaryText(offerSnapshot);
 
   applyLockedCoords_(addr);
   var outcomeFlags = getOutcomeFlags(true);
@@ -3051,16 +3505,19 @@ async function submitSale(pkgLabel) {
     address: addr.address, city: addr.city||'', state: addr.state||'', zip: addr.zip||'',
     firstName: first, lastName: last, phone: phone, email: email,
     package: pricingSummary,
-    packageName: (selPkg === 'gig') ? 'Gig Speed Fiber' : 'Mega Speed Fiber',
-    internetSpeed: (selPkg === 'gig') ? '1000/1000 Mbps' : '400/400 Mbps',
-    promoPrice: pkg.label + '/mo',
-    promoTerm: (selPkg === 'gig') ? '24 months (2 years)' : '2 years',
-    standardRate: (selPkg === 'gig') ? '$90.95/mo' : '$87.39/mo',
-    promoEffectiveDate: (selPkg === 'gig') ? '2026-06-02' : '',
+    packageName: offer.package_name || ((selPkg === 'gig') ? 'Gig Speed Internet' : 'Mega Speed Internet'),
+    internetSpeed: offer.speed_label || ((selPkg === 'gig') ? '1000/1000 Mbps' : '400/400 Mbps'),
+    promoPrice: offerSnapshot ? offerSnapshot.promo_display : (offer.promo_display || ''),
+    promoTerm: offerSnapshot ? offerSnapshot.promo_term_label : (offer.promo_term_label || ''),
+    standardRate: offerSnapshot ? offerSnapshot.standard_rate_label : (offer.standard_rate_label || ''),
+    promoEffectiveDate: offer.active_start || '',
+    offerId: offerSnapshot ? offerSnapshot.offer_id : (offer.id || null),
+    offerCode: offerSnapshot ? offerSnapshot.offer_code : (offer.offer_code || ''),
+    offerSnapshot: offerSnapshot,
     installDate: selSlot ? selSlot.date : (install || ''),
     installTime: selSlot ? selSlot.time : '',
     notes: notes,
-    status: 'Sale — ' + pkgLabel,
+    status: 'Sale — ' + (offer.package_name || pkgLabel),
     standardizedOutcome: getStandardizedOutcomeLabel((selPkg === 'mega') ? 'mega' : 'gig'),
     softInterestType: '',
     decisionMakerSpokenTo: outcomeFlags.decisionMakerSpokenTo,
@@ -3091,7 +3548,7 @@ async function submitSale(pkgLabel) {
   buildList((document.getElementById('addr-search') && document.getElementById('addr-search').value) || null);
   refreshMapMarkers();
   sendHeartbeat();
-  toast('✅ ' + pkgLabel + ' sold to ' + first + ' ' + last + '!', 't-ok');
+  toast('✅ ' + (offer.package_name || pkgLabel) + ' sold to ' + first + ' ' + last + '!', 't-ok');
   closeForm();
 }
 
@@ -3213,7 +3670,14 @@ async function sendData(payload) {
     package_name: payload.package || payload.packageName || '',
     install_date: payload.installDate || null,
     install_time: payload.installTime || '',
-    notes: payload.notes || payload.note || ''
+    notes: payload.notes || payload.note || '',
+    offer_id: payload.offerId || null,
+    offer_snapshot: payload.offerSnapshot || null,
+    monthly_total: payload.offerSnapshot ? payload.offerSnapshot.month_one_total : null,
+    first_bill_estimate: payload.offerSnapshot ? payload.offerSnapshot.first_bill_estimate : null,
+    promo_price: payload.promoPrice || '',
+    promo_term: payload.promoTerm || '',
+    standard_rate: payload.standardRate || ''
   };
 
   if (!hasSupabase() || navigator.onLine === false) {
@@ -3386,6 +3850,7 @@ window.addEventListener('load', function() {
   try {
     if (!requireTeamInURL()) return;
     restoreRepProfile();
+    renderPackageCards();
   } catch(e) {}
 });
 
@@ -3399,8 +3864,15 @@ function emailCustomerOffer(pkgKey) {
   var rep = repName || 'Zito FieldOS';
   var rp  = repPhone || '';
   var re  = repEmail || '';
-  var pkg = (pkgKey === 'gig') ? { name:'Gig Speed Fiber', speed:'1000/1000 Mbps', promo:'$30.00/mo', term:'24 months (2 years)', reg:'$90.95/mo' }
-                               : { name:'Mega Speed Fiber', speed:'400/400 Mbps',  promo:'$39.95/mo', term:'2 years', reg:'$87.39/mo' };
+  var offer = getCurrentOffer(pkgKey) || DEFAULT_PRICING_OFFERS[pkgKey];
+  var snapshot = buildSelectedOfferSnapshot(pkgKey, (document.getElementById('f-install-date') || {}).value || '');
+  var pkg = {
+    name: offer.package_name || (pkgKey === 'gig' ? 'Gig Speed Internet' : 'Mega Speed Internet'),
+    speed: offer.speed_label || '',
+    promo: offer.promo_display || '',
+    term: offer.promo_term_label || '',
+    reg: offer.standard_rate_label || ''
+  };
 
   var custFirst = '';
   var fn = document.getElementById('f-first');
@@ -3415,13 +3887,13 @@ function emailCustomerOffer(pkgKey) {
     'Here are the Zito Fiber details we discussed:',
     '',
     pkg.name,
-    'Speed (Download/Upload): ' + pkg.speed,
-    'Promo Price: ' + pkg.promo,
-    'Promo Term: ' + pkg.term,
-    'Regular Rate (after promo): ' + pkg.reg,
+    'Speed: ' + pkg.speed,
+    'Promo: ' + pkg.promo,
+    'Promo Schedule: ' + offerPhaseSummary(offer),
+    pkg.reg ? ('Regular Rate / After Promo: ' + pkg.reg) : '',
     '',
-    'Whole‑Home Wi‑Fi (Required): eero 6+ mesh Wi‑Fi',
-    '• $5/mo per eero device (coverage depends on home size)',
+    'Required Monthly Charges: ' + money(snapshot ? snapshot.recurring_charges_total : sumCharges(requiredRecurringCharges(offer))),
+    'Estimated First Bill: ' + money(snapshot ? snapshot.first_bill_estimate : 0),
     '',
     'Ready to get started? Reply to this email and I can help schedule your install.',
     '',
