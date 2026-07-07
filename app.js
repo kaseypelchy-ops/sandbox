@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.4';
-var BUILD_ID    = '2026.07.06-dynamic-pricing';
+var APP_VERSION = '2.0.5';
+var BUILD_ID    = '2026.07.06-auto-load-launch';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -827,6 +827,7 @@ var OFFLINE_QUEUE_KEY = 'fieldos_offline_queue_v1';
 var offlineSyncRunning = false;
 var nextBestDoorId = null;
 var gamePlanCollapsed = false;
+var launchLoadRunning = false;
 
 // ──────────────────────────────────────────────────────────
 //  COLORS
@@ -1395,18 +1396,21 @@ function renderKmlLayersOnMap(shouldFit) {
 function fetchAddressesFromSheet(opts) {
   opts = opts || {};
   var isRefresh = !!opts.isRefresh;
+  var isLaunchLoad = !!opts.isLaunchLoad;
   var btn = document.getElementById('btn-fetch-addr');
   var st  = document.getElementById('fetch-addr-status');
   var profileSt = document.getElementById('rep-profile-status');
   var repInput = (document.getElementById('rep-name') ? (document.getElementById('rep-name').value || '').trim() : '');
 
   if (!repInput || repInput.split(/\s+/).filter(function(p){ return p.length > 0; }).length < 2) {
-    st.className = 'dz-status err';
-    st.textContent = '✗ Enter your full name first (First Last).';
-    return;
+    if (st) {
+      st.className = 'dz-status err';
+      st.textContent = '✗ Enter your full name first (First Last).';
+    }
+    return Promise.reject(new Error('Enter your full name first (First Last).'));
   }
 
-  if (!supabaseWarn()) return;
+  if (!supabaseWarn()) return Promise.reject(new Error('Supabase is not configured yet'));
 
   if (btn) btn.disabled = true;
   if (!isRefresh && document.getElementById('fetch-addr-icon')) {
@@ -1414,7 +1418,7 @@ function fetchAddressesFromSheet(opts) {
   }
   if (st && !isRefresh) {
     st.className = 'dz-status';
-    st.textContent = 'Loading…';
+    st.textContent = isLaunchLoad ? 'Loading addresses, pricing, and territory map…' : 'Loading…';
   }
   if (profileSt && !isRefresh) {
     profileSt.style.color = 'var(--muted)';
@@ -1423,7 +1427,7 @@ function fetchAddressesFromSheet(opts) {
 
   setRefreshButtonState(true);
 
-  fetchRepProfileFromSupabase(repInput)
+  return fetchRepProfileFromSupabase(repInput)
     .then(function(rep){
       if (!rep) throw new Error('Rep not found in Supabase reps table.');
 
@@ -1450,18 +1454,33 @@ function fetchAddressesFromSheet(opts) {
               (activeTerritories.length ? ' • Territories: ' + activeTerritories.join(', ') : '');
           }
 
-          // Automatically load the fiber footprint boundary files assigned to
-          // this rep's territory/territories. This replaces the manual KMZ step,
-          // while still leaving manual upload available as a fallback.
-          loadBoundaryFilesForActiveTerritories(activeTerritories, { force: !isRefresh });
+          // Load the rep's assigned boundary file(s) and active pricing before
+          // the app opens. Boundary failures are logged, but do not block reps
+          // from getting into FieldOS if addresses still load correctly.
+          var boundaryPromise = loadBoundaryFilesForActiveTerritories(activeTerritories, { force: !isRefresh })
+            .catch(function(err) {
+              console.error('Automatic boundary file load failed:', err);
+              if (!isLaunchLoad) toast('⚠ Could not auto-load territory map', 't-err');
+              return [];
+            });
 
-          return fetchPricingOffersForActiveTerritories(activeTerritories)
+          var pricingPromise = fetchPricingOffersForActiveTerritories(activeTerritories)
+            .catch(function(err) {
+              console.error('Pricing offer load failed:', err);
+              toast('⚠ Pricing offers could not load — using fallback pricing', 't-err');
+              return [];
+            });
+
+          return pricingPromise
             .then(function() {
               return fetchAddressesByTerritoriesFromSupabase(activeTerritories)
                 .then(function(rows){
                   return fetchLatestAddressEventsMap(rows.map(function(r){ return r.id; }))
                     .then(function(eventsMap){ return { rows: rows, eventsMap: eventsMap }; });
                 });
+            })
+            .then(function(result) {
+              return boundaryPromise.then(function(){ return result; });
             });
         });
     })
@@ -1512,11 +1531,13 @@ function fetchAddressesFromSheet(opts) {
 
       if (st) {
         st.className = 'dz-status ok';
-        st.textContent = '✓ Loaded ' + addresses.length + ' addresses';
+        st.textContent = '✓ Loaded ' + addresses.length + ' addresses' + (kmlFiles.filter(function(f){ return f.source === 'supabase'; }).length ? ' and territory map' : '');
       }
       if (document.getElementById('fetch-addr-icon')) {
         document.getElementById('fetch-addr-icon').textContent = '✅';
       }
+
+      return addresses;
     })
     .catch(function(err){
       console.error(err);
@@ -1527,6 +1548,7 @@ function fetchAddressesFromSheet(opts) {
       if (document.getElementById('fetch-addr-icon')) {
         document.getElementById('fetch-addr-icon').textContent = '⚠️';
       }
+      throw err;
     })
     .finally(function(){
       if (btn) btn.disabled = false;
@@ -1556,9 +1578,17 @@ function validateRepName() {
 }
 
 function checkLaunchReady() {
-  var hasAddresses = addresses.length > 0;
-  var hasTeam      = !!activeTeam;
-  document.getElementById('launch-btn').disabled = !(hasAddresses && hasValidName() && hasTeam);
+  var hasTeam = !!activeTeam;
+  var btn = document.getElementById('launch-btn');
+  if (!btn) return;
+  btn.disabled = !(hasValidName() && hasTeam) || !!launchLoadRunning;
+  if (launchLoadRunning) {
+    btn.textContent = 'Loading…';
+  } else if (addresses.length > 0) {
+    btn.textContent = 'Launch FieldOS';
+  } else {
+    btn.textContent = 'Load & Launch';
+  }
 }
 
 function getPresetTeamNameFromURL() {
@@ -1649,8 +1679,55 @@ function refreshAddressData() {
 }
 
 
-function launchApp() {
+function launchApp(opts) {
+  opts = opts || {};
   repName = (document.getElementById('rep-name').value || '').trim();
+
+  if (!hasValidName()) {
+    toast('⚠ Enter your first and last name before launching', 't-err');
+    validateRepName();
+    return;
+  }
+
+  if (!activeTeam) {
+    toast('⚠ Select your team before launching', 't-err');
+    return;
+  }
+
+  // New production flow: reps type first and last name, click Launch, and
+  // FieldOS loads their profile, assigned territories, addresses, pricing,
+  // and KMZ/KML footprint automatically before the map opens.
+  if (!opts.skipAutoLoad && addresses.length === 0) {
+    var launchBtn = document.getElementById('launch-btn');
+    var st = document.getElementById('fetch-addr-status');
+    launchLoadRunning = true;
+    if (launchBtn) {
+      launchBtn.disabled = true;
+      launchBtn.textContent = 'Loading…';
+    }
+    if (st) {
+      st.className = 'dz-status';
+      st.textContent = 'Loading your assigned addresses and territory map…';
+    }
+
+    fetchAddressesFromSheet({ isLaunchLoad: true })
+      .then(function() {
+        launchLoadRunning = false;
+        checkLaunchReady();
+        if (!addresses.length) {
+          toast('⚠ No addresses were found for your assigned territory', 't-err');
+          return;
+        }
+        launchApp({ skipAutoLoad: true });
+      })
+      .catch(function(err) {
+        launchLoadRunning = false;
+        checkLaunchReady();
+        console.error(err);
+        toast('⚠ Could not load your addresses: ' + (err.message || err), 't-err');
+      });
+    return;
+  }
 
   try {
     localStorage.setItem('zito_rep_name', repName);
@@ -1702,6 +1779,7 @@ function launchApp() {
     toast('App error: ' + String(err), 't-err');
   }
 }
+
 
 // ──────────────────────────────────────────────────────────
 //  MAP

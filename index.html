@@ -95,10 +95,10 @@
     </div>
 
     <div class="step">
-      <div class="slabel">Step 3 — Load Addresses <span class="text-danger">*Required</span></div>
-      <p class="shint">Addresses are loaded automatically once you click Load Addresses. Click the button below to fetch them — or upload a CSV as a backup.</p>
+      <div class="slabel">Step 3 — Address & Map Data <span class="text-muted">(automatic)</span></div>
+      <p class="shint">Enter your first and last name, then click Launch. FieldOS will automatically load your assigned addresses, pricing, and territory KMZ map. Use the button below only if you want to preview/reload before launching.</p>
       <button class="btn-fetch-addr" id="btn-fetch-addr" onclick="fetchAddressesFromSheet()">
-        <span id="fetch-addr-icon">📋</span> Load Addresses
+        <span id="fetch-addr-icon">📋</span> Preview Load
       </button>
       <div id="fetch-addr-status" class="dz-status"></div>
 
@@ -112,8 +112,8 @@
     </div>
 
     <div class="step">
-      <div class="slabel">Step 4 — Territory KMZ Files <span class="text-muted">(optional)</span></div>
-      <p class="shint">Upload one or more KMZ files to draw territory polygons on the map.</p>
+      <div class="slabel">Step 4 — Territory KMZ Files <span class="text-muted">(backup only)</span></div>
+      <p class="shint">Your assigned KMZ should load automatically from Supabase. Use this only when you need to manually add or override a territory file.</p>
       <div class="dropzone" id="dz-kml">
         <input type="file" id="kml-file" accept=".kml,.kmz" multiple>
         <div class="dz-icon">🗺️</div>
@@ -123,7 +123,7 @@
       <div id="kml-file-list"></div>
     </div>
 
-    <button class="btn-launch" id="launch-btn" disabled onclick="launchApp()">Launch</button>
+    <button class="btn-launch" id="launch-btn" disabled onclick="launchApp()">Load & Launch</button>
   </div>
 </div>
 
@@ -417,7 +417,7 @@
 </script>
 
 <!-- App logic -->
-<script defer src="app.js?v=fieldos-nextdoor-offline-20260706"></script>
+<script defer src="app.js?v=fieldos-auto-load-launch-20260706"></script>
 <!-- Service worker -->
 <script>
   if ('serviceWorker' in navigator) {
