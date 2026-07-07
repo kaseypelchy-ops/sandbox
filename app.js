@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.5';
-var BUILD_ID    = '2026.07.06-auto-load-launch';
+var APP_VERSION = '2.0.6';
+var BUILD_ID    = '2026.07.07-clean-login-auto-load';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -982,54 +982,58 @@ function lazyLoad(url, cb) {
 var PAPAPARSE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js';
 var JSZIP_URL     = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
 
-document.getElementById('csv-file').addEventListener('change', function() {
-  var f = this.files[0];
-  if (!f) return;
-  var self = this;
-  lazyLoad(PAPAPARSE_URL, function() {
-  Papa.parse(f, {
-    header: true,
-    skipEmptyLines: true,
-    complete: function(res) {
-      addresses = [];
-      res.data.forEach(function(row, i) {
-        var keys = Object.keys(row);
-        function col(names) {
-          for (var n of names) {
-            var k = keys.find(function(k){ return k.toLowerCase().trim() === n; });
-            if (k !== undefined && row[k] !== undefined && String(row[k]).trim()) return String(row[k]).trim();
+var csvFileInput = document.getElementById('csv-file');
+if (csvFileInput) {
+  csvFileInput.addEventListener('change', function() {
+    var f = this.files[0];
+    if (!f) return;
+    lazyLoad(PAPAPARSE_URL, function() {
+      Papa.parse(f, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(res) {
+          addresses = [];
+          res.data.forEach(function(row, i) {
+            var keys = Object.keys(row);
+            function col(names) {
+              for (var n of names) {
+                var k = keys.find(function(k){ return k.toLowerCase().trim() === n; });
+                if (k !== undefined && row[k] !== undefined && String(row[k]).trim()) return String(row[k]).trim();
+              }
+              return '';
+            }
+            var addr = col(['address','street address','street']);
+            if (!addr) return;
+            var activeCount = col(['active count','active_count','activecount','active','type','customer type','customertype']).toLowerCase().trim();
+            addresses.push({
+              id: i,
+              address: addr,
+              city:  col(['city']),
+              state: col(['state']),
+              zip:   col(['zip','zipcode','zip code','postal','postal code']),
+              lat:   parseFloat(col(['lat','latitude']))  || null,
+              lng:   parseFloat(col(['lng','lon','longitude'])) || null,
+              activeCount: activeCount,
+              status: 'pending',
+              sale: null
+            });
+          });
+          var el = document.getElementById('csv-status');
+          if (addresses.length > 0) {
+            if (el) {
+              el.className = 'dz-status ok';
+              el.textContent = '✓ ' + addresses.length + ' addresses loaded';
+            }
+            checkLaunchReady();
+          } else if (el) {
+            el.className = 'dz-status err';
+            el.textContent = '✗ No addresses found — check column names (need: address, city, state, zip)';
           }
-          return '';
         }
-        var addr = col(['address','street address','street']);
-        if (!addr) return;
-        var activeCount = col(['active count','active_count','activecount','active','type','customer type','customertype']).toLowerCase().trim();
-        addresses.push({
-          id: i,
-          address: addr,
-          city:  col(['city']),
-          state: col(['state']),
-          zip:   col(['zip','zipcode','zip code','postal','postal code']),
-          lat:   parseFloat(col(['lat','latitude']))  || null,
-          lng:   parseFloat(col(['lng','lon','longitude'])) || null,
-          activeCount: activeCount,
-          status: 'pending',
-          sale: null
-        });
       });
-      var el = document.getElementById('csv-status');
-      if (addresses.length > 0) {
-        el.className = 'dz-status ok';
-        el.textContent = '✓ ' + addresses.length + ' addresses loaded';
-        checkLaunchReady();
-      } else {
-        el.className = 'dz-status err';
-        el.textContent = '✗ No addresses found — check column names (need: address, city, state, zip)';
-      }
-    }
+    });
   });
-  }); // end lazyLoad
-});
+}
 
 // ── KMZ / KML ────────────────────────────────────────────
 var kmlFiles = [];
@@ -1037,15 +1041,18 @@ var kmlLeafletLayers = [];
 var activeBoundaryLoadKey = '';
 var BOUNDARY_STORAGE_BUCKET = 'fieldos-boundaries';
 
-document.getElementById('kml-file').addEventListener('change', function() {
-  var files = Array.from(this.files);
-  if (!files.length) return;
-  var input = this;
-  lazyLoad(JSZIP_URL, function() {
-    Promise.allSettled(files.map(function(f) { return loadKmlFile(f, { source: 'manual' }); }))
-      .finally(function(){ input.value = ''; });
+var kmlFileInput = document.getElementById('kml-file');
+if (kmlFileInput) {
+  kmlFileInput.addEventListener('change', function() {
+    var files = Array.from(this.files);
+    if (!files.length) return;
+    var input = this;
+    lazyLoad(JSZIP_URL, function() {
+      Promise.allSettled(files.map(function(f) { return loadKmlFile(f, { source: 'manual' }); }))
+        .finally(function(){ input.value = ''; });
+    });
   });
-});
+}
 
 function getBoundaryFileName(row) {
   var raw = String((row && (row.display_name || row.file_name || row.file_path || row.path)) || 'territory_boundary.kmz').trim();
@@ -1385,6 +1392,7 @@ function renderKmlLayersOnMap(shouldFit) {
 
 ['dz-csv','dz-kml'].forEach(function(id) {
   var el = document.getElementById(id);
+  if (!el) return;
   el.addEventListener('dragover',  function(e){ e.preventDefault(); el.classList.add('dz-over'); });
   el.addEventListener('dragleave', function(){ el.classList.remove('dz-over'); });
   el.addEventListener('drop',      function(){ el.classList.remove('dz-over'); });
@@ -1644,9 +1652,12 @@ function selectTeam(val) {
     activeBoundaryLoadKey = '';
     addresses = [];
     clearKmlFiles(false);
-    document.getElementById('fetch-addr-status').textContent = '';
-    document.getElementById('fetch-addr-icon').textContent = '📋';
-    document.getElementById('btn-fetch-addr').disabled = false;
+    var fetchStatusEl = document.getElementById('fetch-addr-status');
+    var fetchIconEl = document.getElementById('fetch-addr-icon');
+    var fetchBtnEl = document.getElementById('btn-fetch-addr');
+    if (fetchStatusEl) fetchStatusEl.textContent = '';
+    if (fetchIconEl) fetchIconEl.textContent = '📋';
+    if (fetchBtnEl) fetchBtnEl.disabled = false;
     try { localStorage.setItem('fieldos_team', activeTeam); } catch(e) {}
   } else {
     webhookURL = '';
@@ -1707,7 +1718,7 @@ function launchApp(opts) {
     }
     if (st) {
       st.className = 'dz-status';
-      st.textContent = 'Loading your assigned addresses and territory map…';
+      st.textContent = 'Loading your assigned addresses, offers, and territory map…';
     }
 
     fetchAddressesFromSheet({ isLaunchLoad: true })
@@ -3862,7 +3873,8 @@ function confirmSignOut() {
     repEmail = '';
     try { localStorage.removeItem('zito_rep_name'); localStorage.removeItem('zito_rep_phone'); localStorage.removeItem('zito_rep_email'); localStorage.removeItem('fieldos_team'); } catch(e) {}
     document.getElementById('launch-btn').disabled = true;
-    document.getElementById('fetch-addr-status').textContent = '';
+    var fetchStatusEl = document.getElementById('fetch-addr-status');
+    if (fetchStatusEl) fetchStatusEl.textContent = '';
     activeTeam = '';
     webhookURL = '';
     SCHED_URL  = '';

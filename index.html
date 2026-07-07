@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"/>
-<link rel="stylesheet" href="style.css?v=fieldos-nextdoor-offline-20260706">
+<link rel="stylesheet" href="style.css?v=fieldos-clean-login-20260707">
 </head>
 <body>
 
@@ -73,57 +73,34 @@
 </div>
 
 <div id="page-setup">
-  <div class="logo-bar">
+  <div class="logo-bar compact-login-logo">
     <img src="https://www.zitomedia.net/wp-content/uploads/2025/03/Untitled-design-6.png" alt="Zito Media Logo">
   </div>
-  <div class="setup-card">
-    <h1>Initialize Sales Session</h1>
-    <p class="sub">Securely configure your territory, rep credentials, and address dataset before deployment.</p>
 
-    <div class="step" id="team-step">
-      <div class="slabel">Step 1 — Select Your Team</div>
+  <div class="setup-card login-only-card">
+    <div class="login-badge">Zito FieldOS</div>
+    <h1>Start Sales Session</h1>
+    <p class="sub">Enter your first and last name. FieldOS will automatically load your assigned addresses, pricing, and territory map when you launch.</p>
+
+    <div class="step hidden-setup-control" id="team-step" aria-hidden="true">
       <select class="txt-in team-select" id="team-select" onchange="selectTeam(this.value)">
         <option value="">— Choose a team —</option>
       </select>
     </div>
 
-    <div class="step">
-      <div class="slabel">Step 2 — Your Name</div>
-      <input class="txt-in" type="text" id="rep-name" placeholder="e.g. John Smith" oninput="validateRepName()" autocomplete="name">
+    <div class="step login-name-step">
+      <label class="slabel" for="rep-name">First & Last Name</label>
+      <input class="txt-in login-name-input" type="text" id="rep-name" placeholder="e.g. John Smith" oninput="validateRepName()" autocomplete="name" autofocus>
       <div id="rep-name-hint">⚠ Please enter your first and last name</div>
       <div id="rep-profile-status"></div>
-    </div>
-
-    <div class="step">
-      <div class="slabel">Step 3 — Address & Map Data <span class="text-muted">(automatic)</span></div>
-      <p class="shint">Enter your first and last name, then click Launch. FieldOS will automatically load your assigned addresses, pricing, and territory KMZ map. Use the button below only if you want to preview/reload before launching.</p>
-      <button class="btn-fetch-addr" id="btn-fetch-addr" onclick="fetchAddressesFromSheet()">
-        <span id="fetch-addr-icon">📋</span> Preview Load
-      </button>
       <div id="fetch-addr-status" class="dz-status"></div>
-
-      <div class="dz-or">— or upload CSV backup —</div>
-      <div class="dropzone" id="dz-csv">
-        <input type="file" id="csv-file" accept=".csv">
-        <div class="dz-icon">📂</div>
-        <div class="dz-label">Drop CSV here or <strong>click to browse</strong></div>
-        <div id="csv-status" class="dz-status"></div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="slabel">Step 4 — Territory KMZ Files <span class="text-muted">(backup only)</span></div>
-      <p class="shint">Your assigned KMZ should load automatically from Supabase. Use this only when you need to manually add or override a territory file.</p>
-      <div class="dropzone" id="dz-kml">
-        <input type="file" id="kml-file" accept=".kml,.kmz" multiple>
-        <div class="dz-icon">🗺️</div>
-        <div class="dz-label">Drop KMZ files here or <strong>click to browse</strong></div>
-        <div class="dz-label small-muted">Multiple files supported</div>
-      </div>
-      <div id="kml-file-list"></div>
     </div>
 
     <button class="btn-launch" id="launch-btn" disabled onclick="launchApp()">Load & Launch</button>
+
+    <div class="login-footnote">
+      Addresses, offers, and KMZ footprint boundaries are loaded automatically from Supabase.
+    </div>
   </div>
 </div>
 
@@ -417,7 +394,7 @@
 </script>
 
 <!-- App logic -->
-<script defer src="app.js?v=fieldos-auto-load-launch-20260706"></script>
+<script defer src="app.js?v=fieldos-clean-login-20260707"></script>
 <!-- Service worker -->
 <script>
   if ('serviceWorker' in navigator) {

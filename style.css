@@ -3602,3 +3602,45 @@ select.team-select option { background: var(--card); color: var(--text); }
   .gp-title { font-size: 13px; }
   .gp-metric-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+
+/* Clean auto-load login screen */
+.hidden-setup-control { display: none !important; }
+.login-only-card {
+  max-width: 500px;
+  padding: 42px;
+  text-align: left;
+}
+.compact-login-logo { margin-bottom: 28px; }
+.login-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: var(--accent);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.login-name-step { margin-top: 18px; margin-bottom: 18px; }
+.login-name-input {
+  font-size: 15px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+.login-footnote {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 16px;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .login-only-card { padding: 28px 20px; }
+  .compact-login-logo { margin-bottom: 20px; }
+}
