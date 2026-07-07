@@ -174,6 +174,14 @@
     .admin-crud-note { margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
     .admin-file-input { border-style: dashed !important; background: rgba(34,211,238,.06) !important; }
 
+    .score-bar { height: 9px; background: rgba(148,163,184,.22); border-radius: 999px; overflow: hidden; min-width: 120px; }
+    .score-bar-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e); border-radius: inherit; }
+    .timeline-list { display: grid; gap: 12px; }
+    .timeline-item { border: 1px solid rgba(148,163,184,.18); background: rgba(30,41,59,.46); border-radius: 16px; padding: 14px; }
+    .timeline-item-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .timeline-item-title { font-weight:800; }
+    .csv-preview-box { max-height: 300px; overflow:auto; border:1px solid var(--border); border-radius:16px; }
+
     @media (max-width: 1200px) { .controls, .grid-kpis, .pricing-summary, .admin-tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 700px) { .controls, .grid-kpis, .pricing-summary, .admin-tools-grid, .admin-search-row, .admin-form-grid { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
   </style>
@@ -235,6 +243,11 @@
         <button id="tab-territories-admin" class="tab-btn admin-only">Territories</button>
         <button id="tab-boundaries-admin" class="tab-btn admin-only">Boundary Files</button>
         <button id="tab-data-quality" class="tab-btn admin-only">Data Quality</button>
+        <button id="tab-address-timeline" class="tab-btn admin-only">Address Timeline</button>
+        <button id="tab-address-import" class="tab-btn admin-only">Address Import</button>
+        <button id="tab-rep-qa" class="tab-btn admin-only">Rep QA</button>
+        <button id="tab-vendor-scorecard" class="tab-btn admin-only">Vendor Scorecard</button>
+        <button id="tab-admin-audit" class="tab-btn admin-only">Admin Audit</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -486,6 +499,82 @@
             <div class="panel-head"><div><h2>Issue Details</h2><div class="panel-sub">Click rows for detail exports or use this to decide what to fix first.</div></div></div>
             <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Area</th><th>Issue</th><th>Count</th><th>Recommended Fix</th></tr></thead><tbody id="admin-quality-body"></tbody></table></div>
           </div>
+        </div>
+      </div>
+
+
+      <div id="tab-panel-address-timeline" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Addresses</div><div id="admin-kpi-timeline-addresses" class="admin-tool-value">0</div><div class="admin-tool-sub">Loaded address records available for timeline review.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Events</div><div id="admin-kpi-timeline-events" class="admin-tool-value">0</div><div class="admin-tool-sub">Disposition events tied to the selected address.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Sales</div><div id="admin-kpi-timeline-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales submissions tied to the selected address.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Admin Notes</div><div id="admin-kpi-timeline-notes" class="admin-tool-value">0</div><div class="admin-tool-sub">Internal admin notes stored for the selected address.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Address Detail Timeline</h2><div class="panel-sub">Search an address and review the full activity history, sales, notes, and admin follow-up context.</div></div><div class="admin-actions"><button id="admin-add-address-note-btn">+ Add Admin Note</button><button id="admin-export-address-timeline">Export Timeline</button></div></div>
+          <div class="admin-search-row"><input id="admin-address-search" placeholder="Search address, city, territory, or location ID" /><select id="admin-address-select"><option value="">Select an address</option></select><button id="admin-refresh-address-timeline">Refresh Timeline</button></div>
+          <div id="admin-address-summary" class="admin-alert warn">Select an address to view its timeline.</div>
+          <div id="admin-address-timeline-list" class="timeline-list"></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-address-import" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Preview Rows</div><div id="admin-kpi-import-preview" class="admin-tool-value">0</div><div class="admin-tool-sub">Valid parsed rows ready to import.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Duplicate Flags</div><div id="admin-kpi-import-dupes" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows that appear to match existing addresses.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Required</div><div id="admin-kpi-import-missing" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows missing address or territory.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Last Import</div><div id="admin-kpi-import-last" class="admin-tool-value">—</div><div class="admin-tool-sub">Most recent import attempt from this browser session.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Address CSV Import Tool</h2><div class="panel-sub">Upload a territory address CSV, preview it, detect duplicates, then import directly into Supabase addresses.</div></div><div class="admin-actions"><button id="admin-preview-address-import" class="primary">Preview CSV</button><button id="admin-run-address-import">Import Valid Rows</button></div></div>
+          <div class="admin-form-grid">
+            <div class="admin-form-field"><label>CSV File</label><input id="admin-address-import-file" class="admin-file-input" type="file" accept=".csv,text/csv" /></div>
+            <div class="admin-form-field"><label>Default Territory</label><input id="admin-address-import-territory" placeholder="wilber_ne" /></div>
+            <div class="admin-form-field"><label>Default Team</label><select id="admin-address-import-team"><option value="fiber">fiber</option><option value="sfi">sfi</option><option value="lynxx">lynxx</option></select></div>
+            <div class="admin-form-field"><label>Default Customer Status</label><input id="admin-address-import-status" value="homes passed" /></div>
+            <div class="admin-form-field full"><label>Import Notes</label><textarea id="admin-address-import-notes" placeholder="Example: Wilber NE July launch import"></textarea></div>
+          </div>
+          <div id="admin-address-import-status-line" class="status-line">Choose a CSV and preview before importing. Supported headers include address1, address, city, state, zip, postal_code, lat, lng, customer_status, location_id, external_location_id.</div>
+          <div class="csv-preview-box"><table><thead><tr><th>Status</th><th>Address</th><th>City</th><th>State</th><th>Zip</th><th>Territory</th><th>GPS</th><th>Reason</th></tr></thead><tbody id="admin-address-import-preview-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-rep-qa" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">QA Flags</div><div id="admin-kpi-qa-flags" class="admin-tool-value">0</div><div class="admin-tool-sub">Potential coaching/review flags in the current filtered data.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">High Severity</div><div id="admin-kpi-qa-high" class="admin-tool-value">0</div><div class="admin-tool-sub">Flags that deserve manager review.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Reps Flagged</div><div id="admin-kpi-qa-reps" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique reps with one or more QA flags.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Notes</div><div id="admin-kpi-qa-notes" class="admin-tool-value">0</div><div class="admin-tool-sub">Events that should have coaching-quality notes.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Rep QA Flags</h2><div class="panel-sub">Highlights behavior patterns such as rapid-fire dispositions, no-note activity, high not-home rates, after-hours activity, and GPS movement concerns.</div></div><div class="admin-actions"><button id="admin-export-qa-flags">Export QA Flags</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Rep</th><th>Territory</th><th>Flag</th><th>Evidence</th><th>Recommended Review</th></tr></thead><tbody id="admin-qa-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-vendor-scorecard" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Vendors</div><div id="admin-kpi-vendors-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Teams/vendors represented in the current data.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Best Score</div><div id="admin-kpi-vendors-best" class="admin-tool-value">—</div><div class="admin-tool-sub">Highest overall score this period.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Total Worked</div><div id="admin-kpi-vendors-worked" class="admin-tool-value">0</div><div class="admin-tool-sub">Disposition events counted across vendors.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Total Sales</div><div id="admin-kpi-vendors-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales counted across vendors.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Vendor Scorecard</h2><div class="panel-sub">Compares Fiber Sales Team, SFI, Lynxx, and any future teams by coverage, conversion, follow-up quality, QA flags, and data hygiene.</div></div><div class="admin-actions"><button id="admin-export-vendor-scorecard">Export Scorecard</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Vendor / Team</th><th>Score</th><th>Reps / Territories</th><th>Worked</th><th>Sales</th><th>Close Rate</th><th>Contact / Follow-Up</th><th>Data Quality</th><th>Manager Notes</th></tr></thead><tbody id="admin-vendor-scorecard-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-admin-audit" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Audit Events</div><div id="admin-kpi-audit-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Admin writes loaded from fieldos_admin_audit_log.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Today</div><div id="admin-kpi-audit-today" class="admin-tool-value">0</div><div class="admin-tool-sub">Admin changes created today.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Actors</div><div id="admin-kpi-audit-actors" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique admin users with audit entries.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Tables Changed</div><div id="admin-kpi-audit-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique tables affected by admin writes.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Admin Audit Log</h2><div class="panel-sub">Tracks admin actions such as rep updates, territory changes, boundary uploads, pricing changes, sales reviews, address notes, and CSV imports.</div></div><div class="admin-actions"><button id="admin-export-audit-log">Export Audit Log</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Table</th><th>Row</th><th>New Value</th></tr></thead><tbody id="admin-audit-body"></tbody></table></div>
         </div>
       </div>
 
@@ -2070,7 +2159,7 @@
       cancelled: 'Cancelled'
     };
 
-    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [] };
+    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
 
     Object.assign(els, {
       tabSalesReview: document.getElementById('tab-sales-review'),
@@ -2078,11 +2167,21 @@
       tabTerritoriesAdmin: document.getElementById('tab-territories-admin'),
       tabBoundariesAdmin: document.getElementById('tab-boundaries-admin'),
       tabDataQuality: document.getElementById('tab-data-quality'),
+      tabAddressTimeline: document.getElementById('tab-address-timeline'),
+      tabAddressImport: document.getElementById('tab-address-import'),
+      tabRepQa: document.getElementById('tab-rep-qa'),
+      tabVendorScorecard: document.getElementById('tab-vendor-scorecard'),
+      tabAdminAudit: document.getElementById('tab-admin-audit'),
       tabPanelSalesReview: document.getElementById('tab-panel-sales-review'),
       tabPanelRepsAdmin: document.getElementById('tab-panel-reps-admin'),
       tabPanelTerritoriesAdmin: document.getElementById('tab-panel-territories-admin'),
       tabPanelBoundariesAdmin: document.getElementById('tab-panel-boundaries-admin'),
       tabPanelDataQuality: document.getElementById('tab-panel-data-quality'),
+      tabPanelAddressTimeline: document.getElementById('tab-panel-address-timeline'),
+      tabPanelAddressImport: document.getElementById('tab-panel-address-import'),
+      tabPanelRepQa: document.getElementById('tab-panel-rep-qa'),
+      tabPanelVendorScorecard: document.getElementById('tab-panel-vendor-scorecard'),
+      tabPanelAdminAudit: document.getElementById('tab-panel-admin-audit'),
       adminSalesReviewBody: document.getElementById('admin-sales-review-body'),
       adminSalesReviewFilter: document.getElementById('admin-sales-review-filter'),
       adminExportSalesReview: document.getElementById('admin-export-sales-review'),
@@ -2097,6 +2196,28 @@
       adminQualityList: document.getElementById('admin-quality-list'),
       adminQualityBody: document.getElementById('admin-quality-body'),
       adminExportQuality: document.getElementById('admin-export-quality'),
+      adminAddressSearch: document.getElementById('admin-address-search'),
+      adminAddressSelect: document.getElementById('admin-address-select'),
+      adminAddressSummary: document.getElementById('admin-address-summary'),
+      adminAddressTimelineList: document.getElementById('admin-address-timeline-list'),
+      adminAddAddressNoteBtn: document.getElementById('admin-add-address-note-btn'),
+      adminExportAddressTimeline: document.getElementById('admin-export-address-timeline'),
+      adminRefreshAddressTimeline: document.getElementById('admin-refresh-address-timeline'),
+      adminImportFile: document.getElementById('admin-address-import-file'),
+      adminImportTerritory: document.getElementById('admin-address-import-territory'),
+      adminImportTeam: document.getElementById('admin-address-import-team'),
+      adminImportStatus: document.getElementById('admin-address-import-status'),
+      adminImportNotes: document.getElementById('admin-address-import-notes'),
+      adminPreviewImportBtn: document.getElementById('admin-preview-address-import'),
+      adminRunImportBtn: document.getElementById('admin-run-address-import'),
+      adminImportStatusLine: document.getElementById('admin-address-import-status-line'),
+      adminImportPreviewBody: document.getElementById('admin-address-import-preview-body'),
+      adminQaBody: document.getElementById('admin-qa-body'),
+      adminExportQaFlags: document.getElementById('admin-export-qa-flags'),
+      adminVendorScorecardBody: document.getElementById('admin-vendor-scorecard-body'),
+      adminExportVendorScorecard: document.getElementById('admin-export-vendor-scorecard'),
+      adminAuditBody: document.getElementById('admin-audit-body'),
+      adminExportAuditLog: document.getElementById('admin-export-audit-log'),
       adminAddRepBtn: document.getElementById('admin-add-rep-btn'),
       adminAddTerritoryBtn: document.getElementById('admin-add-territory-btn'),
       adminAddBoundaryBtn: document.getElementById('admin-add-boundary-btn'),
@@ -2146,20 +2267,24 @@
     async function loadAdminControlData() {
       const allowed = await applyAdminAccessUi();
       if (!allowed) {
-        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [] };
+        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
         renderAdminControlCenter();
         return false;
       }
       try {
-        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories] = await Promise.all([
+        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
-          fetchOptionalAllPages('fieldos_territories', { order: { column: 'territory', ascending: true } })
+          fetchOptionalAllPages('fieldos_territories', { order: { column: 'territory', ascending: true } }),
+          fetchOptionalAllPages('address_admin_notes', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('fieldos_admin_audit_log', { order: { column: 'created_at', ascending: false } })
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
         adminState.territories = territoriesTableRows || [];
+        adminState.address_admin_notes = addressAdminNotes || [];
+        adminState.fieldos_admin_audit_log = adminAuditLog || [];
 
         const mergedTerritories = new Map();
         (territoriesTableRows || []).forEach(function(row) {
@@ -2177,6 +2302,8 @@
         adminState.territory_boundary_files = adminState.territory_boundary_files || [];
         adminState.territories = adminState.territories || [];
         adminState.fieldos_territories = adminState.fieldos_territories || [];
+        adminState.address_admin_notes = adminState.address_admin_notes || [];
+        adminState.fieldos_admin_audit_log = adminState.fieldos_admin_audit_log || [];
       }
       renderAdminControlCenter();
       return true;
@@ -2197,7 +2324,7 @@
 
     const originalSetActiveTabForAdmin = setActiveTab;
     setActiveTab = function(tabName) {
-      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality'];
+      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
       const isAdminTab = adminTabs.includes(tabName);
       const canShowAdmin = document.body.classList.contains('admin-enabled');
       if (isAdminTab && !canShowAdmin) {
@@ -2210,23 +2337,33 @@
       const showTerritoriesAdmin = tabName === 'territories-admin';
       const showBoundariesAdmin = tabName === 'boundaries-admin';
       const showDataQuality = tabName === 'data-quality';
+      const showAddressTimeline = tabName === 'address-timeline';
+      const showAddressImport = tabName === 'address-import';
+      const showRepQa = tabName === 'rep-qa';
+      const showVendorScorecard = tabName === 'vendor-scorecard';
+      const showAdminAudit = tabName === 'admin-audit';
 
       if (!isAdminTab) {
-        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach(el => el && el.classList.remove('active'));
-        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality].forEach(el => el && el.classList.remove('active'));
+        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach(el => el && el.classList.remove('active'));
+        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit].forEach(el => el && el.classList.remove('active'));
         originalSetActiveTabForAdmin(tabName);
         return;
       }
 
       pauseRouteReplay();
-      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach(el => el && el.classList.remove('active'));
-      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality].forEach(el => el && el.classList.remove('active'));
+      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach(el => el && el.classList.remove('active'));
+      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit].forEach(el => el && el.classList.remove('active'));
 
       if (showSalesReview) { els.tabSalesReview.classList.add('active'); els.tabPanelSalesReview.classList.add('active'); }
       if (showRepsAdmin) { els.tabRepsAdmin.classList.add('active'); els.tabPanelRepsAdmin.classList.add('active'); }
       if (showTerritoriesAdmin) { els.tabTerritoriesAdmin.classList.add('active'); els.tabPanelTerritoriesAdmin.classList.add('active'); }
       if (showBoundariesAdmin) { els.tabBoundariesAdmin.classList.add('active'); els.tabPanelBoundariesAdmin.classList.add('active'); }
       if (showDataQuality) { els.tabDataQuality.classList.add('active'); els.tabPanelDataQuality.classList.add('active'); }
+      if (showAddressTimeline) { els.tabAddressTimeline.classList.add('active'); els.tabPanelAddressTimeline.classList.add('active'); }
+      if (showAddressImport) { els.tabAddressImport.classList.add('active'); els.tabPanelAddressImport.classList.add('active'); }
+      if (showRepQa) { els.tabRepQa.classList.add('active'); els.tabPanelRepQa.classList.add('active'); }
+      if (showVendorScorecard) { els.tabVendorScorecard.classList.add('active'); els.tabPanelVendorScorecard.classList.add('active'); }
+      if (showAdminAudit) { els.tabAdminAudit.classList.add('active'); els.tabPanelAdminAudit.classList.add('active'); }
       renderAdminControlCenter();
     };
 
@@ -2353,6 +2490,11 @@
       renderAdminTerritories();
       renderAdminBoundaries();
       renderAdminDataQuality();
+      renderAdminAddressTimeline();
+      renderAdminImportPreview();
+      renderAdminRepQa();
+      renderAdminVendorScorecard();
+      renderAdminAuditLog();
     }
 
     function renderAdminSalesReview() {
@@ -2454,10 +2596,293 @@
       if (els.adminExportQuality) els.adminExportQuality.onclick = () => csvDownload('fieldos_data_quality_issues.csv', issues.map(i => ({ severity: i.severity, area: i.area, issue: i.issue, count: i.count, recommended_fix: i.recommended_fix })));
     }
 
+
+    function getAddressById(id) {
+      const key = idKey(id);
+      return state.addresses.find(a => idKey(a.id) === key || idKey(a.address_id) === key || idKey(a.location_id) === key || idKey(a.external_location_id) === key) || null;
+    }
+
+    function salesForAddress(addr) {
+      if (!addr) return [];
+      const addressMap = buildAddressMap();
+      const addrKeys = [addr.id, addr.address_id, addr.location_id, addr.external_location_id, addr.externalLocationId].map(idKey).filter(Boolean);
+      const addrLabel = addressLabelFromAddressRow(addr).toLowerCase();
+      return (state.sales_orders || []).filter(s => {
+        const keys = [s.address_id, s.location_id, s.external_location_id, s.zito_location_id, s.external_id].map(idKey).filter(Boolean);
+        if (keys.some(k => addrKeys.includes(k))) return true;
+        const linked = getLinkedAddress(s, addressMap);
+        if (linked && idKey(linked.id) === idKey(addr.id)) return true;
+        const label = buildAddressLabel(addressMap, s).toLowerCase();
+        return addrLabel && label && label === addrLabel;
+      });
+    }
+
+    function eventsForAddress(addr) {
+      if (!addr) return [];
+      const addrKeys = [addr.id, addr.address_id, addr.location_id, addr.external_location_id, addr.externalLocationId].map(idKey).filter(Boolean);
+      return (state.address_events || []).filter(ev => addrKeys.includes(idKey(ev.address_id)) || addrKeys.includes(idKey(ev.location_id)) || addrKeys.includes(idKey(ev.external_location_id)));
+    }
+
+    function notesForAddress(addr) {
+      if (!addr) return [];
+      const addrKeys = [addr.id, addr.address_id, addr.location_id, addr.external_location_id, addr.externalLocationId].map(idKey).filter(Boolean);
+      return (adminState.address_admin_notes || []).filter(n => addrKeys.includes(idKey(n.address_id)) || addrKeys.includes(idKey(n.location_id)));
+    }
+
+    function buildAddressTimelineRows(addr) {
+      const rows = [];
+      eventsForAddress(addr).forEach(ev => rows.push({ time: ev.created_at || ev.knocked_at, type: 'Disposition', actor: getRepName(ev) || ev.rep_name || '—', title: ev.status || 'event', detail: ev.note || '', raw: ev }));
+      salesForAddress(addr).forEach(s => rows.push({ time: s.created_at, type: 'Sale', actor: getRepName(s) || s.rep_name || '—', title: getPackageName(s) || s.package_key || 'sale', detail: [getCustomerName(s), firstNonEmpty(s.phone, s.customer_phone), firstNonEmpty(s.email, s.customer_email), s.review_status].filter(Boolean).join(' • '), raw: s }));
+      notesForAddress(addr).forEach(n => rows.push({ time: n.created_at, type: 'Admin Note', actor: n.created_by || n.actor_email || 'admin', title: n.note_type || 'note', detail: n.note || '', raw: n }));
+      return rows.sort((a,b) => timeValue(b.time) - timeValue(a.time));
+    }
+
+    function renderAddressSelectOptions() {
+      if (!els.adminAddressSelect) return;
+      const q = String(els.adminAddressSearch?.value || '').toLowerCase().trim();
+      const rows = (state.addresses || []).filter(a => {
+        if (!q) return true;
+        return [a.address, a.address1, a.city, a.state, a.zip, a.postal_code, a.territory, a.external_location_id, a.externalLocationId, a.id].join(' ').toLowerCase().includes(q);
+      }).slice(0, 250);
+      const selected = adminState.selected_address_id || '';
+      els.adminAddressSelect.innerHTML = '<option value="">Select an address</option>' + rows.map(a => `<option value="${escapeHtml(idKey(a.id))}" ${idKey(a.id) === selected ? 'selected' : ''}>${escapeHtml(addressLabelFromAddressRow(a) || buildAddressLabel(buildAddressMap(), a))}</option>`).join('');
+    }
+
+    function renderAdminAddressTimeline() {
+      renderAddressSelectOptions();
+      const selectedId = adminState.selected_address_id || els.adminAddressSelect?.value || '';
+      const addr = getAddressById(selectedId);
+      setText('admin-kpi-timeline-addresses', formatNumber(state.addresses.length));
+      if (!addr) {
+        setText('admin-kpi-timeline-events', '0'); setText('admin-kpi-timeline-sales', '0'); setText('admin-kpi-timeline-notes', '0');
+        if (els.adminAddressSummary) els.adminAddressSummary.innerHTML = 'Select an address to view its timeline.';
+        if (els.adminAddressTimelineList) els.adminAddressTimelineList.innerHTML = '';
+        return;
+      }
+      const events = eventsForAddress(addr), sales = salesForAddress(addr), notes = notesForAddress(addr);
+      const rows = buildAddressTimelineRows(addr);
+      setText('admin-kpi-timeline-events', formatNumber(events.length));
+      setText('admin-kpi-timeline-sales', formatNumber(sales.length));
+      setText('admin-kpi-timeline-notes', formatNumber(notes.length));
+      if (els.adminAddressSummary) {
+        const latest = rows[0];
+        els.adminAddressSummary.className = 'admin-alert';
+        els.adminAddressSummary.innerHTML = `<strong>${escapeHtml(addressLabelFromAddressRow(addr))}</strong><br>Territory: ${escapeHtml(addr.territory || '—')} • Current Status: ${escapeHtml(addr.status || '—')} • Latest: ${escapeHtml(latest ? latest.type + ' / ' + latest.title + ' / ' + formatDateTime(latest.time) : 'No timeline activity')}`;
+      }
+      if (els.adminAddressTimelineList) {
+        els.adminAddressTimelineList.innerHTML = rows.length ? rows.map(r => `<div class="timeline-item"><div class="timeline-item-head"><div><div class="timeline-item-title">${escapeHtml(r.type)} — ${escapeHtml(r.title || '—')}</div><div class="admin-note">${escapeHtml(formatDateTime(r.time))} • ${escapeHtml(r.actor || '—')}</div></div><span class="admin-tag info">${escapeHtml(r.type)}</span></div><div>${escapeHtml(r.detail || 'No detail captured.')}</div></div>`).join('') : '<div class="warning-item warn">No timeline activity exists for this address yet.</div>';
+      }
+      if (els.adminExportAddressTimeline) els.adminExportAddressTimeline.onclick = () => csvDownload('address_timeline.csv', rows.map(r => ({ time: r.time, type: r.type, actor: r.actor, title: r.title, detail: r.detail })));
+    }
+
+    function simpleCsvParse(text) {
+      const rows = []; let row = [], val = '', inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i+1];
+        if (inQuotes && c === '"' && n === '"') { val += '"'; i++; continue; }
+        if (c === '"') { inQuotes = !inQuotes; continue; }
+        if (!inQuotes && c === ',') { row.push(val); val = ''; continue; }
+        if (!inQuotes && (c === '\n' || c === '\r')) { if (c === '\r' && n === '\n') i++; row.push(val); if (row.some(x => String(x).trim() !== '')) rows.push(row); row=[]; val=''; continue; }
+        val += c;
+      }
+      row.push(val); if (row.some(x => String(x).trim() !== '')) rows.push(row);
+      if (!rows.length) return [];
+      const headers = rows.shift().map(h => String(h || '').trim());
+      return rows.map(r => { const obj = {}; headers.forEach((h,i) => obj[h] = r[i] || ''); return obj; });
+    }
+
+    function getCsvValue(row, names) {
+      const keys = Object.keys(row || {});
+      for (const name of names) {
+        const found = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') === name);
+        if (found && String(row[found] || '').trim()) return String(row[found]).trim();
+      }
+      return '';
+    }
+
+    function normalizeImportRow(row, idx) {
+      const defaultTerr = String(els.adminImportTerritory?.value || '').trim();
+      const address1 = getCsvValue(row, ['address1','address','street_address','service_address','street']);
+      const city = getCsvValue(row, ['city']);
+      const stateVal = getCsvValue(row, ['state']);
+      const postal = getCsvValue(row, ['postal_code','zip','zipcode','zip_code','postal']);
+      const territory = getCsvValue(row, ['territory','market']) || defaultTerr;
+      const latRaw = getCsvValue(row, ['lat','latitude']);
+      const lngRaw = getCsvValue(row, ['lng','lon','longitude']);
+      const lat = latRaw ? Number(latRaw) : null;
+      const lng = lngRaw ? Number(lngRaw) : null;
+      const payload = {
+        address1, city, state: stateVal, postal_code: postal, territory,
+        lat: Number.isFinite(lat) ? lat : null,
+        lng: Number.isFinite(lng) ? lng : null,
+        customer_status: getCsvValue(row, ['customer_status','status','active_count']) || String(els.adminImportStatus?.value || 'homes passed').trim(),
+        serviceability: getCsvValue(row, ['serviceability']),
+        external_location_id: getCsvValue(row, ['external_location_id','location_id','zito_location_id','address_id']),
+        primary_campaign: getCsvValue(row, ['primary_campaign','campaign']),
+        updated_at: new Date().toISOString()
+      };
+      const reasons = [];
+      if (!address1) reasons.push('Missing address');
+      if (!territory) reasons.push('Missing territory');
+      const dupKey = [address1, city, stateVal, postal, territory].map(v => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()).join('|');
+      const duplicate = state.addresses.some(a => [a.address || a.address1, a.city, a.state, a.zip || a.postal_code, a.territory].map(v => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()).join('|') === dupKey);
+      if (duplicate) reasons.push('Possible duplicate');
+      return { idx: idx + 1, payload, duplicate, ok: !!address1 && !!territory, reasons };
+    }
+
+    function renderAdminImportPreview() {
+      const rows = adminState.import_preview_rows || [];
+      setText('admin-kpi-import-preview', formatNumber(rows.filter(r => r.ok && !r.duplicate).length));
+      setText('admin-kpi-import-dupes', formatNumber(rows.filter(r => r.duplicate).length));
+      setText('admin-kpi-import-missing', formatNumber(rows.filter(r => !r.ok).length));
+      if (els.adminImportPreviewBody) els.adminImportPreviewBody.innerHTML = rows.length ? rows.slice(0, 250).map(r => `<tr><td>${r.ok && !r.duplicate ? '<span class="admin-tag good">Ready</span>' : r.duplicate ? '<span class="admin-tag warn">Duplicate</span>' : '<span class="admin-tag bad">Blocked</span>'}</td><td>${escapeHtml(r.payload.address1)}</td><td>${escapeHtml(r.payload.city)}</td><td>${escapeHtml(r.payload.state)}</td><td>${escapeHtml(r.payload.postal_code)}</td><td>${escapeHtml(r.payload.territory)}</td><td>${r.payload.lat && r.payload.lng ? '<span class="admin-tag good">GPS</span>' : '<span class="admin-tag warn">No GPS</span>'}</td><td>${escapeHtml(r.reasons.join('; ') || 'OK')}</td></tr>`).join('') : '<tr><td colspan="8" style="color:#94a3b8;">No CSV preview loaded.</td></tr>';
+    }
+
+    async function previewAddressCsvImport() {
+      const file = els.adminImportFile?.files?.[0];
+      if (!file) { els.adminImportStatusLine.textContent = 'Choose a CSV file first.'; return; }
+      const text = await file.text();
+      const parsed = simpleCsvParse(text);
+      adminState.import_preview_rows = parsed.map(normalizeImportRow);
+      els.adminImportStatusLine.textContent = 'Previewed ' + formatNumber(adminState.import_preview_rows.length) + ' row(s). Review duplicates/missing fields before importing.';
+      renderAdminImportPreview();
+    }
+
+    async function runAddressCsvImport() {
+      const allowed = await isMainAdminSession();
+      if (!allowed) throw new Error('Main admin login required.');
+      const rows = (adminState.import_preview_rows || []).filter(r => r.ok && !r.duplicate).map(r => r.payload);
+      if (!rows.length) { els.adminImportStatusLine.textContent = 'No valid non-duplicate rows to import.'; return; }
+      const batchSize = 250; let imported = 0;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const { error } = await supabaseClient.from('addresses').insert(rows.slice(i, i + batchSize));
+        if (error) throw error;
+        imported += rows.slice(i, i + batchSize).length;
+      }
+      setText('admin-kpi-import-last', formatNumber(imported));
+      els.adminImportStatusLine.textContent = 'Imported ' + formatNumber(imported) + ' address row(s). Refreshing dashboard data…';
+      await logAdminAction('csv_import_addresses', 'addresses', null, null, { imported, territory: els.adminImportTerritory?.value || '', notes: els.adminImportNotes?.value || '' });
+      adminState.import_preview_rows = [];
+      await loadData();
+    }
+
+    function buildRepQaFlags() {
+      const addressMap = buildAddressMap();
+      const flags = [];
+      const eventsByRep = new Map();
+      (state.address_events || []).forEach(ev => {
+        const rep = getRepName(ev) || ev.rep_name || ev.salesperson || 'Unknown';
+        if (!eventsByRep.has(rep)) eventsByRep.set(rep, []);
+        eventsByRep.get(rep).push(ev);
+        const st = String(ev.status || '').toLowerCase();
+        const needsNote = ['maybelater','sendinfo','talktospouse','priceconcern','notdecisionmaker','goback','fibercompetitor','incontract','notinterested'].includes(st);
+        if (needsNote && !String(ev.note || '').trim()) flags.push({ severity:'medium', rep, territory:getRowTerritory(ev, addressMap) || '—', flag:'Missing note on meaningful disposition', evidence:`${st} at ${buildAddressLabel(addressMap, ev)} on ${formatDateTime(ev.created_at)}`, recommendation:'Coach rep to capture useful notes for callbacks and QA.' });
+        const hour = new Date(ev.created_at || '').getHours();
+        if (Number.isFinite(hour) && (hour < 9 || hour >= 21)) flags.push({ severity:'medium', rep, territory:getRowTerritory(ev, addressMap) || '—', flag:'Activity outside normal knocking window', evidence:`${formatDateTime(ev.created_at)} / ${st}`, recommendation:'Confirm whether this was real field work or late data entry.' });
+      });
+      eventsByRep.forEach((events, rep) => {
+        const sorted = events.slice().sort((a,b) => timeValue(a.created_at) - timeValue(b.created_at));
+        let rapid = 0, fastMove = 0;
+        for (let i=1;i<sorted.length;i++) {
+          const gapSec = (timeValue(sorted[i].created_at) - timeValue(sorted[i-1].created_at)) / 1000;
+          if (gapSec > 0 && gapSec < 30) rapid++;
+          const p1 = getLatLng(sorted[i-1], getLinkedAddress(sorted[i-1], addressMap));
+          const p2 = getLatLng(sorted[i], getLinkedAddress(sorted[i], addressMap));
+          if (p1 && p2 && gapSec > 0) {
+            const mph = haversineMiles(p1.lat,p1.lng,p2.lat,p2.lng) / (gapSec/3600);
+            if (mph > 45) fastMove++;
+          }
+        }
+        const noHome = events.filter(ev => String(ev.status||'').toLowerCase().startsWith('nothome')).length;
+        if (rapid >= 3) flags.push({ severity:'high', rep, territory:'Multiple', flag:'Rapid-fire dispositions', evidence:`${rapid} event gaps under 30 seconds`, recommendation:'Review route replay and confirm each door was actually visited.' });
+        if (fastMove >= 2) flags.push({ severity:'high', rep, territory:'Multiple', flag:'GPS movement speed concern', evidence:`${fastMove} back-to-back events imply unrealistic travel speed`, recommendation:'Review GPS route and event timestamps.' });
+        if (events.length >= 15 && noHome / events.length > 0.75) flags.push({ severity:'medium', rep, territory:'Multiple', flag:'High not-home rate', evidence:`${formatPercent(noHome/events.length)} not-home rate over ${events.length} events`, recommendation:'Shift this rep to later windows or warm follow-ups.' });
+      });
+      return flags;
+    }
+
+    function renderAdminRepQa() {
+      const flags = buildRepQaFlags();
+      adminState.qa_flags = flags;
+      setText('admin-kpi-qa-flags', formatNumber(flags.length));
+      setText('admin-kpi-qa-high', formatNumber(flags.filter(f => f.severity === 'high').length));
+      setText('admin-kpi-qa-reps', formatNumber(new Set(flags.map(f => f.rep)).size));
+      setText('admin-kpi-qa-notes', formatNumber(flags.filter(f => f.flag.indexOf('Missing note') >= 0).length));
+      if (els.adminQaBody) els.adminQaBody.innerHTML = flags.length ? flags.map(f => `<tr><td>${f.severity === 'high' ? '<span class="admin-tag bad">High</span>' : '<span class="admin-tag warn">Medium</span>'}</td><td>${escapeHtml(f.rep)}</td><td>${escapeHtml(f.territory)}</td><td>${escapeHtml(f.flag)}</td><td>${escapeHtml(f.evidence)}</td><td>${escapeHtml(f.recommendation)}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No QA flags found for the current data.</td></tr>';
+      if (els.adminExportQaFlags) els.adminExportQaFlags.onclick = () => csvDownload('fieldos_rep_qa_flags.csv', flags);
+    }
+
+
+    function haversineMiles(lat1, lon1, lat2, lon2) {
+      const R = 3958.7613;
+      const toRad = d => Number(d) * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function getTeamForRepName(repName) {
+      const r = (state.reps || []).find(x => (getRepName(x) || x.full_name || '').toLowerCase() === String(repName||'').toLowerCase());
+      return firstNonEmpty(r?.team_slug, r?.team, r?.company, r?.vendor, r?.source, r?.team_name) || 'Unknown';
+    }
+
+    function renderAdminVendorScorecard() {
+      const addressMap = buildAddressMap();
+      const qaFlags = adminState.qa_flags || buildRepQaFlags();
+      const vendorMap = new Map();
+      function ensure(team) { team = team || 'Unknown'; if (!vendorMap.has(team)) vendorMap.set(team, { team, reps:new Set(), territories:new Set(), worked:0, sales:0, contacts:0, followUps:0, missingNotes:0, qa:0 }); return vendorMap.get(team); }
+      (state.address_events || []).forEach(ev => {
+        const rep = getRepName(ev) || ev.rep_name || 'Unknown'; const team = getTeamForRepName(rep); const v = ensure(team);
+        v.reps.add(rep); const terr = getRowTerritory(ev, addressMap); if (terr) v.territories.add(terr); v.worked++;
+        const st = String(ev.status||'').toLowerCase();
+        if (!st.startsWith('nothome') && st !== 'pending') v.contacts++;
+        if (isSoftInterestStatus(st)) v.followUps++;
+        if (['maybelater','sendinfo','talktospouse','priceconcern','notdecisionmaker','goback'].includes(st) && !String(ev.note||'').trim()) v.missingNotes++;
+      });
+      (state.sales_orders || []).forEach(s => { const rep = getRepName(s) || s.rep_name || 'Unknown'; const team = firstNonEmpty(s.team_slug, getTeamForRepName(rep)); const v = ensure(team); v.sales++; v.reps.add(rep); const terr = getRowTerritory(s, addressMap); if (terr) v.territories.add(terr); });
+      qaFlags.forEach(f => { ensure(getTeamForRepName(f.rep)).qa++; });
+      const rows = [...vendorMap.values()].map(v => {
+        const close = v.worked ? v.sales / v.worked : 0;
+        const contact = v.worked ? v.contacts / v.worked : 0;
+        const hygienePenalty = Math.min(25, v.missingNotes * 2 + v.qa * 2);
+        const score = Math.max(0, Math.min(100, Math.round((close * 220) + (contact * 35) + Math.min(20, v.followUps) - hygienePenalty + 35)));
+        const notes = score >= 80 ? 'Strong performance. Keep route/offer discipline.' : score >= 60 ? 'Good baseline. Coach around notes, follow-ups, and time windows.' : 'Needs review. Inspect QA flags, route replay, and lead quality.';
+        return { team:v.team, score, reps:v.reps.size, territories:v.territories.size, worked:v.worked, sales:v.sales, close_rate:close, contact_rate:contact, followups:v.followUps, missing_notes:v.missingNotes, qa_flags:v.qa, notes };
+      }).sort((a,b) => b.score - a.score);
+      adminState.vendor_scorecards = rows;
+      setText('admin-kpi-vendors-total', formatNumber(rows.length));
+      setText('admin-kpi-vendors-best', rows[0] ? rows[0].score : '—');
+      setText('admin-kpi-vendors-worked', formatNumber(rows.reduce((s,r)=>s+r.worked,0)));
+      setText('admin-kpi-vendors-sales', formatNumber(rows.reduce((s,r)=>s+r.sales,0)));
+      if (els.adminVendorScorecardBody) els.adminVendorScorecardBody.innerHTML = rows.length ? rows.map(r => `<tr><td><strong>${escapeHtml(r.team)}</strong></td><td><div style="display:flex;align-items:center;gap:10px;"><strong>${r.score}</strong><div class="score-bar"><div class="score-bar-fill" style="width:${r.score}%"></div></div></div></td><td>${formatNumber(r.reps)} reps<br>${formatNumber(r.territories)} territories</td><td>${formatNumber(r.worked)}</td><td>${formatNumber(r.sales)}</td><td>${formatPercent(r.close_rate)}</td><td>${formatPercent(r.contact_rate)} contact<br>${formatNumber(r.followups)} follow-ups</td><td>${formatNumber(r.missing_notes)} missing notes<br>${formatNumber(r.qa_flags)} QA flags</td><td>${escapeHtml(r.notes)}</td></tr>`).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No vendor scorecard data available.</td></tr>';
+      if (els.adminExportVendorScorecard) els.adminExportVendorScorecard.onclick = () => csvDownload('fieldos_vendor_scorecard.csv', rows);
+    }
+
+    function renderAdminAuditLog() {
+      const rows = (adminState.fieldos_admin_audit_log || []).slice().sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at));
+      const today = new Date().toISOString().slice(0,10);
+      setText('admin-kpi-audit-total', formatNumber(rows.length));
+      setText('admin-kpi-audit-today', formatNumber(rows.filter(r => String(r.created_at||'').slice(0,10) === today).length));
+      setText('admin-kpi-audit-actors', formatNumber(new Set(rows.map(r => r.actor_email).filter(Boolean)).size));
+      setText('admin-kpi-audit-tables', formatNumber(new Set(rows.map(r => r.table_name).filter(Boolean)).size));
+      if (els.adminAuditBody) els.adminAuditBody.innerHTML = rows.length ? rows.slice(0, 500).map(r => `<tr><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${escapeHtml(r.actor_email || '—')}</td><td>${escapeHtml(r.action || '—')}</td><td>${escapeHtml(r.table_name || '—')}</td><td>${escapeHtml(r.row_id || '—')}</td><td><code style="white-space:pre-wrap;color:#cbd5e1;">${escapeHtml(JSON.stringify(r.new_value || {}, null, 0)).slice(0,240)}</code></td></tr>`).join('') : '<tr><td colspan="6" style="color:#94a3b8;">No audit events loaded yet.</td></tr>';
+      if (els.adminExportAuditLog) els.adminExportAuditLog.onclick = () => csvDownload('fieldos_admin_audit_log.csv', rows.map(r => ({ created_at:r.created_at, actor_email:r.actor_email, action:r.action, table_name:r.table_name, row_id:r.row_id, new_value: JSON.stringify(r.new_value || {}) })));
+    }
+
+    async function logAdminAction(action, tableName, rowId, oldValue, newValue) {
+      try {
+        const actor = await getCurrentUserEmail();
+        await supabaseClient.from('fieldos_admin_audit_log').insert([{ actor_email: actor, action: action, table_name: tableName, row_id: rowId ? String(rowId) : null, old_value: oldValue || null, new_value: newValue || null }]);
+      } catch (err) { console.warn('Audit log insert failed', err); }
+    }
+
+
     async function updateAdminRow(table, id, payload, successMessage) {
       const allowed = await isMainAdminSession();
       if (!allowed) { els.status.textContent = 'Admin action blocked: main admin login required.'; els.status.classList.add('error'); return; }
       if (!id) { els.status.textContent = 'Admin action blocked: missing row id.'; els.status.classList.add('error'); return; }
+      const { data: oldRows } = await supabaseClient.from(table).select('*').eq('id', id).limit(1);
       const { error } = await supabaseClient.from(table).update(payload).eq('id', id);
       if (error) {
         els.status.textContent = error.message || 'Admin update failed.';
@@ -2466,6 +2891,7 @@
       }
       els.status.classList.remove('error');
       els.status.textContent = successMessage || 'Admin update saved.';
+      await logAdminAction('update', table, id, oldRows && oldRows[0] ? oldRows[0] : null, payload);
       await loadData();
     }
 
@@ -2542,6 +2968,7 @@
       if (error) throw error;
       els.status.classList.remove('error');
       els.status.textContent = successMessage || 'Admin row created.';
+      await logAdminAction('insert', table, data && data.id ? data.id : null, null, data || payload);
       await loadData();
       return data;
     }
@@ -2555,6 +2982,7 @@
       if (error) throw error;
       els.status.classList.remove('error');
       els.status.textContent = successMessage || 'Admin row saved.';
+      await logAdminAction('upsert', table, data && data.id ? data.id : null, null, data || payload);
       await loadData();
       return data;
     }
@@ -2896,6 +3324,13 @@
         try { await navigator.clipboard.writeText(path); els.status.textContent = 'Copied file path: ' + path; } catch (err) { els.status.textContent = path; }
         return;
       }
+      const timelineAddressBtn = e.target.closest('[data-open-address-timeline]');
+      if (timelineAddressBtn) {
+        adminState.selected_address_id = timelineAddressBtn.getAttribute('data-open-address-timeline');
+        setActiveTab('address-timeline');
+        renderAdminAddressTimeline();
+        return;
+      }
       const qualityRow = e.target.closest('[data-quality-index]');
       if (qualityRow) {
         const issue = adminState.quality_issues[Number(qualityRow.getAttribute('data-quality-index'))];
@@ -2909,9 +3344,9 @@
       }
     });
 
-    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach((tab, idx) => {
+    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach((tab, idx) => {
       if (!tab) return;
-      const names = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality'];
+      const names = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
       tab.onclick = () => setActiveTab(names[idx]);
     });
     if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.onchange = renderAdminSalesReview;
@@ -2919,6 +3354,16 @@
     if (els.adminRepTeamFilter) els.adminRepTeamFilter.onchange = renderAdminReps;
     const adminRefreshReps = document.getElementById('admin-refresh-reps');
     if (adminRefreshReps) adminRefreshReps.onclick = loadData;
+    if (els.adminAddressSearch) els.adminAddressSearch.oninput = renderAdminAddressTimeline;
+    if (els.adminAddressSelect) els.adminAddressSelect.onchange = () => { adminState.selected_address_id = els.adminAddressSelect.value || ''; renderAdminAddressTimeline(); };
+    if (els.adminRefreshAddressTimeline) els.adminRefreshAddressTimeline.onclick = renderAdminAddressTimeline;
+    if (els.adminAddAddressNoteBtn) els.adminAddAddressNoteBtn.onclick = () => {
+      const addr = getAddressById(adminState.selected_address_id || els.adminAddressSelect?.value);
+      if (!addr) { els.status.textContent = 'Select an address before adding an admin note.'; els.status.classList.add('error'); return; }
+      openAdminCrudModal({ title:'Add Address Admin Note', subtitle: addressLabelFromAddressRow(addr), fields:[{name:'note_type',label:'Note Type',type:'select',options:['general','callback','correction','do_not_knock','crm_follow_up'],value:'general'},{name:'note',label:'Note',type:'textarea',full:true,required:true}], onSubmit: async function(payload){ await adminInsertRow('address_admin_notes', { address_id: addr.id, territory: addr.territory || null, note_type: payload.note_type || 'general', note: payload.note, created_by: await getCurrentUserEmail() }, 'Address admin note added.'); } });
+    };
+    if (els.adminPreviewImportBtn) els.adminPreviewImportBtn.onclick = previewAddressCsvImport;
+    if (els.adminRunImportBtn) els.adminRunImportBtn.onclick = function(){ runAddressCsvImport().catch(err => { console.error(err); els.adminImportStatusLine.textContent = err.message || 'Import failed.'; }); };
 
     if (els.adminForm) {
       els.adminForm.onsubmit = async function(e) {
