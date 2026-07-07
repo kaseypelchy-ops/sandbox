@@ -239,6 +239,7 @@
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
         <button id="tab-pricing" class="tab-btn">Offers & Pricing</button>
         <button id="tab-sales-review" class="tab-btn">Sales Review</button>
+        <button id="tab-install-capacity" class="tab-btn">Install Capacity</button>
         <button id="tab-reps-admin" class="tab-btn admin-only">Reps</button>
         <button id="tab-territories-admin" class="tab-btn admin-only">Territories</button>
         <button id="tab-boundaries-admin" class="tab-btn admin-only">Boundary Files</button>
@@ -442,6 +443,60 @@
             <table>
               <thead><tr><th>Created</th><th>Review</th><th>Install Outcome</th><th>Invoice</th><th>Rep</th><th>Territory</th><th>Customer</th><th>Package / Offer</th><th>Contact</th><th>Install Date</th><th>Flags</th><th>Actions</th></tr></thead>
               <tbody id="admin-sales-review-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
+      <div id="tab-panel-install-capacity" class="tab-panel">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Total Capacity</div><div id="install-kpi-capacity" class="admin-tool-value">0</div><div class="admin-tool-sub">Open install capacity in the selected schedule window.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Booked</div><div id="install-kpi-booked" class="admin-tool-value">0</div><div class="admin-tool-sub">Bookings tied to schedule slots or booked_count.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Available</div><div id="install-kpi-available" class="admin-tool-value">0</div><div class="admin-tool-sub">Remaining install openings.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Utilization</div><div id="install-kpi-utilization" class="admin-tool-value">0.0%</div><div class="admin-tool-sub">Booked divided by capacity.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Next Available</div><div id="install-kpi-next" class="admin-tool-value">—</div><div class="admin-tool-sub">Earliest slot with remaining capacity.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Capacity Risks</div><div id="install-kpi-risks" class="admin-tool-value">0</div><div class="admin-tool-sub">Overbooked, sold-out, or missing-capacity areas.</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Install Capacity Summary</h2>
+                <div class="panel-sub">Capacity, booked installs, available openings, utilization, and next available date by team and territory.</div>
+              </div>
+              <div class="admin-actions"><button id="export-install-capacity-btn">Export Capacity</button></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Team</th><th>Territory</th><th>Capacity</th><th>Booked</th><th>Available</th><th>Utilization</th><th>Next Available</th><th>Install Outcomes</th><th>Risk / Recommendation</th></tr></thead>
+                <tbody id="install-capacity-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Capacity Alerts</h2>
+                <div class="panel-sub">Highlights territories that need more slots, cleanup, or reschedule follow-up.</div>
+              </div>
+            </div>
+            <div id="install-capacity-alerts" class="warning-list"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Daily Slot Detail</h2>
+              <div class="panel-sub">Breakdown by territory, install date, and time label. Uses schedule_slots plus schedule_bookings when available.</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Time</th><th>Team</th><th>Territory</th><th>Capacity</th><th>Booked</th><th>Available</th><th>Utilization</th><th>Status</th></tr></thead>
+              <tbody id="install-capacity-detail-body"></tbody>
             </table>
           </div>
         </div>
@@ -768,9 +823,9 @@
       authScreen: document.getElementById('auth-screen'), dashboardShell: document.getElementById('dashboard-shell'),
       loginEmail: document.getElementById('login-email'), loginPassword: document.getElementById('login-password'), loginBtn: document.getElementById('login-btn'), authStatus: document.getElementById('auth-status'), authTitle: document.getElementById('auth-title'), authSubtitle: document.getElementById('auth-subtitle'),
       sessionEmail: document.getElementById('session-email'), logoutBtn: document.getElementById('logout-btn'),
-      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabPricing: document.getElementById('tab-pricing'), tabRoute: document.getElementById('tab-route'),
-      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelPricing: document.getElementById('tab-panel-pricing'), tabPanelRoute: document.getElementById('tab-panel-route'),
-      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'), pricingOffersBody: document.getElementById('pricing-offers-body'), pricingCoverageBody: document.getElementById('pricing-coverage-body'), promoWarnings: document.getElementById('promo-warning-list'), exportPricingOffers: document.getElementById('export-pricing-offers-btn'),
+      tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabPricing: document.getElementById('tab-pricing'), tabInstallCapacity: document.getElementById('tab-install-capacity'), tabRoute: document.getElementById('tab-route'),
+      tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelPricing: document.getElementById('tab-panel-pricing'), tabPanelInstallCapacity: document.getElementById('tab-panel-install-capacity'), tabPanelRoute: document.getElementById('tab-panel-route'),
+      salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'), installCapacityBody: document.getElementById('install-capacity-body'), installCapacityDetailBody: document.getElementById('install-capacity-detail-body'), installCapacityAlerts: document.getElementById('install-capacity-alerts'), exportInstallCapacity: document.getElementById('export-install-capacity-btn'), pricingOffersBody: document.getElementById('pricing-offers-body'), pricingCoverageBody: document.getElementById('pricing-coverage-body'), promoWarnings: document.getElementById('promo-warning-list'), exportPricingOffers: document.getElementById('export-pricing-offers-btn'),
       territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
       routeRender: document.getElementById('route-render-btn'), routePlay: document.getElementById('route-play-btn'), routePause: document.getElementById('route-pause-btn'), routeReset: document.getElementById('route-reset-btn'), routeSpeed: document.getElementById('route-speed'), routeStatus: document.getElementById('route-status'), routeStops: document.getElementById('route-stat-stops'), routeDoors: document.getElementById('route-stat-doors'), routeWindow: document.getElementById('route-stat-window'), routePace: document.getElementById('route-stat-pace'), currentStop: document.getElementById('current-stop'), aiSummary: document.getElementById('ai-summary'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
@@ -1989,6 +2044,7 @@
       renderActivity(activityRows);
       renderSalesQueue(salesQueueRows);
       renderPricingAdmin(salesQueueRows);
+      renderInstallCapacity(filteredSales, filteredBookings, addressMap, slotMap);
       if (els.tabPanelRoute && els.tabPanelRoute.classList.contains('active')) setTimeout(renderRouteReplay, 80);
 
       els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
@@ -2158,6 +2214,292 @@
       }
     }
 
+    function getDashboardTeamSlug(row, addressMap = null, slotMap = null) {
+      const direct = firstNonEmpty(row?.team_slug, row?.team, row?.company, row?.vendor, row?.source_team);
+      const normalizedDirect = String(direct || '').toLowerCase().trim();
+      if (['fiber','sfi','lynxx'].includes(normalizedDirect)) return normalizedDirect;
+      if (normalizedDirect.includes('fiber')) return 'fiber';
+      if (normalizedDirect.includes('sales focus') || normalizedDirect === 'sales_focus_inc') return 'sfi';
+      if (normalizedDirect.includes('lynxx')) return 'lynxx';
+
+      const territoryKey = normalizeTerritory(getRowTerritory(row, addressMap, slotMap));
+      const territoryRow = (adminState?.fieldos_territories || adminState?.territories || []).find(t => {
+        const key = normalizeTerritory(firstNonEmpty(t.territory_key, t.territory, t.slug, t.name, t.display_name));
+        return key && key === territoryKey;
+      });
+      if (territoryRow && territoryRow.team_slug) return String(territoryRow.team_slug).trim().toLowerCase();
+      if (['cameron_tx','crawford_tx','bryson_city_nc','wilber_ne'].includes(territoryKey)) return 'fiber';
+      if (['pottsville_pa','saint_marys_pa','st_marys_pa'].includes(territoryKey)) return 'sfi';
+      if (['battle_mountain_nv','elko_nv'].includes(territoryKey)) return 'lynxx';
+      return normalizedDirect || '';
+    }
+
+    function teamLabelFromSlug(slug) {
+      slug = String(slug || '').toLowerCase().trim();
+      if (slug === 'fiber') return 'Fiber Sales Team';
+      if (slug === 'sfi') return 'Sales Focus Inc.';
+      if (slug === 'lynxx') return 'Lynxx';
+      if (slug === 'all') return 'All Teams';
+      return slug ? slug : 'Unknown Team';
+    }
+
+    function normalizeInstallOutcome(row) {
+      const raw = String(firstNonEmpty(row?.install_outcome, row?.install_status, row?.fulfillment_status, row?.work_order_status, row?.status, row?.review_status)).toLowerCase().trim().replace(/\s+/g, '_');
+      if (['installed','complete','completed','closed','done'].includes(raw)) return 'installed';
+      if (['needs_rescheduled','reschedule','rescheduled','needs_reschedule','no_show','missed_install'].includes(raw)) return 'needs_rescheduled';
+      if (['canceled','cancelled','customer_cancelled','customer_canceled'].includes(raw)) return 'canceled';
+      if (['entered_in_zip','zip_entered'].includes(raw)) return 'entered_in_zip';
+      if (['submitted','needs_review','pending'].includes(raw)) return raw;
+      return raw || '';
+    }
+
+    function getSlotDate(row) {
+      return String(firstNonEmpty(row?.slot_date, row?.install_date, row?.appointment_date, row?.date)).slice(0, 10);
+    }
+
+    function getSlotTime(row) {
+      return String(firstNonEmpty(row?.time_label, row?.slot_time, row?.install_time, row?.appointment_time, row?.time)).trim();
+    }
+
+    function getBookingDate(row, slot) {
+      return String(firstNonEmpty(row?.slot_date, row?.install_date, row?.appointment_date, slot?.slot_date, row?.created_at)).slice(0, 10);
+    }
+
+    function getSaleInstallDate(row) {
+      return String(firstNonEmpty(row?.install_date, row?.preferred_install_date, row?.appointment_date, row?.slot_date, row?.created_at)).slice(0, 10);
+    }
+
+    function dateInFilterWindow(dateStr, filters) {
+      if (!dateStr) return true;
+      if (filters.start && dateStr < filters.start) return false;
+      if (filters.end && dateStr > filters.end) return false;
+      return true;
+    }
+
+    function slotKey(row) {
+      return idKey(row?.id) || [normalizeTerritory(row?.territory), getSlotDate(row), getSlotTime(row)].join('|');
+    }
+
+    function bookingIsActive(row) {
+      const status = String(firstNonEmpty(row?.status, row?.booking_status, row?.install_status)).toLowerCase().trim();
+      return !['canceled','cancelled','void','voided','rejected'].includes(status);
+    }
+
+    function buildInstallCapacityData() {
+      const filters = currentFilters();
+      const addressMap = buildAddressMap();
+      const slotMap = new Map((state.schedule_slots || []).map(s => [idKey(s.id), s]));
+      const today = new Date().toISOString().slice(0, 10);
+
+      const slots = (state.schedule_slots || [])
+        .filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap))
+        .filter(s => dateInFilterWindow(getSlotDate(s), filters));
+
+      const slotBookingCounts = new Map();
+      const activeBookings = (state.schedule_bookings || [])
+        .map(b => ({ ...b, slot: slotMap.get(idKey(b.schedule_slot_id)) || slotMap.get(idKey(b.slot_id)) || null }))
+        .filter(b => bookingIsActive(b))
+        .filter(b => rowMatchesUiTerritory(b, filters.territory, addressMap, slotMap) && rowMatchesRep(b, filters.rep))
+        .filter(b => dateInFilterWindow(getBookingDate(b, b.slot), filters));
+
+      activeBookings.forEach(b => {
+        const linkedSlot = b.slot || {};
+        const key = idKey(b.schedule_slot_id) || idKey(b.slot_id) || [normalizeTerritory(getRowTerritory(b, addressMap, slotMap)), getBookingDate(b, linkedSlot), getSlotTime(linkedSlot) || firstNonEmpty(b.time_label, b.install_time)].join('|');
+        slotBookingCounts.set(key, (slotBookingCounts.get(key) || 0) + 1);
+      });
+
+      const grouped = new Map();
+      const detailRows = [];
+
+      slots.forEach(slot => {
+        const territory = getRowTerritory(slot, addressMap, slotMap) || slot.territory || 'Unknown Territory';
+        const teamSlug = getDashboardTeamSlug(slot, addressMap, slotMap);
+        const groupKey = (teamSlug || 'unknown') + '|' + normalizeTerritory(territory);
+        const date = getSlotDate(slot);
+        const time = getSlotTime(slot);
+        const capacity = Math.max(0, Number(numberFromAny(slot.capacity, slot.cap, slot.max_capacity, slot.slot_capacity, 0)) || 0);
+        const countedBookings = slotBookingCounts.get(slotKey(slot)) || 0;
+        const bookedCount = Math.max(Number(numberFromAny(slot.booked_count, slot.booked, slot.used, 0)) || 0, countedBookings);
+        const available = Math.max(0, capacity - bookedCount);
+        const oversoldBy = Math.max(0, bookedCount - capacity);
+        const utilization = capacity ? bookedCount / capacity : 0;
+
+        if (!grouped.has(groupKey)) {
+          grouped.set(groupKey, {
+            team_slug: teamSlug || 'unknown',
+            team: teamLabelFromSlug(teamSlug),
+            territory,
+            normalized_territory: normalizeTerritory(territory),
+            capacity: 0,
+            booked: 0,
+            available: 0,
+            oversold_slots: 0,
+            oversold_by: 0,
+            zero_capacity_slots: 0,
+            sold_out_slots: 0,
+            open_days: new Set(),
+            next_available_sort: '',
+            next_available: '',
+            installed: 0,
+            needs_rescheduled: 0,
+            canceled: 0,
+            entered_in_zip: 0,
+            scheduled_sales: 0
+          });
+        }
+        const g = grouped.get(groupKey);
+        g.capacity += capacity;
+        g.booked += bookedCount;
+        g.available += available;
+        if (oversoldBy > 0) { g.oversold_slots++; g.oversold_by += oversoldBy; }
+        if (capacity <= 0) g.zero_capacity_slots++;
+        if (capacity > 0 && available === 0) g.sold_out_slots++;
+        if (available > 0 && date) {
+          g.open_days.add(date);
+          const sortKey = date + ' ' + time;
+          if ((!g.next_available_sort || sortKey < g.next_available_sort) && date >= today) {
+            g.next_available_sort = sortKey;
+            g.next_available = formatDate(date) + (time ? ' ' + time : '');
+          }
+        }
+
+        detailRows.push({
+          date,
+          time,
+          team_slug: teamSlug || 'unknown',
+          team: teamLabelFromSlug(teamSlug),
+          territory,
+          capacity,
+          booked: bookedCount,
+          available,
+          utilization,
+          oversold_by: oversoldBy,
+          status: oversoldBy > 0 ? 'Overbooked by ' + oversoldBy : capacity <= 0 ? 'No capacity set' : available === 0 ? 'Sold out' : 'Open'
+        });
+      });
+
+      const sales = (state.sales_orders || [])
+        .filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep))
+        .filter(s => dateInFilterWindow(getSaleInstallDate(s), filters));
+
+      sales.forEach(s => {
+        const territory = getRowTerritory(s, addressMap, slotMap) || s.territory || 'Unknown Territory';
+        const teamSlug = getDashboardTeamSlug(s, addressMap, slotMap);
+        const groupKey = (teamSlug || 'unknown') + '|' + normalizeTerritory(territory);
+        if (!grouped.has(groupKey)) {
+          grouped.set(groupKey, {
+            team_slug: teamSlug || 'unknown', team: teamLabelFromSlug(teamSlug), territory,
+            normalized_territory: normalizeTerritory(territory), capacity: 0, booked: 0, available: 0,
+            oversold_slots: 0, oversold_by: 0, zero_capacity_slots: 0, sold_out_slots: 0,
+            open_days: new Set(), next_available_sort: '', next_available: '', installed: 0,
+            needs_rescheduled: 0, canceled: 0, entered_in_zip: 0, scheduled_sales: 0
+          });
+        }
+        const g = grouped.get(groupKey);
+        const outcome = normalizeInstallOutcome(s);
+        if (getSaleInstallDate(s)) g.scheduled_sales++;
+        if (outcome === 'installed') g.installed++;
+        else if (outcome === 'needs_rescheduled') g.needs_rescheduled++;
+        else if (outcome === 'canceled') g.canceled++;
+        else if (outcome === 'entered_in_zip') g.entered_in_zip++;
+      });
+
+      let rows = Array.from(grouped.values()).map(g => {
+        const utilization = g.capacity ? g.booked / g.capacity : 0;
+        const riskItems = [];
+        if (g.oversold_slots) riskItems.push('Overbooked slots need cleanup');
+        if (g.capacity === 0 && g.scheduled_sales > 0) riskItems.push('Sales scheduled but no capacity loaded');
+        if (utilization >= 0.90 && g.available <= 3) riskItems.push('Low remaining capacity');
+        if (g.needs_rescheduled) riskItems.push('Needs reschedule follow-up');
+        if (g.zero_capacity_slots) riskItems.push('Slots with zero capacity');
+        if (!riskItems.length) riskItems.push(g.available > 0 ? 'Capacity looks okay' : 'No open slots in selected window');
+        const severity = g.oversold_slots || (g.capacity === 0 && g.scheduled_sales > 0) ? 'bad' : (utilization >= 0.90 || g.needs_rescheduled || !g.available ? 'warn' : 'good');
+        return {
+          ...g,
+          open_days: g.open_days.size,
+          utilization,
+          next_available: g.next_available || '—',
+          risk: riskItems.join(' | '),
+          severity
+        };
+      }).sort((a,b) => (b.severity === 'bad') - (a.severity === 'bad') || b.utilization - a.utilization || a.territory.localeCompare(b.territory));
+
+      detailRows.sort((a,b) => String(a.date || '').localeCompare(String(b.date || '')) || a.territory.localeCompare(b.territory) || String(a.time || '').localeCompare(String(b.time || '')));
+      return { rows, detailRows, activeBookings };
+    }
+
+    function renderInstallCapacity() {
+      if (!els.installCapacityBody) return;
+      const data = buildInstallCapacityData();
+      const rows = data.rows || [];
+      const detailRows = data.detailRows || [];
+      const totals = rows.reduce((acc, r) => {
+        acc.capacity += r.capacity || 0;
+        acc.booked += r.booked || 0;
+        acc.available += r.available || 0;
+        acc.risks += r.severity === 'bad' || r.severity === 'warn' ? 1 : 0;
+        return acc;
+      }, { capacity:0, booked:0, available:0, risks:0 });
+      const nextRows = rows.filter(r => r.next_available && r.next_available !== '—').sort((a,b) => String(a.next_available_sort || '').localeCompare(String(b.next_available_sort || '')));
+      const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+      setText('install-kpi-capacity', formatNumber(totals.capacity));
+      setText('install-kpi-booked', formatNumber(totals.booked));
+      setText('install-kpi-available', formatNumber(totals.available));
+      setText('install-kpi-utilization', formatPercent(totals.capacity ? totals.booked / totals.capacity : 0));
+      setText('install-kpi-next', nextRows[0] ? nextRows[0].next_available : '—');
+      setText('install-kpi-risks', formatNumber(totals.risks));
+
+      els.installCapacityBody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="row-btn">
+          <td>${escapeHtml(r.team || teamLabelFromSlug(r.team_slug))}</td>
+          <td><strong>${escapeHtml(r.territory || 'Unknown')}</strong><br><span style="color:#94a3b8;">${escapeHtml(r.team_slug || 'unknown')}</span></td>
+          <td>${formatNumber(r.capacity)}</td>
+          <td>${formatNumber(r.booked)}</td>
+          <td>${formatNumber(r.available)}</td>
+          <td><span class="admin-tag ${r.severity === 'bad' ? 'bad' : r.severity === 'warn' ? 'warn' : 'good'}">${formatPercent(r.utilization)}</span></td>
+          <td>${escapeHtml(r.next_available || '—')}<br><span style="color:#94a3b8;">${formatNumber(r.open_days)} open day(s)</span></td>
+          <td class="compact-cell">Installed: ${formatNumber(r.installed)}<br>Rescheduled: ${formatNumber(r.needs_rescheduled)}<br>Canceled: ${formatNumber(r.canceled)}</td>
+          <td class="compact-cell"><span class="admin-tag ${r.severity === 'bad' ? 'bad' : r.severity === 'warn' ? 'warn' : 'good'}">${escapeHtml(r.severity === 'bad' ? 'High Risk' : r.severity === 'warn' ? 'Watch' : 'Good')}</span><br>${escapeHtml(r.risk)}</td>
+        </tr>`).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No schedule slots or install sales found for the selected filters. Load schedule_slots or adjust the date/territory filters.</td></tr>';
+
+      els.installCapacityDetailBody.innerHTML = detailRows.length ? detailRows.map(r => `
+        <tr>
+          <td>${escapeHtml(formatDate(r.date) || r.date || '—')}</td>
+          <td>${escapeHtml(r.time || '—')}</td>
+          <td>${escapeHtml(r.team || teamLabelFromSlug(r.team_slug))}</td>
+          <td>${escapeHtml(r.territory || '—')}</td>
+          <td>${formatNumber(r.capacity)}</td>
+          <td>${formatNumber(r.booked)}</td>
+          <td>${formatNumber(r.available)}</td>
+          <td>${formatPercent(r.utilization)}</td>
+          <td><span class="admin-tag ${r.oversold_by > 0 ? 'bad' : r.available === 0 ? 'warn' : 'good'}">${escapeHtml(r.status)}</span></td>
+        </tr>`).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No slot detail for selected filters.</td></tr>';
+
+      const alerts = [];
+      rows.filter(r => r.severity !== 'good').slice(0, 12).forEach(r => alerts.push({ type: r.severity, text: `${r.team || teamLabelFromSlug(r.team_slug)} / ${r.territory}: ${r.risk}. Available: ${r.available}, Utilization: ${formatPercent(r.utilization)}.` }));
+      if (!alerts.length) alerts.push({ type:'good', text:'Install capacity looks good for the current filters. No overbooked or urgent reschedule risks were detected.' });
+      els.installCapacityAlerts.innerHTML = alerts.map(a => `<div class="warning-item ${a.type === 'bad' ? 'bad' : a.type === 'good' ? 'good' : ''}">${escapeHtml(a.text)}</div>`).join('');
+
+      if (els.exportInstallCapacity) {
+        els.exportInstallCapacity.onclick = () => csvDownload('fieldos_install_capacity.csv', rows.map(r => ({
+          team: r.team || teamLabelFromSlug(r.team_slug),
+          team_slug: r.team_slug,
+          territory: r.territory,
+          capacity: r.capacity,
+          booked: r.booked,
+          available: r.available,
+          utilization: formatPercent(r.utilization),
+          next_available: r.next_available,
+          installed: r.installed,
+          needs_rescheduled: r.needs_rescheduled,
+          canceled: r.canceled,
+          entered_in_zip: r.entered_in_zip,
+          risk: r.risk
+        })));
+      }
+      [...els.installCapacityBody.querySelectorAll('tr.row-btn')].forEach((tr, idx) => { tr.onclick = () => openDetail('Install Capacity Detail', [rows[idx]]); });
+    }
+
     function renderSalesQueue(rows) {
       els.salesQueueBody.innerHTML = rows.length ? rows.map(r => `<tr class="row-btn"><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}</td><td>${escapeHtml(r.phone || '—')}</td><td>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.address || '—')}</td><td>${escapeHtml(r.package_name || '—')}</td><td>${escapeHtml(r.offer_promo || '—')}<br><span style="color:#94a3b8;">${escapeHtml(r.offer_code || '')}</span></td><td>${escapeHtml(r.promo_term || '—')}</td><td>${escapeHtml(r.monthly_total || '—')}</td><td>${escapeHtml(r.first_bill_estimate || '—')}</td><td>${escapeHtml(r.standard_rate || '—')}</td><td><span class="mini-badge ${r.offer_snapshot ? 'good' : 'warn'}">${escapeHtml(r.offer_snapshot_status || '—')}</span></td><td>${escapeHtml(r.install_date || '—')}</td><td>${escapeHtml(r.install_time || '—')}</td><td>${escapeHtml(r.notes || '—')}</td></tr>`).join('') : '<tr><td colspan="17" style="color:#94a3b8;">No submitted sales found.</td></tr>';
       if (!rows.length) return;
@@ -2165,20 +2507,43 @@
     }
 
     function setActiveTab(tabName) {
-      const showSales = tabName === 'sales';
-      const showPricing = tabName === 'pricing';
-      const showRoute = tabName === 'route';
-      const showOverview = !showSales && !showPricing && !showRoute;
-      els.tabOverview.classList.toggle('active', showOverview);
-      els.tabSales.classList.toggle('active', showSales);
-      els.tabPricing.classList.toggle('active', showPricing);
-      els.tabRoute.classList.toggle('active', showRoute);
-      els.tabPanelOverview.classList.toggle('active', showOverview);
-      els.tabPanelSales.classList.toggle('active', showSales);
-      els.tabPanelPricing.classList.toggle('active', showPricing);
-      els.tabPanelRoute.classList.toggle('active', showRoute);
-      if (showRoute) setTimeout(renderRouteReplay, 120);
+      const tabs = [
+        ['overview', els.tabOverview, els.tabPanelOverview],
+        ['sales', els.tabSales, els.tabPanelSales],
+        ['pricing', els.tabPricing, els.tabPanelPricing],
+        ['sales-review', els.tabSalesReview, els.tabPanelSalesReview],
+        ['install-capacity', els.tabInstallCapacity, els.tabPanelInstallCapacity],
+        ['reps-admin', els.tabRepsAdmin, els.tabPanelRepsAdmin],
+        ['territories-admin', els.tabTerritoriesAdmin, els.tabPanelTerritoriesAdmin],
+        ['boundaries-admin', els.tabBoundariesAdmin, els.tabPanelBoundariesAdmin],
+        ['data-quality', els.tabDataQuality, els.tabPanelDataQuality],
+        ['address-timeline', els.tabAddressTimeline, els.tabPanelAddressTimeline],
+        ['address-import', els.tabAddressImport, els.tabPanelAddressImport],
+        ['rep-qa', els.tabRepQa, els.tabPanelRepQa],
+        ['vendor-scorecard', els.tabVendorScorecard, els.tabPanelVendorScorecard],
+        ['admin-audit', els.tabAdminAudit, els.tabPanelAdminAudit],
+        ['daily-reports', els.tabDailyReports, els.tabPanelDailyReports],
+        ['route', els.tabRoute, els.tabPanelRoute]
+      ];
+
+      const targetExists = tabs.some(([name, btn, panel]) => name === tabName && btn && panel);
+      const selected = targetExists ? tabName : 'overview';
+
+      tabs.forEach(([name, btn, panel]) => {
+        if (btn) btn.classList.toggle('active', name === selected);
+        if (panel) panel.classList.toggle('active', name === selected);
+      });
+
+      if (selected === 'route') setTimeout(renderRouteReplay, 120);
       else pauseRouteReplay();
+
+      if (selected === 'install-capacity') setTimeout(() => renderInstallCapacity(), 40);
+      if (selected === 'sales-review') setTimeout(renderAdminSalesReview, 40);
+      if (selected === 'data-quality') setTimeout(renderAdminDataQuality, 40);
+      if (selected === 'rep-qa') setTimeout(renderAdminRepQa, 40);
+      if (selected === 'vendor-scorecard') setTimeout(renderAdminVendorScorecard, 40);
+      if (selected === 'admin-audit') setTimeout(renderAdminAuditLog, 40);
+      if (selected === 'daily-reports') setTimeout(renderAdminDailyReports, 40);
     }
 
     function openDetail(title, rows) {
@@ -2214,6 +2579,7 @@
     els.tabOverview.onclick = () => setActiveTab('overview');
     els.tabSales.onclick = () => setActiveTab('sales');
     els.tabPricing.onclick = () => setActiveTab('pricing');
+    if (els.tabInstallCapacity) els.tabInstallCapacity.onclick = () => setActiveTab('install-capacity');
     els.tabRoute.onclick = () => setActiveTab('route');
     els.routeRender.onclick = renderRouteReplay;
     els.routePlay.onclick = playRouteReplay;
@@ -3803,10 +4169,21 @@
       }
     });
 
-    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports].forEach((tab, idx) => {
+    [
+      [els.tabSalesReview, 'sales-review'],
+      [els.tabRepsAdmin, 'reps-admin'],
+      [els.tabTerritoriesAdmin, 'territories-admin'],
+      [els.tabBoundariesAdmin, 'boundaries-admin'],
+      [els.tabDataQuality, 'data-quality'],
+      [els.tabAddressTimeline, 'address-timeline'],
+      [els.tabAddressImport, 'address-import'],
+      [els.tabRepQa, 'rep-qa'],
+      [els.tabVendorScorecard, 'vendor-scorecard'],
+      [els.tabAdminAudit, 'admin-audit'],
+      [els.tabDailyReports, 'daily-reports']
+    ].forEach(([tab, name]) => {
       if (!tab) return;
-      const names = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
-      tab.onclick = () => setActiveTab(names[idx]);
+      tab.onclick = () => setActiveTab(name);
     });
     if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.onchange = renderAdminSalesReview;
     if (els.adminRepSearch) els.adminRepSearch.oninput = renderAdminReps;
