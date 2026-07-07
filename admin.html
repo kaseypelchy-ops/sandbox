@@ -124,8 +124,10 @@
 
 
 
-    .admin-only { display: none; }
-    .admin-enabled .admin-only { display: inline-flex; }
+    .admin-only { display: none !important; }
+    .admin-enabled .tab-btn.admin-only { display: inline-flex !important; }
+    .admin-enabled .tab-panel.admin-only { display: none !important; }
+    .admin-enabled .tab-panel.admin-only.active { display: block !important; }
     .admin-denied .admin-only { display: none !important; }
     .admin-tools-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
     .admin-tool-card { background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 14px; min-height: 108px; }
