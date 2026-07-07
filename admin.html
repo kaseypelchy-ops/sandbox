@@ -248,6 +248,7 @@
         <button id="tab-rep-qa" class="tab-btn admin-only">Rep QA</button>
         <button id="tab-vendor-scorecard" class="tab-btn admin-only">Vendor Scorecard</button>
         <button id="tab-admin-audit" class="tab-btn admin-only">Admin Audit</button>
+        <button id="tab-daily-reports" class="tab-btn admin-only">Daily Reports</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -581,6 +582,81 @@
         <div class="panel">
           <div class="panel-head"><div><h2>Admin Audit Log</h2><div class="panel-sub">Tracks admin actions such as rep updates, territory changes, boundary uploads, pricing changes, sales reviews, address notes, and CSV imports.</div></div><div class="admin-actions"><button id="admin-export-audit-log">Export Audit Log</button></div></div>
           <div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Table</th><th>Row</th><th>New Value</th></tr></thead><tbody id="admin-audit-body"></tbody></table></div>
+        </div>
+      </div>
+
+
+      <div id="tab-panel-daily-reports" class="tab-panel admin-only">
+        <div class="admin-tool-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Active Recipients</div><div id="admin-kpi-daily-report-recipients" class="admin-tool-value">0</div><div class="admin-tool-sub">People who receive the 8 AM report.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Report Runs</div><div id="admin-kpi-daily-report-runs" class="admin-tool-value">0</div><div class="admin-tool-sub">Saved report history rows.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Latest Status</div><div id="admin-kpi-daily-report-status" class="admin-tool-value">—</div><div class="admin-tool-sub">Most recent send result.</div></div>
+        </div>
+
+        <div class="admin-two-col">
+          <div class="admin-panel-card">
+            <div class="panel-header-row">
+              <div>
+                <h2>Run Daily Sales Report</h2>
+                <div class="panel-sub">Creates the daily FieldOS AI-style sales analysis and optionally emails the active recipients.</div>
+              </div>
+            </div>
+            <div class="admin-form-grid inline">
+              <label>Report Date<input id="admin-daily-report-date" type="date"></label>
+              <label>Team Scope
+                <select id="admin-daily-report-team">
+                  <option value="">All Teams</option>
+                  <option value="fiber">Fiber Sales Team</option>
+                  <option value="sfi">Sales Focus Inc.</option>
+                  <option value="lynxx">Lynxx</option>
+                </select>
+              </label>
+              <label>Territory<input id="admin-daily-report-territory" placeholder="optional territory key"></label>
+              <label class="checkbox-row"><input id="admin-daily-report-send-email" type="checkbox" checked> Send email</label>
+            </div>
+            <div class="btn-row">
+              <button id="admin-run-daily-report-now" class="primary">Run Report Now</button>
+              <button id="admin-refresh-daily-reports" class="secondary">Refresh</button>
+              <button id="admin-export-daily-report-history" class="secondary">Export History</button>
+            </div>
+            <div id="admin-daily-report-status" class="status-line">Schedule this Edge Function for 8 AM. Manual test runs use the same function.</div>
+          </div>
+
+          <div class="admin-panel-card">
+            <div class="panel-header-row">
+              <div>
+                <h2>Report Recipients</h2>
+                <div class="panel-sub">Use team and territory fields to scope what each person receives.</div>
+              </div>
+            </div>
+            <div class="admin-form-grid inline">
+              <label>Email<input id="admin-report-recipient-email" placeholder="manager@example.com"></label>
+              <label>Name<input id="admin-report-recipient-name" placeholder="Display name"></label>
+              <label>Team
+                <select id="admin-report-recipient-team">
+                  <option value="">All Teams</option>
+                  <option value="fiber">Fiber Sales Team</option>
+                  <option value="sfi">Sales Focus Inc.</option>
+                  <option value="lynxx">Lynxx</option>
+                </select>
+              </label>
+              <label>Territory<input id="admin-report-recipient-territory" placeholder="optional territory key"></label>
+            </div>
+            <div class="btn-row">
+              <button id="admin-add-report-recipient" class="primary">Add Recipient</button>
+              <button id="admin-export-report-recipients" class="secondary">Export Recipients</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h2>Active Recipients</h2>
+          <div class="table-wrap"><table><thead><tr><th>Email</th><th>Name</th><th>Scope</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-daily-report-recipients-body"></tbody></table></div>
+        </div>
+
+        <div class="admin-panel-card">
+          <h2>Daily Report History</h2>
+          <div class="table-wrap"><table><thead><tr><th>Created</th><th>Report Date</th><th>Recipient</th><th>Scope</th><th>Status</th><th>Subject</th><th>Actions</th></tr></thead><tbody id="admin-daily-report-runs-body"></tbody></table></div>
         </div>
       </div>
 
@@ -2177,7 +2253,7 @@
       cancelled: 'Cancelled'
     };
 
-    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
+    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], fieldos_daily_report_recipients: [], fieldos_daily_report_runs: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
 
     Object.assign(els, {
       tabSalesReview: document.getElementById('tab-sales-review'),
@@ -2190,6 +2266,7 @@
       tabRepQa: document.getElementById('tab-rep-qa'),
       tabVendorScorecard: document.getElementById('tab-vendor-scorecard'),
       tabAdminAudit: document.getElementById('tab-admin-audit'),
+      tabDailyReports: document.getElementById('tab-daily-reports'),
       tabPanelSalesReview: document.getElementById('tab-panel-sales-review'),
       tabPanelRepsAdmin: document.getElementById('tab-panel-reps-admin'),
       tabPanelTerritoriesAdmin: document.getElementById('tab-panel-territories-admin'),
@@ -2200,6 +2277,7 @@
       tabPanelRepQa: document.getElementById('tab-panel-rep-qa'),
       tabPanelVendorScorecard: document.getElementById('tab-panel-vendor-scorecard'),
       tabPanelAdminAudit: document.getElementById('tab-panel-admin-audit'),
+      tabPanelDailyReports: document.getElementById('tab-panel-daily-reports'),
       adminSalesReviewBody: document.getElementById('admin-sales-review-body'),
       adminSalesReviewFilter: document.getElementById('admin-sales-review-filter'),
       adminExportSalesReview: document.getElementById('admin-export-sales-review'),
@@ -2238,6 +2316,22 @@
       adminExportVendorScorecard: document.getElementById('admin-export-vendor-scorecard'),
       adminAuditBody: document.getElementById('admin-audit-body'),
       adminExportAuditLog: document.getElementById('admin-export-audit-log'),
+      adminDailyReportDate: document.getElementById('admin-daily-report-date'),
+      adminDailyReportTeam: document.getElementById('admin-daily-report-team'),
+      adminDailyReportTerritory: document.getElementById('admin-daily-report-territory'),
+      adminDailyReportSendEmail: document.getElementById('admin-daily-report-send-email'),
+      adminRunDailyReportNow: document.getElementById('admin-run-daily-report-now'),
+      adminRefreshDailyReports: document.getElementById('admin-refresh-daily-reports'),
+      adminExportDailyReportHistory: document.getElementById('admin-export-daily-report-history'),
+      adminDailyReportStatus: document.getElementById('admin-daily-report-status'),
+      adminReportRecipientEmail: document.getElementById('admin-report-recipient-email'),
+      adminReportRecipientName: document.getElementById('admin-report-recipient-name'),
+      adminReportRecipientTeam: document.getElementById('admin-report-recipient-team'),
+      adminReportRecipientTerritory: document.getElementById('admin-report-recipient-territory'),
+      adminAddReportRecipient: document.getElementById('admin-add-report-recipient'),
+      adminExportReportRecipients: document.getElementById('admin-export-report-recipients'),
+      adminDailyReportRecipientsBody: document.getElementById('admin-daily-report-recipients-body'),
+      adminDailyReportRunsBody: document.getElementById('admin-daily-report-runs-body'),
       adminAddRepBtn: document.getElementById('admin-add-rep-btn'),
       adminAddTerritoryBtn: document.getElementById('admin-add-territory-btn'),
       adminAddBoundaryBtn: document.getElementById('admin-add-boundary-btn'),
@@ -2287,24 +2381,28 @@
     async function loadAdminControlData() {
       const allowed = await applyAdminAccessUi();
       if (!allowed) {
-        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
+        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], fieldos_daily_report_recipients: [], fieldos_daily_report_runs: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
         renderAdminControlCenter();
         return false;
       }
       try {
-        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog] = await Promise.all([
+        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('fieldos_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('address_admin_notes', { order: { column: 'created_at', ascending: false } }),
-          fetchOptionalAllPages('fieldos_admin_audit_log', { order: { column: 'created_at', ascending: false } })
+          fetchOptionalAllPages('fieldos_admin_audit_log', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('fieldos_daily_report_recipients', { order: { column: 'email', ascending: true } }),
+          fetchOptionalAllPages('fieldos_daily_report_runs', { order: { column: 'created_at', ascending: false } })
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
         adminState.territories = territoriesTableRows || [];
         adminState.address_admin_notes = addressAdminNotes || [];
         adminState.fieldos_admin_audit_log = adminAuditLog || [];
+        adminState.fieldos_daily_report_recipients = dailyReportRecipients || [];
+        adminState.fieldos_daily_report_runs = dailyReportRuns || [];
 
         const mergedTerritories = new Map();
         (territoriesTableRows || []).forEach(function(row) {
@@ -2344,8 +2442,8 @@
 
     const originalSetActiveTabForAdmin = setActiveTab;
     setActiveTab = function(tabName) {
-      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
-      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
+      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
+      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
       const isAdminTab = adminTabs.includes(tabName);
       const canShowAdmin = document.body.classList.contains('admin-enabled');
       if (restrictedAdminTabs.includes(tabName) && !canShowAdmin) {
@@ -2363,10 +2461,11 @@
       const showRepQa = tabName === 'rep-qa';
       const showVendorScorecard = tabName === 'vendor-scorecard';
       const showAdminAudit = tabName === 'admin-audit';
+      const showDailyReports = tabName === 'daily-reports';
 
       if (!isAdminTab) {
-        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach(el => el && el.classList.remove('active'));
-        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit].forEach(el => el && el.classList.remove('active'));
+        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports].forEach(el => el && el.classList.remove('active'));
+        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports].forEach(el => el && el.classList.remove('active'));
         originalSetActiveTabForAdmin(tabName);
         return;
       }
@@ -2385,6 +2484,7 @@
       if (showRepQa) { els.tabRepQa.classList.add('active'); els.tabPanelRepQa.classList.add('active'); }
       if (showVendorScorecard) { els.tabVendorScorecard.classList.add('active'); els.tabPanelVendorScorecard.classList.add('active'); }
       if (showAdminAudit) { els.tabAdminAudit.classList.add('active'); els.tabPanelAdminAudit.classList.add('active'); }
+      if (showDailyReports) { els.tabDailyReports.classList.add('active'); els.tabPanelDailyReports.classList.add('active'); }
       renderAdminControlCenter();
     };
 
@@ -2516,6 +2616,7 @@
       renderAdminRepQa();
       renderAdminVendorScorecard();
       renderAdminAuditLog();
+      renderAdminDailyReports();
     }
 
     function saleInstallOutcome(row) {
@@ -3466,6 +3567,122 @@
       });
     }
 
+
+    // ──────────────────────────────────────────────────────────
+    //  DAILY 8 AM SALES REPORTS
+    // ──────────────────────────────────────────────────────────
+    function defaultDailyReportDate() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function dailyReportScopeLabel(row) {
+      const team = firstNonEmpty(row.team_slug, 'all');
+      const territory = firstNonEmpty(row.territory, 'all');
+      return 'Team: ' + team + ' • Territory: ' + territory;
+    }
+
+    function renderAdminDailyReports() {
+      const recipients = (adminState.fieldos_daily_report_recipients || []).filter(Boolean);
+      const runs = (adminState.fieldos_daily_report_runs || []).filter(Boolean);
+      const activeRecipients = recipients.filter(r => r.is_active !== false);
+      const latest = runs[0] || {};
+
+      setText('admin-kpi-daily-report-recipients', formatNumber(activeRecipients.length));
+      setText('admin-kpi-daily-report-runs', formatNumber(runs.length));
+      setText('admin-kpi-daily-report-status', latest.email_status || '—');
+
+      if (els.adminDailyReportDate && !els.adminDailyReportDate.value) els.adminDailyReportDate.value = defaultDailyReportDate();
+
+      if (els.adminDailyReportRecipientsBody) {
+        els.adminDailyReportRecipientsBody.innerHTML = recipients.length ? recipients.map(r => {
+          const status = r.is_active === false ? '<span class="admin-tag bad">Inactive</span>' : '<span class="admin-tag good">Active</span>';
+          return `<tr>
+            <td>${escapeHtml(r.email || '')}</td>
+            <td>${escapeHtml(r.display_name || '')}</td>
+            <td>${escapeHtml(dailyReportScopeLabel(r))}</td>
+            <td>${status}</td>
+            <td><button class="inline-admin-btn ${r.is_active === false ? 'good' : 'warn'}" data-report-recipient-active="${escapeHtml(idKey(r.id))}" data-active="${r.is_active === false ? 'true' : 'false'}">${r.is_active === false ? 'Activate' : 'Deactivate'}</button></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="5" style="color:#94a3b8;">No report recipients yet. Add yourself first, then run a test report.</td></tr>';
+      }
+
+      if (els.adminDailyReportRunsBody) {
+        els.adminDailyReportRunsBody.innerHTML = runs.length ? runs.slice(0, 100).map(r => {
+          const statusClass = String(r.email_status || '').toLowerCase().indexOf('sent') >= 0 ? 'good' : (String(r.email_status || '').toLowerCase().indexOf('error') >= 0 || String(r.email_status || '').toLowerCase().indexOf('failed') >= 0 ? 'bad' : 'info');
+          return `<tr>
+            <td>${escapeHtml(formatDateTime(r.created_at || ''))}</td>
+            <td>${escapeHtml(r.report_date || '')}</td>
+            <td>${escapeHtml(r.recipient_email || '')}</td>
+            <td>${escapeHtml('Team: ' + firstNonEmpty(r.team_slug, 'all') + ' • Territory: ' + firstNonEmpty(r.territory, 'all'))}</td>
+            <td><span class="admin-tag ${statusClass}">${escapeHtml(r.email_status || 'saved')}</span></td>
+            <td>${escapeHtml(r.subject || '')}</td>
+            <td><button class="inline-admin-btn" data-open-report-run="${escapeHtml(idKey(r.id))}">View</button></td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No daily report runs have been saved yet.</td></tr>';
+      }
+    }
+
+    async function addDailyReportRecipient() {
+      const email = String(els.adminReportRecipientEmail?.value || '').trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        els.status.textContent = 'Enter a valid recipient email.';
+        els.status.classList.add('error');
+        return;
+      }
+      const row = {
+        email,
+        display_name: formValueOrNull(els.adminReportRecipientName?.value),
+        team_slug: formValueOrNull(els.adminReportRecipientTeam?.value),
+        territory: formValueOrNull(els.adminReportRecipientTerritory?.value),
+        report_scope: els.adminReportRecipientTerritory?.value ? 'territory' : (els.adminReportRecipientTeam?.value ? 'team' : 'all'),
+        is_active: true,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabaseClient.from('fieldos_daily_report_recipients').upsert([row], { onConflict: 'email,team_slug,territory' });
+      if (error) throw error;
+      await logAdminAction('daily_report_recipient_upsert', 'fieldos_daily_report_recipients', email, null, row);
+      if (els.adminReportRecipientEmail) els.adminReportRecipientEmail.value = '';
+      if (els.adminReportRecipientName) els.adminReportRecipientName.value = '';
+      if (els.adminReportRecipientTerritory) els.adminReportRecipientTerritory.value = '';
+      els.status.classList.remove('error');
+      els.status.textContent = 'Daily report recipient saved.';
+      await loadData();
+    }
+
+    async function runDailyReportNow() {
+      if (!els.adminRunDailyReportNow) return;
+      const body = {
+        report_date: els.adminDailyReportDate?.value || defaultDailyReportDate(),
+        team_slug: formValueOrNull(els.adminDailyReportTeam?.value),
+        territory: formValueOrNull(els.adminDailyReportTerritory?.value),
+        send_email: els.adminDailyReportSendEmail ? !!els.adminDailyReportSendEmail.checked : true,
+        manual: true
+      };
+      els.adminRunDailyReportNow.disabled = true;
+      if (els.adminDailyReportStatus) els.adminDailyReportStatus.textContent = 'Running daily sales report…';
+      try {
+        const { data, error } = await supabaseClient.functions.invoke('fieldos-daily-sales-report', { body });
+        if (error) throw error;
+        const sent = data && data.sent_count !== undefined ? data.sent_count : 0;
+        const saved = data && data.saved_count !== undefined ? data.saved_count : 0;
+        const msg = 'Daily report completed. Sent: ' + sent + ' • Saved: ' + saved;
+        if (els.adminDailyReportStatus) els.adminDailyReportStatus.textContent = msg;
+        els.status.classList.remove('error');
+        els.status.textContent = msg;
+        await loadData();
+      } catch (err) {
+        console.error(err);
+        const msg = err.message || 'Daily report function failed. Confirm the Edge Function is deployed and environment variables are set.';
+        if (els.adminDailyReportStatus) els.adminDailyReportStatus.textContent = msg;
+        els.status.textContent = msg;
+        els.status.classList.add('error');
+      } finally {
+        els.adminRunDailyReportNow.disabled = false;
+      }
+    }
+
     document.addEventListener('click', async function(e) {
 
       const editRepBtn = e.target.closest('[data-edit-rep]');
@@ -3507,6 +3724,21 @@
       const deactivateOfferBtn = e.target.closest('[data-deactivate-offer]');
       if (deactivateOfferBtn) {
         await updateAdminRow('fieldos_pricing_offers', deactivateOfferBtn.getAttribute('data-deactivate-offer'), { is_active:false, updated_at:new Date().toISOString() }, 'Pricing offer deactivated.');
+        return;
+      }
+
+      const reportRunBtn = e.target.closest('[data-open-report-run]');
+      if (reportRunBtn) {
+        const id = reportRunBtn.getAttribute('data-open-report-run');
+        const row = (adminState.fieldos_daily_report_runs || []).find(r => idKey(r.id) === id);
+        if (row) openDetail('Daily Report Run', [row]);
+        return;
+      }
+      const reportRecipientBtn = e.target.closest('[data-report-recipient-active]');
+      if (reportRecipientBtn) {
+        const id = reportRecipientBtn.getAttribute('data-report-recipient-active');
+        const isActive = reportRecipientBtn.getAttribute('data-active') === 'true';
+        await updateAdminRow('fieldos_daily_report_recipients', id, { is_active: isActive, updated_at: new Date().toISOString() }, 'Daily report recipient status updated.');
         return;
       }
 
@@ -3571,7 +3803,7 @@
       }
     });
 
-    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach((tab, idx) => {
+    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports].forEach((tab, idx) => {
       if (!tab) return;
       const names = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
       tab.onclick = () => setActiveTab(names[idx]);
@@ -3589,6 +3821,11 @@
       if (!addr) { els.status.textContent = 'Select an address before adding an admin note.'; els.status.classList.add('error'); return; }
       openAdminCrudModal({ title:'Add Address Admin Note', subtitle: addressLabelFromAddressRow(addr), fields:[{name:'note_type',label:'Note Type',type:'select',options:['general','callback','correction','do_not_knock','crm_follow_up'],value:'general'},{name:'note',label:'Note',type:'textarea',full:true,required:true}], onSubmit: async function(payload){ await adminInsertRow('address_admin_notes', { address_id: addr.id, territory: addr.territory || null, note_type: payload.note_type || 'general', note: payload.note, created_by: await getCurrentUserEmail() }, 'Address admin note added.'); } });
     };
+    if (els.adminRunDailyReportNow) els.adminRunDailyReportNow.onclick = runDailyReportNow;
+    if (els.adminRefreshDailyReports) els.adminRefreshDailyReports.onclick = loadData;
+    if (els.adminAddReportRecipient) els.adminAddReportRecipient.onclick = function(){ addDailyReportRecipient().catch(err => { console.error(err); els.status.textContent = err.message || 'Recipient save failed.'; els.status.classList.add('error'); }); };
+    if (els.adminExportReportRecipients) els.adminExportReportRecipients.onclick = () => csvDownload('fieldos_daily_report_recipients.csv', adminState.fieldos_daily_report_recipients || []);
+    if (els.adminExportDailyReportHistory) els.adminExportDailyReportHistory.onclick = () => csvDownload('fieldos_daily_report_history.csv', adminState.fieldos_daily_report_runs || []);
     if (els.adminPreviewImportBtn) els.adminPreviewImportBtn.onclick = previewAddressCsvImport;
     if (els.adminRunImportBtn) els.adminRunImportBtn.onclick = function(){ runAddressCsvImport().catch(err => { console.error(err); els.adminImportStatusLine.textContent = err.message || 'Import failed.'; }); };
 
