@@ -238,7 +238,7 @@
         <button id="tab-overview" class="tab-btn active">Overview</button>
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
         <button id="tab-pricing" class="tab-btn">Offers & Pricing</button>
-        <button id="tab-sales-review" class="tab-btn admin-only">Sales Review</button>
+        <button id="tab-sales-review" class="tab-btn">Sales Review</button>
         <button id="tab-reps-admin" class="tab-btn admin-only">Reps</button>
         <button id="tab-territories-admin" class="tab-btn admin-only">Territories</button>
         <button id="tab-boundaries-admin" class="tab-btn admin-only">Boundary Files</button>
@@ -406,34 +406,40 @@
 
 
 
-      <div id="tab-panel-sales-review" class="tab-panel admin-only">
-        <div id="admin-access-note" class="admin-alert">Admin tools are restricted to the main company admin login and are hidden from team dashboard links.</div>
+      <div id="tab-panel-sales-review" class="tab-panel">
+        <div id="admin-access-note" class="admin-alert">Sales review and invoicing tools are scoped to the current company/team dashboard. Full admin tools stay restricted to the main company admin login.</div>
         <div class="admin-tools-grid">
           <div class="admin-tool-card"><div class="admin-tool-label">Submitted Sales</div><div id="admin-kpi-sales-submitted" class="admin-tool-value">0</div><div class="admin-tool-sub">Current sales_orders rows in the filtered view.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Needs Review</div><div id="admin-kpi-sales-review" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales missing review status or flagged for review.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Missing Snapshot</div><div id="admin-kpi-sales-snapshot" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales without an offer_snapshot payload.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Missing Contact</div><div id="admin-kpi-sales-contact" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales missing phone or email.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Entered in ZiP</div><div id="admin-kpi-sales-entered" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales marked entered and waiting for install outcome.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Ready to Invoice</div><div id="admin-kpi-sales-ready-invoice" class="admin-tool-value">0</div><div class="admin-tool-sub">Installed sales not yet assigned an invoice ID.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Invoiced</div><div id="admin-kpi-sales-invoiced" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales already exported with an invoice ID.</div></div>
         </div>
         <div class="panel">
           <div class="panel-head">
             <div>
-              <h2>Admin Sales Review Queue</h2>
-              <div class="panel-sub">Review submitted sales before CRM/ZiP entry. Actions require the admin SQL setup and main admin login.</div>
+              <h2>Sales Review & Install Outcomes</h2>
+              <div class="panel-sub">Mark sales as entered into ZiP, update install outcomes, then invoice installed sales without re-exporting already invoiced rows.</div>
             </div>
             <div class="admin-actions">
               <select id="admin-sales-review-filter">
-                <option value="all">All review statuses</option>
+                <option value="all">All sales</option>
                 <option value="needs_review">Needs review</option>
                 <option value="submitted">Submitted</option>
                 <option value="entered_in_zip">Entered in ZiP</option>
+                <option value="installed_ready">Installed — ready to invoice</option>
+                <option value="invoiced">Invoiced</option>
+                <option value="needs_rescheduled">Needs rescheduled</option>
+                <option value="canceled">Canceled</option>
                 <option value="rejected">Rejected</option>
               </select>
+              <button id="admin-invoice-installed-sales" class="primary">Invoice Installed Sales</button>
               <button id="admin-export-sales-review">Export Review Queue</button>
             </div>
           </div>
+          <div id="admin-invoice-status" class="status-line">Installed sales receive invoice IDs like Zito-1, Zito-2, etc. after export.</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Created</th><th>Review</th><th>Rep</th><th>Territory</th><th>Customer</th><th>Package / Offer</th><th>Contact</th><th>Install</th><th>Flags</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Created</th><th>Review</th><th>Install Outcome</th><th>Invoice</th><th>Rep</th><th>Territory</th><th>Customer</th><th>Package / Offer</th><th>Contact</th><th>Install Date</th><th>Flags</th><th>Actions</th></tr></thead>
               <tbody id="admin-sales-review-body"></tbody>
             </table>
           </div>
@@ -2154,6 +2160,9 @@
       entered_in_zip: 'Entered in ZiP',
       rejected: 'Rejected',
       duplicate: 'Duplicate',
+        invoiced: 'Invoiced',
+        canceled: 'Canceled',
+        cancelled: 'Canceled',
       customer_confirmed: 'Customer Confirmed',
       installed: 'Installed',
       cancelled: 'Cancelled'
@@ -2185,6 +2194,8 @@
       adminSalesReviewBody: document.getElementById('admin-sales-review-body'),
       adminSalesReviewFilter: document.getElementById('admin-sales-review-filter'),
       adminExportSalesReview: document.getElementById('admin-export-sales-review'),
+      adminInvoiceInstalledSales: document.getElementById('admin-invoice-installed-sales'),
+      adminInvoiceStatus: document.getElementById('admin-invoice-status'),
       adminRepsBody: document.getElementById('admin-reps-body'),
       adminRepSearch: document.getElementById('admin-rep-search'),
       adminRepTeamFilter: document.getElementById('admin-rep-team-filter'),
@@ -2256,10 +2267,10 @@
       document.body.classList.toggle('admin-denied', !allowed);
       const note = document.getElementById('admin-access-note');
       if (note) {
-        note.className = allowed ? 'admin-alert' : 'admin-alert bad';
+        note.className = 'admin-alert';
         note.textContent = allowed
-          ? 'Admin tools are enabled for the main company admin login. These tabs are hidden from vendor/team dashboard links.'
-          : 'Admin tools are hidden. Use the main company admin URL with the approved admin email to access control-center actions.';
+          ? 'Full admin tools are enabled for the main company admin login. Sales review/invoicing can be used from this queue.'
+          : 'Sales review and invoicing are available for this dashboard. Full control-center admin tabs remain hidden from team/vendor links.';
       }
       return allowed;
     }
@@ -2325,9 +2336,10 @@
     const originalSetActiveTabForAdmin = setActiveTab;
     setActiveTab = function(tabName) {
       const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
+      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit'];
       const isAdminTab = adminTabs.includes(tabName);
       const canShowAdmin = document.body.classList.contains('admin-enabled');
-      if (isAdminTab && !canShowAdmin) {
+      if (restrictedAdminTabs.includes(tabName) && !canShowAdmin) {
         originalSetActiveTabForAdmin('overview');
         return;
       }
@@ -2484,8 +2496,8 @@
     }
 
     function renderAdminControlCenter() {
-      if (!document.body.classList.contains('admin-enabled')) return;
       renderAdminSalesReview();
+      if (!document.body.classList.contains('admin-enabled')) return;
       renderAdminReps();
       renderAdminTerritories();
       renderAdminBoundaries();
@@ -2497,29 +2509,222 @@
       renderAdminAuditLog();
     }
 
-    function renderAdminSalesReview() {
+    function saleInstallOutcome(row) {
+      return String(row.install_outcome || row.install_status || row.installation_status || '').toLowerCase().trim();
+    }
+
+    function saleInvoiceId(row) {
+      return String(row.invoice_id || row.invoice_number || '').trim();
+    }
+
+    function installOutcomeTag(outcome) {
+      const s = String(outcome || '').toLowerCase().trim();
+      const labels = {
+        installed: 'Installed',
+        needs_rescheduled: 'Needs Rescheduled',
+        rescheduled: 'Needs Rescheduled',
+        canceled: 'Canceled',
+        cancelled: 'Canceled',
+        pending: 'Pending Install'
+      };
+      const cls = s === 'installed' ? 'good' : (s === 'needs_rescheduled' || s === 'rescheduled') ? 'warn' : (s === 'canceled' || s === 'cancelled') ? 'bad' : 'info';
+      return `<span class="admin-tag ${cls}">${escapeHtml(labels[s] || (s ? s : 'Pending Install'))}</span>`;
+    }
+
+    function getDashboardTeamSlugForInvoice() {
+      if (!isCompanyView && activeTeam) {
+        const lower = String(activeTeam).toLowerCase();
+        if (lower.indexOf('fiber') >= 0) return 'fiber';
+        if (lower.indexOf('sales focus') >= 0 || lower.indexOf('sfi') >= 0) return 'sfi';
+        if (lower.indexOf('lynxx') >= 0) return 'lynxx';
+      }
+      const filters = currentFilters();
+      if (filters.territory && filters.territory !== 'all') {
+        const terr = normalizeTerritory(filters.territory);
+        const row = (adminState.territories || []).find(t => normalizeTerritory(firstNonEmpty(t.territory_key, t.territory, t.slug, t.display_name, t.name)) === terr);
+        if (row && row.team_slug) return row.team_slug;
+      }
+      return '';
+    }
+
+    function normalizeInvoiceSaleRow(r) {
+      const raw = r.raw || state.sales_orders.find(s => idKey(s.id) === idKey(r.raw_id)) || {};
+      const review = r.review_status || saleReviewStatus(raw);
+      const outcome = r.install_outcome || saleInstallOutcome(raw);
+      const invoiceId = r.invoice_id || saleInvoiceId(raw);
+      return { ...r, raw, review_status: review, install_outcome: outcome, invoice_id: invoiceId };
+    }
+
+    function isInvoiceEligibleSale(r) {
+      r = normalizeInvoiceSaleRow(r);
+      return idKey(r.raw_id || r.raw.id) && r.review_status === 'entered_in_zip' && r.install_outcome === 'installed' && !r.invoice_id;
+    }
+
+    function exportRowsForInvoice(rows, invoiceId) {
+      return rows.map(r => {
+        r = normalizeInvoiceSaleRow(r);
+        const raw = r.raw || {};
+        return {
+          invoice_id: invoiceId || r.invoice_id || '',
+          sale_id: r.raw_id || raw.id || '',
+          created_at: r.created_at || raw.created_at || '',
+          entered_in_zip_at: raw.entered_in_zip_at || '',
+          installed_at: raw.install_outcome_at || '',
+          team: firstNonEmpty(raw.team, r.team, ''),
+          team_slug: firstNonEmpty(raw.team_slug, ''),
+          territory: r.territory || raw.territory || '',
+          rep: r.rep_name || getRepName(raw) || '',
+          customer_name: r.customer_name || getCustomerName(raw) || '',
+          phone: r.phone || raw.phone || raw.customer_phone || '',
+          email: r.email || raw.email || raw.customer_email || '',
+          address: r.address || buildAddressLabel(buildAddressMap(), raw),
+          package: r.package_name || getPackageName(raw) || '',
+          offer: r.offer_promo || raw.offer_name || raw.offer_code || '',
+          monthly_total: r.monthly_total || raw.monthly_total || '',
+          first_bill_estimate: raw.first_bill_estimate || '',
+          install_date: r.install_date || raw.install_date || raw.preferred_install_date || '',
+          install_time: r.install_time || raw.install_time || raw.install_slot || '',
+          review_status: r.review_status,
+          install_outcome: r.install_outcome,
+          notes: r.notes || raw.notes || raw.note || ''
+        };
+      });
+    }
+
+    function filteredSalesReviewRows() {
       const rows = buildSalesQueueRows(state.sales_orders, state.address_events, buildAddressMap(), currentFilters());
       const filter = els.adminSalesReviewFilter?.value || 'all';
-      const reviewRows = rows.map(r => {
+      return rows.map(r => {
         const raw = state.sales_orders.find(s => idKey(s.id) === idKey(r.raw_id)) || state.sales_orders.find(s => String(s.created_at) === String(r.created_at) && (getRepName(s) === r.rep_name || buildAddressLabel(buildAddressMap(), s) === r.address)) || {};
-        return { ...r, raw_id: r.raw_id || raw.id || '', review_status: r.review_status || saleReviewStatus(raw), review_note: r.review_note || raw.review_note || raw.admin_note || '', raw };
-      }).filter(r => filter === 'all' || r.review_status === filter || (filter === 'needs_review' && (!r.review_status || r.review_status === 'submitted' || r.review_status === 'needs_review')));
+        const merged = normalizeInvoiceSaleRow({ ...r, raw_id: r.raw_id || raw.id || '', review_status: r.review_status || saleReviewStatus(raw), review_note: r.review_note || raw.review_note || raw.admin_note || '', install_outcome: saleInstallOutcome(raw), invoice_id: saleInvoiceId(raw), raw });
+        return merged;
+      }).filter(r => {
+        if (filter === 'all') return true;
+        if (filter === 'needs_review') return !r.review_status || ['submitted','needs_review'].includes(r.review_status);
+        if (filter === 'installed_ready') return isInvoiceEligibleSale(r);
+        if (filter === 'invoiced') return !!r.invoice_id;
+        if (filter === 'needs_rescheduled') return r.install_outcome === 'needs_rescheduled' || r.install_outcome === 'rescheduled';
+        if (filter === 'canceled') return r.install_outcome === 'canceled' || r.install_outcome === 'cancelled' || r.review_status === 'canceled' || r.review_status === 'cancelled';
+        return r.review_status === filter;
+      });
+    }
+
+    async function salesOpsUpdateSale(id, payload, successMessage) {
+      if (!id) { els.status.textContent = 'Sales action blocked: missing sale id.'; els.status.classList.add('error'); return false; }
+      const { data: oldRows } = await supabaseClient.from('sales_orders').select('*').eq('id', id).limit(1);
+      const { error } = await supabaseClient.from('sales_orders').update(payload).eq('id', id);
+      if (error) { els.status.textContent = error.message || 'Sales update failed.'; els.status.classList.add('error'); return false; }
+      els.status.classList.remove('error');
+      els.status.textContent = successMessage || 'Sales update saved.';
+      await logAdminAction('sales_ops_update', 'sales_orders', id, oldRows && oldRows[0] ? oldRows[0] : null, payload);
+      await loadData();
+      return true;
+    }
+
+    async function createInvoiceForInstalledSales() {
+      const eligible = filteredSalesReviewRows().filter(isInvoiceEligibleSale);
+      if (!eligible.length) {
+        const msg = 'No installed, uninvoiced sales were found in the current Sales Review view.';
+        if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = msg;
+        els.status.textContent = msg;
+        return;
+      }
+
+      const confirmed = window.confirm('Create one invoice for ' + eligible.length + ' installed sale(s) in the current view and export the CSV?');
+      if (!confirmed) return;
+
+      const saleIds = eligible.map(r => r.raw_id || r.raw.id).filter(Boolean);
+      let invoiceId = '';
+      let batchId = '';
+      let updatedIds = [];
+
+      if (els.adminInvoiceInstalledSales) els.adminInvoiceInstalledSales.disabled = true;
+      if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = 'Creating invoice batch…';
+
+      try {
+        const teamSlug = getDashboardTeamSlugForInvoice();
+        const rpc = await supabaseClient.rpc('fieldos_create_invoice_batch', { p_sale_ids: saleIds, p_team_slug: teamSlug || null });
+        if (rpc.error) throw rpc.error;
+        const returned = rpc.data || [];
+        if (!returned.length) throw new Error('No sales were invoiced. They may already be invoiced or no longer marked installed.');
+        invoiceId = returned[0].invoice_id;
+        batchId = returned[0].invoice_batch_id || '';
+        updatedIds = returned.map(r => String(r.sale_id));
+      } catch (err) {
+        console.warn('Invoice RPC failed, falling back to client-side invoice creation:', err);
+        const latest = await supabaseClient.from('fieldos_invoice_batches').select('invoice_number').order('invoice_number', { ascending:false }).limit(1);
+        if (latest.error) throw latest.error;
+        const nextNum = Number((latest.data && latest.data[0] && latest.data[0].invoice_number) || 0) + 1;
+        invoiceId = 'Zito-' + nextNum;
+        const batchPayload = { invoice_number: nextNum, invoice_id: invoiceId, team_slug: getDashboardTeamSlugForInvoice() || null, sales_count: eligible.length, created_by: await getCurrentUserEmail(), created_at: new Date().toISOString() };
+        const batch = await supabaseClient.from('fieldos_invoice_batches').insert([batchPayload]).select('*').single();
+        if (batch.error) throw batch.error;
+        batchId = batch.data && batch.data.id;
+        const upd = await supabaseClient.from('sales_orders').update({ invoice_id: invoiceId, invoice_batch_id: batchId, invoiced_at: new Date().toISOString(), invoiced_by: await getCurrentUserEmail(), review_status: 'invoiced' }).in('id', saleIds);
+        if (upd.error) throw upd.error;
+        updatedIds = saleIds.map(String);
+      }
+
+      const exportRows = eligible.filter(r => updatedIds.includes(String(r.raw_id || r.raw.id)));
+      csvDownload('fieldos_' + invoiceId.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_installed_sales.csv', exportRowsForInvoice(exportRows, invoiceId));
+      await logAdminAction('create_invoice', 'fieldos_invoice_batches', batchId || invoiceId, null, { invoice_id: invoiceId, sales_count: exportRows.length, sale_ids: updatedIds });
+      if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = 'Created ' + invoiceId + ' with ' + exportRows.length + ' sale(s). Already invoiced sales will be skipped in future exports.';
+      await loadData();
+      if (els.adminInvoiceInstalledSales) els.adminInvoiceInstalledSales.disabled = false;
+    }
+
+    function renderAdminSalesReview() {
+      const reviewRows = filteredSalesReviewRows();
+      const allRows = filteredSalesReviewRows.call ? (() => { const current = els.adminSalesReviewFilter?.value; if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = 'all'; const rows = filteredSalesReviewRows(); if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = current || 'all'; return rows; })() : reviewRows;
+      const entered = allRows.filter(r => r.review_status === 'entered_in_zip' && !r.invoice_id && !r.install_outcome).length;
+      const readyInvoice = allRows.filter(isInvoiceEligibleSale).length;
+      const invoiced = allRows.filter(r => !!r.invoice_id).length;
       const needsReview = reviewRows.filter(r => !r.review_status || ['submitted','needs_review'].includes(r.review_status)).length;
       const missingSnapshot = reviewRows.filter(r => !r.offer_snapshot && !r.offer_code).length;
       const missingContact = reviewRows.filter(r => !r.phone || !r.email).length;
-      setText('admin-kpi-sales-submitted', formatNumber(rows.length));
+      setText('admin-kpi-sales-submitted', formatNumber(allRows.length));
+      setText('admin-kpi-sales-entered', formatNumber(entered));
+      setText('admin-kpi-sales-ready-invoice', formatNumber(readyInvoice));
+      setText('admin-kpi-sales-invoiced', formatNumber(invoiced));
       setText('admin-kpi-sales-review', formatNumber(needsReview));
       setText('admin-kpi-sales-snapshot', formatNumber(missingSnapshot));
       setText('admin-kpi-sales-contact', formatNumber(missingContact));
+      if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = readyInvoice
+        ? readyInvoice + ' installed sale(s) are ready to invoice in the current filtered view.'
+        : 'No installed, uninvoiced sales are currently ready to invoice in this view.';
       if (!els.adminSalesReviewBody) return;
       els.adminSalesReviewBody.innerHTML = reviewRows.length ? reviewRows.map(r => {
+        r = normalizeInvoiceSaleRow(r);
         const flags = [];
         if (!r.phone || !r.email) flags.push('<span class="admin-tag bad">Missing contact</span>');
         if (!r.offer_snapshot && !r.offer_code) flags.push('<span class="admin-tag warn">No snapshot</span>');
         if (!r.raw_id) flags.push('<span class="admin-tag warn">No row id</span>');
-        return `<tr><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${statusTag(r.review_status)}${r.review_note ? '<div class="admin-note">'+escapeHtml(r.review_note)+'</div>' : ''}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}<div class="admin-note">${escapeHtml(r.address || '')}</div></td><td>${escapeHtml(r.package_name || '—')}<div class="admin-note">${escapeHtml(r.offer_promo || '')} ${escapeHtml(r.monthly_total || '')}</div></td><td>${escapeHtml(r.phone || '—')}<br>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.install_date || '—')}<br>${escapeHtml(r.install_time || '—')}</td><td>${flags.join(' ') || '<span class="admin-tag good">OK</span>'}</td><td><div class="admin-actions"><button class="inline-admin-btn good" data-sale-review="entered_in_zip" data-sale-id="${escapeHtml(r.raw_id)}">Entered</button><button class="inline-admin-btn warn" data-sale-review="needs_review" data-sale-id="${escapeHtml(r.raw_id)}">Flag</button><button class="inline-admin-btn bad" data-sale-review="rejected" data-sale-id="${escapeHtml(r.raw_id)}">Reject</button></div></td></tr>`;
-      }).join('') : '<tr><td colspan="10" style="color:#94a3b8;">No sales found for this review filter.</td></tr>';
-      if (els.adminExportSalesReview) els.adminExportSalesReview.onclick = () => csvDownload('fieldos_admin_sales_review.csv', reviewRows.map(r => ({ created_at: r.created_at, review_status: r.review_status, rep: r.rep_name, territory: r.territory, customer: r.customer_name, phone: r.phone, email: r.email, address: r.address, package: r.package_name, offer: r.offer_promo, monthly_total: r.monthly_total, install_date: r.install_date, install_time: r.install_time, notes: r.notes })));
+        if (r.review_status === 'entered_in_zip' && !r.install_outcome && !r.invoice_id) flags.push('<span class="admin-tag info">Awaiting install outcome</span>');
+        if (isInvoiceEligibleSale(r)) flags.push('<span class="admin-tag good">Ready to invoice</span>');
+        if (r.invoice_id) flags.push('<span class="admin-tag good">Already invoiced</span>');
+
+        const invoiceCell = r.invoice_id
+          ? `<span class="admin-tag good">${escapeHtml(r.invoice_id)}</span><div class="admin-note">${escapeHtml(formatDateTime(r.raw.invoiced_at || ''))}</div>`
+          : (isInvoiceEligibleSale(r) ? '<span class="admin-tag good">Ready</span>' : '<span class="admin-tag info">Not invoiced</span>');
+
+        const actionButtons = [];
+        if (!r.invoice_id) {
+          actionButtons.push(`<button class="inline-admin-btn good" data-sale-review="entered_in_zip" data-sale-id="${escapeHtml(r.raw_id)}">Entered</button>`);
+          if (r.review_status === 'entered_in_zip') {
+            actionButtons.push(`<button class="inline-admin-btn good" data-install-outcome="installed" data-sale-id="${escapeHtml(r.raw_id)}">Installed</button>`);
+            actionButtons.push(`<button class="inline-admin-btn warn" data-install-outcome="needs_rescheduled" data-sale-id="${escapeHtml(r.raw_id)}">Needs Rescheduled</button>`);
+            actionButtons.push(`<button class="inline-admin-btn bad" data-install-outcome="canceled" data-sale-id="${escapeHtml(r.raw_id)}">Canceled</button>`);
+          }
+          actionButtons.push(`<button class="inline-admin-btn warn" data-sale-review="needs_review" data-sale-id="${escapeHtml(r.raw_id)}">Flag</button>`);
+          actionButtons.push(`<button class="inline-admin-btn bad" data-sale-review="rejected" data-sale-id="${escapeHtml(r.raw_id)}">Reject</button>`);
+        } else {
+          actionButtons.push('<span class="admin-note">Locked after invoice</span>');
+        }
+
+        return `<tr><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${statusTag(r.review_status)}${r.review_note ? '<div class="admin-note">'+escapeHtml(r.review_note)+'</div>' : ''}</td><td>${installOutcomeTag(r.install_outcome)}</td><td>${invoiceCell}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}<div class="admin-note">${escapeHtml(r.address || '')}</div></td><td>${escapeHtml(r.package_name || '—')}<div class="admin-note">${escapeHtml(r.offer_promo || '')} ${escapeHtml(r.monthly_total || '')}</div></td><td>${escapeHtml(r.phone || '—')}<br>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.install_date || '—')}<br>${escapeHtml(r.install_time || '—')}</td><td>${flags.join(' ') || '<span class="admin-tag good">OK</span>'}</td><td><div class="admin-actions">${actionButtons.join('')}</div></td></tr>`;
+      }).join('') : '<tr><td colspan="12" style="color:#94a3b8;">No sales found for this review filter.</td></tr>';
+      if (els.adminExportSalesReview) els.adminExportSalesReview.onclick = () => csvDownload('fieldos_sales_review.csv', reviewRows.map(r => exportRowsForInvoice([r], r.invoice_id || '')[0]));
+      if (els.adminInvoiceInstalledSales) els.adminInvoiceInstalledSales.onclick = createInvoiceForInstalledSales;
     }
 
     function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
@@ -3296,12 +3501,25 @@
         return;
       }
 
+      const installBtn = e.target.closest('[data-install-outcome]');
+      if (installBtn) {
+        const outcome = installBtn.getAttribute('data-install-outcome');
+        const id = installBtn.getAttribute('data-sale-id');
+        const note = outcome === 'needs_rescheduled' || outcome === 'canceled' ? prompt('Optional install outcome note:') : '';
+        const payload = { install_outcome: outcome, install_outcome_note: note || null, install_outcome_at: new Date().toISOString(), install_outcome_by: await getCurrentUserEmail() };
+        if (outcome === 'canceled') payload.review_status = 'canceled';
+        await salesOpsUpdateSale(id, payload, 'Install outcome updated.');
+        return;
+      }
+
       const saleBtn = e.target.closest('[data-sale-review]');
       if (saleBtn) {
         const status = saleBtn.getAttribute('data-sale-review');
         const id = saleBtn.getAttribute('data-sale-id');
         const note = status === 'needs_review' || status === 'rejected' ? prompt('Optional admin note for this sale:') : '';
-        await updateAdminRow('sales_orders', id, { review_status: status, review_note: note || null, reviewed_at: new Date().toISOString(), reviewed_by: getSessionEmailLower() }, 'Sales review status updated.');
+        const payload = { review_status: status, review_note: note || null, reviewed_at: new Date().toISOString(), reviewed_by: await getCurrentUserEmail() };
+        if (status === 'entered_in_zip') { payload.entered_in_zip_at = new Date().toISOString(); payload.entered_in_zip_by = await getCurrentUserEmail(); }
+        await salesOpsUpdateSale(id, payload, 'Sales review status updated.');
         return;
       }
       const repBtn = e.target.closest('[data-rep-active]');
