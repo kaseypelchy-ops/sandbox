@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.6';
-var BUILD_ID    = '2026.07.07-clean-login-auto-load';
+var APP_VERSION = '2.0.7';
+var BUILD_ID    = '2026.07.07-admin-territory-inactive-rep-fix';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -680,7 +680,15 @@ function fetchRepProfileFromSupabase(name) {
     .limit(1)
     .then(function(res){
       if (res.error) throw res.error;
-      return (res.data && res.data[0]) ? res.data[0] : null;
+      var rep = (res.data && res.data[0]) ? res.data[0] : null;
+      if (!rep) return null;
+
+      var activeValue = String(rep.is_active === undefined || rep.is_active === null ? 'true' : rep.is_active).toLowerCase().trim();
+      if (rep.is_active === false || activeValue === 'false' || activeValue === '0' || activeValue === 'no') {
+        throw new Error('This rep profile is inactive. Please contact your manager before using FieldOS.');
+      }
+
+      return rep;
     });
 }
 
@@ -828,6 +836,8 @@ var offlineSyncRunning = false;
 var nextBestDoorId = null;
 var gamePlanCollapsed = false;
 var launchLoadRunning = false;
+var loadedRepLookupName = '';
+function normalizeRepLoginName(value) { return String(value || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 
 // ──────────────────────────────────────────────────────────
 //  COLORS
@@ -1531,6 +1541,8 @@ function fetchAddressesFromSheet(opts) {
         };
       });
 
+      loadedRepLookupName = normalizeRepLoginName(repInput);
+
       updateStats();
       buildList();
       geocodeAll();
@@ -1577,6 +1589,10 @@ function hasValidName() {
 function validateRepName() {
   var hint = document.getElementById('rep-name-hint');
   var val  = (document.getElementById('rep-name').value || '').trim();
+  if (loadedRepLookupName && normalizeRepLoginName(val) !== loadedRepLookupName) {
+    addresses = [];
+    loadedRepLookupName = '';
+  }
   if (val.length > 0 && !hasValidName()) {
     hint.style.display = 'block';
   } else {
@@ -1708,7 +1724,8 @@ function launchApp(opts) {
   // New production flow: reps type first and last name, click Launch, and
   // FieldOS loads their profile, assigned territories, addresses, pricing,
   // and KMZ/KML footprint automatically before the map opens.
-  if (!opts.skipAutoLoad && addresses.length === 0) {
+  var currentRepLookupName = normalizeRepLoginName(repName);
+  if (!opts.skipAutoLoad && (addresses.length === 0 || loadedRepLookupName !== currentRepLookupName)) {
     var launchBtn = document.getElementById('launch-btn');
     var st = document.getElementById('fetch-addr-status');
     launchLoadRunning = true;

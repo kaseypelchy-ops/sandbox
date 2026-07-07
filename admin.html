@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FieldOS Admin Dashboard</title>
+  <title>FieldOS Admin Control Center</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
@@ -2070,7 +2070,7 @@
       cancelled: 'Cancelled'
     };
 
-    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], quality_issues: [] };
+    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [] };
 
     Object.assign(els, {
       tabSalesReview: document.getElementById('tab-sales-review'),
@@ -2146,23 +2146,36 @@
     async function loadAdminControlData() {
       const allowed = await applyAdminAccessUi();
       if (!allowed) {
-        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], quality_issues: [] };
+        adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [] };
         renderAdminControlCenter();
         return false;
       }
       try {
-        const [repTerritories, boundaryFiles, fieldosTerritories] = await Promise.all([
+        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
+          fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('fieldos_territories', { order: { column: 'territory', ascending: true } })
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
-        adminState.fieldos_territories = fieldosTerritories || [];
+        adminState.territories = territoriesTableRows || [];
+
+        const mergedTerritories = new Map();
+        (territoriesTableRows || []).forEach(function(row) {
+          const key = adminTerritoryKey(row.territory || row.display_name || row.name);
+          if (key) mergedTerritories.set(key, Object.assign({ _source_table: 'territories' }, row));
+        });
+        (fieldosTerritories || []).forEach(function(row) {
+          const key = adminTerritoryKey(row.territory || row.display_name || row.name);
+          if (key && !mergedTerritories.has(key)) mergedTerritories.set(key, Object.assign({ _source_table: 'fieldos_territories' }, row));
+        });
+        adminState.fieldos_territories = Array.from(mergedTerritories.values());
       } catch (err) {
         console.warn('Admin control data failed to load', err);
         adminState.rep_territories = adminState.rep_territories || [];
         adminState.territory_boundary_files = adminState.territory_boundary_files || [];
+        adminState.territories = adminState.territories || [];
         adminState.fieldos_territories = adminState.fieldos_territories || [];
       }
       renderAdminControlCenter();
@@ -2407,7 +2420,7 @@
         const rec = !r.reps.length ? 'Assign a rep before launching.' : !r.boundaries.length ? 'Add boundary mapping.' : (!r.offerMega || !r.offerGig) ? 'Fix pricing coverage.' : r.pending > 0 ? 'Continue working pending doors.' : 'Territory is fully worked.';
         return `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.total)}</td><td>${formatNumber(r.worked)} worked<br>${formatNumber(r.pending)} pending</td><td>${formatNumber(r.sales)}</td><td>${r.reps.length ? r.reps.map(x => '<span class="admin-tag info">'+escapeHtml(x)+'</span>').join(' ') : '<span class="admin-tag bad">No rep</span>'}</td><td>${r.boundaries.length ? '<span class="admin-tag good">'+formatNumber(r.boundaries.length)+' file(s)</span>' : '<span class="admin-tag bad">Missing</span>'}</td><td>${offerHtml}</td><td>${escapeHtml(rec)}</td><td><div class="admin-actions"><button class="inline-admin-btn" data-add-boundary-for="${escapeHtml(r.territory)}">Map File</button><button class="inline-admin-btn" data-add-offer-for="${escapeHtml(r.territory)}">Add Offer</button></div></td></tr>`;
       }).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No territories found.</td></tr>';
-      if (els.adminExportTerritories) els.adminExportTerritories.onclick = () => csvDownload('fieldos_territories_admin.csv', rows.map(r => ({ territory: r.territory, addresses: r.total, worked: r.worked, pending: r.pending, sales: r.sales, reps: r.reps.join('; '), boundary_files: r.boundaries.length, mega_offer: r.offerMega, gig_offer: r.offerGig })));
+      if (els.adminExportTerritories) els.adminExportTerritories.onclick = () => csvDownload('territories_admin.csv', rows.map(r => ({ territory: r.territory, addresses: r.total, worked: r.worked, pending: r.pending, sales: r.sales, reps: r.reps.join('; '), boundary_files: r.boundaries.length, mega_offer: r.offerMega, gig_offer: r.offerGig })));
     }
 
     function renderAdminBoundaries() {
@@ -2609,6 +2622,56 @@
       });
     }
 
+
+    async function adminSaveTerritoryTableRow(tableName, row) {
+      const allowed = await isMainAdminSession();
+      if (!allowed) throw new Error('Main admin login required.');
+      if (!row || !row.territory) throw new Error('Territory is required.');
+
+      const existing = await supabaseClient
+        .from(tableName)
+        .select('*')
+        .eq('territory', row.territory)
+        .limit(1);
+
+      if (existing.error) throw existing.error;
+
+      if (existing.data && existing.data[0]) {
+        const existingRow = existing.data[0];
+        let updateQuery = supabaseClient.from(tableName).update(row);
+        if (existingRow.id !== undefined && existingRow.id !== null) updateQuery = updateQuery.eq('id', existingRow.id);
+        else updateQuery = updateQuery.eq('territory', row.territory);
+        const updated = await updateQuery.select('*').single();
+        if (updated.error) throw updated.error;
+        return updated.data;
+      }
+
+      const inserted = await supabaseClient.from(tableName).insert([row]).select('*').single();
+      if (inserted.error) throw inserted.error;
+      return inserted.data;
+    }
+
+    async function saveTerritoryRecord(row) {
+      const clean = Object.assign({}, row || {});
+      if (!clean.territory) throw new Error('Territory is required.');
+
+      // Primary write target for admin-created territories.
+      const saved = await adminSaveTerritoryTableRow('territories', clean);
+
+      // Keep the older FieldOS registry mirrored when it exists, but do not fail
+      // the admin save if that compatibility table is missing or restricted.
+      try {
+        await adminSaveTerritoryTableRow('fieldos_territories', clean);
+      } catch (mirrorErr) {
+        console.warn('Could not mirror territory to fieldos_territories:', mirrorErr);
+      }
+
+      els.status.classList.remove('error');
+      els.status.textContent = 'Territory saved to public.territories.';
+      await loadData();
+      return saved;
+    }
+
     function openAddTerritoryForm() {
       openAdminCrudModal({
         title: 'Add Territory',
@@ -2625,7 +2688,7 @@
         onSubmit: async function(payload) {
           const row = { territory: formValueOrNull(payload.territory), display_name: formValueOrNull(payload.display_name) || formValueOrNull(payload.territory), team_slug: formValueOrNull(payload.team_slug), market: formValueOrNull(payload.market), state: formValueOrNull(payload.state), is_active: String(payload.is_active) === 'true', notes: formValueOrNull(payload.notes), updated_at: new Date().toISOString() };
           if (!row.territory) throw new Error('Territory is required.');
-          await adminUpsertRow('fieldos_territories', row, 'territory', 'Territory saved.');
+          await saveTerritoryRecord(row);
         }
       });
     }
