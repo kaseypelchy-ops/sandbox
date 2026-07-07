@@ -18,8 +18,8 @@ var TEAM_LINK_ALIASES = {
 // ──────────────────────────────────────────────────────────
 var APP_NAME    = 'Zito FieldOS';
 var APP_TAGLINE = 'Field Operations & Sales Intelligence';
-var APP_VERSION = '2.0.7';
-var BUILD_ID    = '2026.07.07-admin-territory-inactive-rep-fix';
+var APP_VERSION = '2.0.8';
+var BUILD_ID    = '2026.07.07-team-write-fix';
 var APP_ENV     = 'Production';
 
 var addresses  = [];
@@ -220,6 +220,24 @@ function derivePromoTermFromPhases(phases) {
 function activeTeamSlug() {
   var team = TEAMS && activeTeam ? TEAMS[activeTeam] : null;
   return team && team.slug ? String(team.slug).trim() : '';
+}
+
+// FieldOS row ownership helpers.
+// These values must be written with every disposition / sale so the vendor
+// dashboards can filter correctly without relying only on territory names.
+function getActiveTeamLabel() {
+  return String(activeTeam || '').trim();
+}
+
+function getActiveTeamSlug() {
+  return activeTeamSlug();
+}
+
+function getActiveTeamPayload() {
+  return {
+    team: getActiveTeamLabel(),
+    team_slug: getActiveTeamSlug()
+  };
 }
 
 function pricingDateIsActive(row) {
@@ -552,7 +570,13 @@ function updateOfflineQueueUI() {
 
 function isMissingOptionalColumnError(err) {
   var msg = String((err && (err.message || err.details || err.hint || err.code)) || '').toLowerCase();
-  return msg.indexOf('column') >= 0 && (msg.indexOf('lat') >= 0 || msg.indexOf('lng') >= 0 || msg.indexOf('knocked_at') >= 0);
+  return msg.indexOf('column') >= 0 && (
+    msg.indexOf('lat') >= 0 ||
+    msg.indexOf('lng') >= 0 ||
+    msg.indexOf('knocked_at') >= 0 ||
+    msg.indexOf('team') >= 0 ||
+    msg.indexOf('team_slug') >= 0
+  );
 }
 
 function stripOptionalEventFields(payload) {
@@ -561,6 +585,10 @@ function stripOptionalEventFields(payload) {
   delete copy.lng;
   delete copy.knocked_lat;
   delete copy.knocked_lng;
+  // Keep app from breaking if the database has not yet been patched.
+  // Run the included SQL so these fields persist going forward.
+  delete copy.team;
+  delete copy.team_slug;
   return copy;
 }
 
@@ -574,7 +602,9 @@ function isMissingOptionalSalesColumnError(err) {
     msg.indexOf('first_bill_estimate') >= 0 ||
     msg.indexOf('promo_price') >= 0 ||
     msg.indexOf('promo_term') >= 0 ||
-    msg.indexOf('standard_rate') >= 0
+    msg.indexOf('standard_rate') >= 0 ||
+    msg.indexOf('team') >= 0 ||
+    msg.indexOf('team_slug') >= 0
   );
 }
 
@@ -587,6 +617,23 @@ function stripOptionalSalesFields(payload) {
   delete copy.promo_price;
   delete copy.promo_term;
   delete copy.standard_rate;
+  // Keep app from breaking if the database has not yet been patched.
+  // Run the included SQL so these fields persist going forward.
+  delete copy.team;
+  delete copy.team_slug;
+  return copy;
+}
+
+function isMissingOptionalTeamColumnError(err) {
+  var msg = String((err && (err.message || err.details || err.hint || err.code)) || '').toLowerCase();
+  return msg.indexOf('column') >= 0 && (msg.indexOf('team') >= 0 || msg.indexOf('team_slug') >= 0 || msg.indexOf('territory') >= 0);
+}
+
+function stripOptionalTeamFields(payload) {
+  var copy = Object.assign({}, payload || {});
+  delete copy.team;
+  delete copy.team_slug;
+  delete copy.territory;
   return copy;
 }
 
@@ -601,6 +648,12 @@ function insertSupabaseRow(table, payload) {
     }
     if (res.error && table === 'sales_orders' && isMissingOptionalSalesColumnError(res.error)) {
       return supabaseClient.from(table).insert([stripOptionalSalesFields(payload)]).then(function(retry) {
+        if (retry.error) throw retry.error;
+        return retry;
+      });
+    }
+    if (res.error && table === 'schedule_bookings' && isMissingOptionalTeamColumnError(res.error)) {
+      return supabaseClient.from(table).insert([stripOptionalTeamFields(payload)]).then(function(retry) {
         if (retry.error) throw retry.error;
         return retry;
       });
@@ -3310,10 +3363,16 @@ function schedBookSlot(date, time, customerName, address) {
   var slot = schedData[date] && schedData[date][time] ? schedData[date][time] : null;
   if (!slot || !slot.slotId) return Promise.resolve(false);
 
+  var teamPayload = getActiveTeamPayload();
+  var bookingAddress = getAddr ? getAddr() : null;
+
   var bookingPayload = {
     schedule_slot_id: slot.slotId,
-    address_id: getAddr() && getAddr().id ? getAddr().id : null,
+    address_id: bookingAddress && bookingAddress.id ? bookingAddress.id : null,
     rep_name: repName || '',
+    team: teamPayload.team,
+    team_slug: teamPayload.team_slug,
+    territory: bookingAddress && bookingAddress.territory ? bookingAddress.territory : (slot.territory || activeTerritory || getScheduleTerritory() || ''),
     customer_name: customerName || '',
     phone: (document.getElementById('f-phone') ? document.getElementById('f-phone').value : ''),
     email: (document.getElementById('f-email') ? document.getElementById('f-email').value : ''),
@@ -3729,9 +3788,13 @@ async function updateAddressStatus(addr, status, note, flags) {
   if (!addr || !addr.id) return false;
 
   var nowIso = new Date().toISOString();
+  var teamPayload = getActiveTeamPayload();
+
   var eventPayload = {
     address_id: addr.id,
     rep_name: repName,
+    team: teamPayload.team,
+    team_slug: teamPayload.team_slug,
     territory: (addr.territory || activeTerritory || ''),
     status: status,
     note: (note || ''),
@@ -3767,9 +3830,15 @@ async function sendData(payload) {
   var addr = getAddr ? getAddr() : null;
   var fullName = ((payload.firstName || '') + ' ' + (payload.lastName || '')).trim();
 
+  var teamPayload = getActiveTeamPayload();
+  var saleTerritory = addr && addr.territory ? addr.territory : (activeTerritory || getScheduleTerritory() || '');
+
   var salesPayload = {
     address_id: addr && addr.id ? addr.id : null,
     rep_name: repName || '',
+    team: teamPayload.team,
+    team_slug: teamPayload.team_slug,
+    territory: saleTerritory,
     customer_name: fullName,
     phone: payload.phone || '',
     email: payload.email || '',
