@@ -1437,8 +1437,17 @@
     }
 
     function isNotHomeStatus(status) {
-      const s = String(status || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-      return s.startsWith('nothome') || s === 'not_home' || s === 'noanswer' || s === 'noonehome';
+      const raw = String(status || '').toLowerCase().trim();
+      const s = raw.replace(/[^a-z0-9]+/g, '');
+      return s.startsWith('nothome') || raw === 'not_home' || s === 'noanswer' || s === 'noonehome';
+    }
+
+    // Shared disposition helper used by QA flags and vendor scorecards.
+    // This was present in the rep app but was missing from the admin dashboard,
+    // which caused actions like "Entered" to fail when the dashboard re-rendered.
+    function isSoftInterestStatus(status) {
+      const s = String(status || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '');
+      return ['goback', 'maybelater', 'sendinfo', 'talktospouse', 'priceconcern', 'notdecisionmaker'].includes(s);
     }
 
     function dispositionBucket(status) {
