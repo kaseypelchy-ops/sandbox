@@ -122,8 +122,38 @@
     .mini-badge.good { background: rgba(34,197,94,.12); color: #bbf7d0; border-color: rgba(34,197,94,.28); }
     .compact-cell { min-width: 160px; line-height: 1.35; }
 
-    @media (max-width: 1200px) { .controls, .grid-kpis, .pricing-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 700px) { .controls, .grid-kpis, .pricing-summary { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
+
+
+    .admin-only { display: none; }
+    .admin-enabled .admin-only { display: inline-flex; }
+    .admin-denied .admin-only { display: none !important; }
+    .admin-tools-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .admin-tool-card { background: rgba(30,41,59,.55); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 14px; min-height: 108px; }
+    .admin-tool-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+    .admin-tool-value { margin-top: 8px; font-size: 26px; font-weight: 700; }
+    .admin-tool-sub { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .admin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .admin-actions button, .admin-actions select, .admin-actions input, .inline-admin-btn {
+      background: #020617; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 12px; cursor: pointer;
+    }
+    .inline-admin-btn.primary { background: var(--accent) !important; color: #082f49 !important; border: none !important; font-weight: 700; }
+    .inline-admin-btn.good { background: rgba(34,197,94,.14) !important; color: #bbf7d0 !important; border-color: rgba(34,197,94,.32) !important; }
+    .inline-admin-btn.warn { background: rgba(245,158,11,.14) !important; color: #fde68a !important; border-color: rgba(245,158,11,.32) !important; }
+    .inline-admin-btn.bad { background: rgba(239,68,68,.14) !important; color: #fecaca !important; border-color: rgba(239,68,68,.32) !important; }
+    .admin-alert { border-radius: 16px; padding: 14px; margin-bottom: 16px; line-height: 1.45; border: 1px solid rgba(34,211,238,.26); background: rgba(34,211,238,.10); color: #bae6fd; }
+    .admin-alert.warn { border-color: rgba(245,158,11,.32); background: rgba(245,158,11,.12); color: #fde68a; }
+    .admin-alert.bad { border-color: rgba(239,68,68,.32); background: rgba(239,68,68,.12); color: #fecaca; }
+    .admin-tag { display: inline-flex; align-items: center; border: 1px solid rgba(148,163,184,.24); background: rgba(148,163,184,.10); color: #cbd5e1; border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .admin-tag.good { background: rgba(34,197,94,.12); color: #bbf7d0; border-color: rgba(34,197,94,.30); }
+    .admin-tag.warn { background: rgba(245,158,11,.12); color: #fde68a; border-color: rgba(245,158,11,.30); }
+    .admin-tag.bad { background: rgba(239,68,68,.12); color: #fecaca; border-color: rgba(239,68,68,.30); }
+    .admin-tag.info { background: rgba(34,211,238,.12); color: #a5f3fc; border-color: rgba(34,211,238,.30); }
+    .admin-search-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
+    .admin-search-row input, .admin-search-row select, .admin-search-row button { background: #020617; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+    .admin-note { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    @media (max-width: 1200px) { .controls, .grid-kpis, .pricing-summary, .admin-tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .grid-2, .route-grid { grid-template-columns: 1fr; } .route-meta, .route-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 700px) { .controls, .grid-kpis, .pricing-summary, .admin-tools-grid, .admin-search-row { grid-template-columns: 1fr; } body { padding: 12px; } .kpi-value { font-size: 28px; } }
   </style>
 </head>
 <body>
@@ -178,6 +208,11 @@
         <button id="tab-overview" class="tab-btn active">Overview</button>
         <button id="tab-sales" class="tab-btn">Sales Queue</button>
         <button id="tab-pricing" class="tab-btn">Offers & Pricing</button>
+        <button id="tab-sales-review" class="tab-btn admin-only">Sales Review</button>
+        <button id="tab-reps-admin" class="tab-btn admin-only">Reps</button>
+        <button id="tab-territories-admin" class="tab-btn admin-only">Territories</button>
+        <button id="tab-boundaries-admin" class="tab-btn admin-only">Boundary Files</button>
+        <button id="tab-data-quality" class="tab-btn admin-only">Data Quality</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -329,6 +364,104 @@
               </thead>
               <tbody id="pricing-offers-body"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+
+
+      <div id="tab-panel-sales-review" class="tab-panel admin-only">
+        <div id="admin-access-note" class="admin-alert">Admin tools are restricted to the main company admin login and are hidden from team dashboard links.</div>
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Submitted Sales</div><div id="admin-kpi-sales-submitted" class="admin-tool-value">0</div><div class="admin-tool-sub">Current sales_orders rows in the filtered view.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Needs Review</div><div id="admin-kpi-sales-review" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales missing review status or flagged for review.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Snapshot</div><div id="admin-kpi-sales-snapshot" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales without an offer_snapshot payload.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Contact</div><div id="admin-kpi-sales-contact" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales missing phone or email.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Admin Sales Review Queue</h2>
+              <div class="panel-sub">Review submitted sales before CRM/ZiP entry. Actions require the admin SQL setup and main admin login.</div>
+            </div>
+            <div class="admin-actions">
+              <select id="admin-sales-review-filter">
+                <option value="all">All review statuses</option>
+                <option value="needs_review">Needs review</option>
+                <option value="submitted">Submitted</option>
+                <option value="entered_in_zip">Entered in ZiP</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button id="admin-export-sales-review">Export Review Queue</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Created</th><th>Review</th><th>Rep</th><th>Territory</th><th>Customer</th><th>Package / Offer</th><th>Contact</th><th>Install</th><th>Flags</th><th>Actions</th></tr></thead>
+              <tbody id="admin-sales-review-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-panel-reps-admin" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Total Reps</div><div id="admin-kpi-reps-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows visible from reps.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Active Reps</div><div id="admin-kpi-reps-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Assumes active unless is_active=false.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">No Territory</div><div id="admin-kpi-reps-no-territory" class="admin-tool-value">0</div><div class="admin-tool-sub">Reps without an assigned rep_territories row.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Teams</div><div id="admin-kpi-reps-teams" class="admin-tool-value">0</div><div class="admin-tool-sub">Distinct company/team values found.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Rep Management</h2><div class="panel-sub">View rep profiles, territory assignments, and active status. Add/edit actions can be expanded once auth/RLS is fully locked down.</div></div>
+            <div class="admin-actions"><button id="admin-export-reps">Export Reps</button></div>
+          </div>
+          <div class="admin-search-row"><input id="admin-rep-search" placeholder="Search reps, email, phone, territory" /><select id="admin-rep-team-filter"><option value="all">All Teams</option></select><button id="admin-refresh-reps">Refresh</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Rep</th><th>Contact</th><th>Team / Role</th><th>Territories</th><th>Activity</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-reps-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-territories-admin" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Territories</div><div id="admin-kpi-territories-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Distinct loaded address territories.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Reps</div><div id="admin-kpi-territories-no-reps" class="admin-tool-value">0</div><div class="admin-tool-sub">Territories with addresses but no assigned rep.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Boundary</div><div id="admin-kpi-territories-no-boundary" class="admin-tool-value">0</div><div class="admin-tool-sub">Active territories without a KMZ/KML mapping.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Offers</div><div id="admin-kpi-territories-no-offers" class="admin-tool-value">0</div><div class="admin-tool-sub">Mega/Gig coverage gaps.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Territory Manager</h2><div class="panel-sub">Operational view of addresses, reps, boundaries, pricing coverage, worked rate, and sales.</div></div><div class="admin-actions"><button id="admin-export-territories">Export Territories</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Addresses</th><th>Worked / Pending</th><th>Sales</th><th>Assigned Reps</th><th>Boundary</th><th>Offer Coverage</th><th>Recommended Action</th></tr></thead><tbody id="admin-territories-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-boundaries-admin" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Boundary Rows</div><div id="admin-kpi-boundaries-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows in territory_boundary_files.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Active Files</div><div id="admin-kpi-boundaries-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Files active for automatic app loading.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Territories</div><div id="admin-kpi-boundaries-missing" class="admin-tool-value">0</div><div class="admin-tool-sub">Loaded address territories without active boundary mapping.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Duplicates</div><div id="admin-kpi-boundaries-duplicates" class="admin-tool-value">0</div><div class="admin-tool-sub">Multiple active files for one territory.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Boundary File Manager</h2><div class="panel-sub">Validate and manage the KMZ/KML mappings used by automatic map loading. Actual file uploads stay in Supabase Storage.</div></div><div class="admin-actions"><button id="admin-export-boundaries">Export Boundaries</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Team</th><th>Territory</th><th>Display Name</th><th>Bucket / Path</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-boundaries-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-data-quality" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Issue Count</div><div id="admin-kpi-quality-issues" class="admin-tool-value">0</div><div class="admin-tool-sub">Data quality checks requiring attention.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing GPS</div><div id="admin-kpi-quality-gps" class="admin-tool-value">0</div><div class="admin-tool-sub">Addresses without lat/lng.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Duplicate Addresses</div><div id="admin-kpi-quality-duplicates" class="admin-tool-value">0</div><div class="admin-tool-sub">Potential duplicate address keys.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Sales Issues</div><div id="admin-kpi-quality-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Missing contact, snapshot, or package.</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-head"><div><h2>Data Quality Center</h2><div class="panel-sub">Prioritized issues across reps, territories, addresses, sales, boundary files, and pricing.</div></div><div class="admin-actions"><button id="admin-export-quality">Export Issues</button></div></div>
+            <div id="admin-quality-list" class="warning-list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div><h2>Issue Details</h2><div class="panel-sub">Click rows for detail exports or use this to decide what to fix first.</div></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Area</th><th>Issue</th><th>Count</th><th>Recommended Fix</th></tr></thead><tbody id="admin-quality-body"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -929,6 +1062,11 @@
         const firstBillRaw = firstNonEmpty(s.first_bill_estimate, snapshotValue(snapshot, 'first_bill_estimate', ''));
         const offerCode = snapshotValue(snapshot, 'offer_code', firstNonEmpty(s.offer_code, ''));
         return {
+          raw_id: s.id || '',
+          review_status: s.review_status || s.admin_status || s.processing_status || 'submitted',
+          review_note: s.review_note || s.admin_note || '',
+          reviewed_at: s.reviewed_at || '',
+          reviewed_by: s.reviewed_by || '',
           created_at: s.created_at,
           rep_name: getRepName(s),
           territory: getRowTerritory(s, addressMap) || '',
@@ -956,6 +1094,9 @@
         .filter(ev => SALE_STATUSES.has(String(ev.status || '').toLowerCase().trim()))
         .filter(ev => !orderAddressKeys.has(idKey(ev.address_id)))
         .map(ev => ({
+          raw_id: '',
+          review_status: 'needs_review',
+          review_note: 'Sale disposition found without matching sales_orders row.',
           created_at: ev.created_at,
           rep_name: getRepName(ev),
           territory: getRowTerritory(ev, addressMap) || '',
@@ -1866,6 +2007,440 @@
       if (data.session) { showDashboard(data.session); await loadData(); }
       else { showAuthScreen('Please sign in to continue.'); }
     }
+
+
+
+    // ──────────────────────────────────────────────────────────
+    //  MAIN ADMIN CONTROL CENTER — hidden from vendor/team links
+    // ──────────────────────────────────────────────────────────
+    const FIELDOS_MAIN_ADMIN_EMAILS = ['zitomediamarketing@gmail.com'];
+    const ADMIN_REVIEW_STATUSES = {
+      submitted: 'Submitted',
+      needs_review: 'Needs Review',
+      entered_in_zip: 'Entered in ZiP',
+      rejected: 'Rejected',
+      duplicate: 'Duplicate',
+      customer_confirmed: 'Customer Confirmed',
+      installed: 'Installed',
+      cancelled: 'Cancelled'
+    };
+
+    let adminState = { rep_territories: [], territory_boundary_files: [], quality_issues: [] };
+
+    Object.assign(els, {
+      tabSalesReview: document.getElementById('tab-sales-review'),
+      tabRepsAdmin: document.getElementById('tab-reps-admin'),
+      tabTerritoriesAdmin: document.getElementById('tab-territories-admin'),
+      tabBoundariesAdmin: document.getElementById('tab-boundaries-admin'),
+      tabDataQuality: document.getElementById('tab-data-quality'),
+      tabPanelSalesReview: document.getElementById('tab-panel-sales-review'),
+      tabPanelRepsAdmin: document.getElementById('tab-panel-reps-admin'),
+      tabPanelTerritoriesAdmin: document.getElementById('tab-panel-territories-admin'),
+      tabPanelBoundariesAdmin: document.getElementById('tab-panel-boundaries-admin'),
+      tabPanelDataQuality: document.getElementById('tab-panel-data-quality'),
+      adminSalesReviewBody: document.getElementById('admin-sales-review-body'),
+      adminSalesReviewFilter: document.getElementById('admin-sales-review-filter'),
+      adminExportSalesReview: document.getElementById('admin-export-sales-review'),
+      adminRepsBody: document.getElementById('admin-reps-body'),
+      adminRepSearch: document.getElementById('admin-rep-search'),
+      adminRepTeamFilter: document.getElementById('admin-rep-team-filter'),
+      adminExportReps: document.getElementById('admin-export-reps'),
+      adminTerritoriesBody: document.getElementById('admin-territories-body'),
+      adminExportTerritories: document.getElementById('admin-export-territories'),
+      adminBoundariesBody: document.getElementById('admin-boundaries-body'),
+      adminExportBoundaries: document.getElementById('admin-export-boundaries'),
+      adminQualityList: document.getElementById('admin-quality-list'),
+      adminQualityBody: document.getElementById('admin-quality-body'),
+      adminExportQuality: document.getElementById('admin-export-quality')
+    });
+
+    function getSessionEmailLower() {
+      const txt = String(els.sessionEmail?.textContent || '').trim().toLowerCase();
+      if (txt && txt !== 'signed in' && txt !== 'not signed in') return txt;
+      return '';
+    }
+
+    async function getCurrentUserEmail() {
+      const { data } = await supabaseClient.auth.getSession();
+      return String(data?.session?.user?.email || '').trim().toLowerCase();
+    }
+
+    async function isMainAdminSession() {
+      if (!isCompanyView) return false;
+      const email = await getCurrentUserEmail();
+      return FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
+    }
+
+    async function applyAdminAccessUi() {
+      const allowed = await isMainAdminSession();
+      document.body.classList.toggle('admin-enabled', allowed);
+      document.body.classList.toggle('admin-denied', !allowed);
+      const note = document.getElementById('admin-access-note');
+      if (note) {
+        note.className = allowed ? 'admin-alert' : 'admin-alert bad';
+        note.textContent = allowed
+          ? 'Admin tools are enabled for the main company admin login. These tabs are hidden from vendor/team dashboard links.'
+          : 'Admin tools are hidden. Use the main company admin URL with the approved admin email to access control-center actions.';
+      }
+      return allowed;
+    }
+
+    async function loadAdminControlData() {
+      const allowed = await applyAdminAccessUi();
+      if (!allowed) {
+        adminState = { rep_territories: [], territory_boundary_files: [], quality_issues: [] };
+        renderAdminControlCenter();
+        return false;
+      }
+      try {
+        const [repTerritories, boundaryFiles] = await Promise.all([
+          fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
+          fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } })
+        ]);
+        adminState.rep_territories = repTerritories || [];
+        adminState.territory_boundary_files = boundaryFiles || [];
+      } catch (err) {
+        console.warn('Admin control data failed to load', err);
+        adminState.rep_territories = adminState.rep_territories || [];
+        adminState.territory_boundary_files = adminState.territory_boundary_files || [];
+      }
+      renderAdminControlCenter();
+      return true;
+    }
+
+    const originalLoadDataForAdmin = loadData;
+    loadData = async function() {
+      await originalLoadDataForAdmin();
+      await loadAdminControlData();
+    };
+
+    const originalRenderAllForAdmin = renderAll;
+    renderAll = function() {
+      const result = originalRenderAllForAdmin();
+      renderAdminControlCenter();
+      return result;
+    };
+
+    const originalSetActiveTabForAdmin = setActiveTab;
+    setActiveTab = function(tabName) {
+      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality'];
+      const isAdminTab = adminTabs.includes(tabName);
+      const canShowAdmin = document.body.classList.contains('admin-enabled');
+      if (isAdminTab && !canShowAdmin) {
+        originalSetActiveTabForAdmin('overview');
+        return;
+      }
+
+      const showSalesReview = tabName === 'sales-review';
+      const showRepsAdmin = tabName === 'reps-admin';
+      const showTerritoriesAdmin = tabName === 'territories-admin';
+      const showBoundariesAdmin = tabName === 'boundaries-admin';
+      const showDataQuality = tabName === 'data-quality';
+
+      if (!isAdminTab) {
+        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach(el => el && el.classList.remove('active'));
+        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality].forEach(el => el && el.classList.remove('active'));
+        originalSetActiveTabForAdmin(tabName);
+        return;
+      }
+
+      pauseRouteReplay();
+      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach(el => el && el.classList.remove('active'));
+      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality].forEach(el => el && el.classList.remove('active'));
+
+      if (showSalesReview) { els.tabSalesReview.classList.add('active'); els.tabPanelSalesReview.classList.add('active'); }
+      if (showRepsAdmin) { els.tabRepsAdmin.classList.add('active'); els.tabPanelRepsAdmin.classList.add('active'); }
+      if (showTerritoriesAdmin) { els.tabTerritoriesAdmin.classList.add('active'); els.tabPanelTerritoriesAdmin.classList.add('active'); }
+      if (showBoundariesAdmin) { els.tabBoundariesAdmin.classList.add('active'); els.tabPanelBoundariesAdmin.classList.add('active'); }
+      if (showDataQuality) { els.tabDataQuality.classList.add('active'); els.tabPanelDataQuality.classList.add('active'); }
+      renderAdminControlCenter();
+    };
+
+    function adminTerritoryKey(value) { return normalizeTerritory(value || ''); }
+    function normAddressKey(a) { return [a.address, a.city, a.state, a.zip].map(v => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()).join('|'); }
+    function hasSaleSnapshot(row) { return !!(row.offer_snapshot || row.offer_snapshot_json || row.offer_code || row.offer_title || row.promo_snapshot_source); }
+    function saleReviewStatus(row) { return String(row.review_status || row.admin_status || row.processing_status || 'submitted').toLowerCase().trim(); }
+    function statusTag(status) {
+      const s = String(status || 'submitted').toLowerCase();
+      const cls = s === 'entered_in_zip' || s === 'installed' || s === 'customer_confirmed' ? 'good' : s === 'needs_review' ? 'warn' : s === 'rejected' || s === 'cancelled' || s === 'duplicate' ? 'bad' : 'info';
+      return `<span class="admin-tag ${cls}">${escapeHtml(ADMIN_REVIEW_STATUSES[s] || s || 'Submitted')}</span>`;
+    }
+
+    function adminRepTerritoryMap() {
+      const m = new Map();
+      adminState.rep_territories.forEach(rt => {
+        const key = idKey(rt.rep_id || rt.repId || rt.rep);
+        if (!key) return;
+        if (!m.has(key)) m.set(key, []);
+        const terr = String(rt.territory || '').trim();
+        if (terr && !m.get(key).includes(terr)) m.get(key).push(terr);
+      });
+      return m;
+    }
+
+    function boundaryMapByTerritory(activeOnly = true) {
+      const m = new Map();
+      (adminState.territory_boundary_files || []).forEach(b => {
+        if (activeOnly && b.is_active === false) return;
+        const k = adminTerritoryKey(b.territory);
+        if (!k) return;
+        if (!m.has(k)) m.set(k, []);
+        m.get(k).push(b);
+      });
+      return m;
+    }
+
+    function territoryRowsForAdmin() {
+      const addressMap = buildAddressMap();
+      const filters = currentFilters();
+      const latest = latestEventsMap(state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap) && rowMatchesRep(ev, filters.rep)));
+      const repTerritories = adminState.rep_territories || [];
+      const boundaryMap = boundaryMapByTerritory(true);
+      const rowsByTerritory = new Map();
+
+      state.addresses.forEach(a => {
+        const terr = String(a.territory || '').trim() || 'Unknown';
+        const k = adminTerritoryKey(terr);
+        if (!rowsByTerritory.has(k)) rowsByTerritory.set(k, { territory: terr, total: 0, worked: 0, pending: 0, sales: 0, reps: [], boundaries: [], offerMega: false, offerGig: false });
+        const row = rowsByTerritory.get(k);
+        row.total++;
+        const ev = latest.get(idKey(a.id));
+        const status = String(ev?.status || a.status || '').toLowerCase();
+        if (ev && status !== 'pending') row.worked++; else row.pending++;
+      });
+
+      const salesTerrMap = new Map();
+      state.sales_orders.forEach(s => {
+        const terr = String(getRowTerritory(s, buildAddressMap()) || s.territory || '').trim();
+        const k = adminTerritoryKey(terr);
+        salesTerrMap.set(k, (salesTerrMap.get(k) || 0) + 1);
+      });
+      repTerritories.forEach(rt => {
+        const k = adminTerritoryKey(rt.territory);
+        if (!rowsByTerritory.has(k)) rowsByTerritory.set(k, { territory: rt.territory, total: 0, worked: 0, pending: 0, sales: 0, reps: [], boundaries: [], offerMega: false, offerGig: false });
+      });
+      rowsByTerritory.forEach((row, k) => {
+        row.sales = salesTerrMap.get(k) || 0;
+        row.reps = state.reps.filter(r => {
+          const repsForRow = repTerritories.filter(rt => idKey(rt.rep_id) === idKey(r.id)).map(rt => adminTerritoryKey(rt.territory));
+          return repsForRow.includes(k) || adminTerritoryKey(r.territory) === k;
+        }).map(r => getRepName(r) || r.full_name || r.email || idKey(r.id)).filter(Boolean);
+        row.boundaries = boundaryMap.get(k) || [];
+        row.offerMega = !!findOfferForTerritoryPackage(state.fieldos_pricing_offers.filter(o => o.is_active !== false), row.territory, 'mega');
+        row.offerGig = !!findOfferForTerritoryPackage(state.fieldos_pricing_offers.filter(o => o.is_active !== false), row.territory, 'gig');
+      });
+      return [...rowsByTerritory.values()].sort((a,b) => String(a.territory).localeCompare(String(b.territory)));
+    }
+
+    function buildQualityIssues() {
+      const issues = [];
+      const missingGps = state.addresses.filter(a => !a.lat || !a.lng);
+      const missingTerritory = state.addresses.filter(a => !String(a.territory || '').trim());
+      const dup = new Map();
+      state.addresses.forEach(a => { const k = normAddressKey(a); if (k.replace(/\|/g,'')) dup.set(k, (dup.get(k)||0)+1); });
+      const duplicateCount = [...dup.values()].filter(v => v > 1).length;
+      const missingSalesContact = state.sales_orders.filter(s => !firstNonEmpty(s.phone, s.customer_phone, s.mobile, s.cell_phone) || !firstNonEmpty(s.email, s.customer_email));
+      const missingSalesSnapshot = state.sales_orders.filter(s => !hasSaleSnapshot(s));
+      const eventsMissingRep = state.address_events.filter(ev => !getRepName(ev));
+      const eventsMissingAddress = state.address_events.filter(ev => !idKey(ev.address_id));
+      const territoryRows = territoryRowsForAdmin();
+      const territoriesNoRep = territoryRows.filter(t => !t.reps.length && t.total > 0);
+      const territoriesNoBoundary = territoryRows.filter(t => !t.boundaries.length && t.total > 0);
+      const territoriesNoOffers = territoryRows.filter(t => (!t.offerMega || !t.offerGig) && t.total > 0);
+      const repTerritoryMap = adminRepTerritoryMap();
+      const repsNoTerritory = state.reps.filter(r => !(repTerritoryMap.get(idKey(r.id)) || []).length && !String(r.territory || '').trim());
+
+      function add(sev, area, issue, count, fix, detailRows) { if (count > 0) issues.push({ severity: sev, area, issue, count, recommended_fix: fix, detailRows: detailRows || [] }); }
+      add('warn', 'Addresses', 'Addresses missing GPS coordinates', missingGps.length, 'Geocode or refresh address lat/lng before relying on map routing.', missingGps);
+      add('bad', 'Addresses', 'Addresses missing territory', missingTerritory.length, 'Assign a territory so reps, pricing, and KMZ files can load correctly.', missingTerritory);
+      add('warn', 'Addresses', 'Possible duplicate addresses', duplicateCount, 'Review duplicate address keys and merge/disable duplicates where needed.', []);
+      add('bad', 'Sales', 'Submitted sales missing phone or email', missingSalesContact.length, 'Review before CRM/ZiP entry and contact the rep if customer info is incomplete.', missingSalesContact);
+      add('warn', 'Sales', 'Submitted sales missing offer snapshot', missingSalesSnapshot.length, 'Confirm pricing quoted before entering the order; submit new sales only with the updated rep app.', missingSalesSnapshot);
+      add('warn', 'Events', 'Disposition events missing rep name', eventsMissingRep.length, 'Check old app versions or write logic so rep_name/salesperson is always captured.', eventsMissingRep);
+      add('bad', 'Events', 'Disposition events missing address_id', eventsMissingAddress.length, 'These events may not attach to a customer address; inspect write logic.', eventsMissingAddress);
+      add('warn', 'Reps', 'Reps without territory assignment', repsNoTerritory.length, 'Add rows in rep_territories or set a fallback territory on the rep record.', repsNoTerritory);
+      add('bad', 'Territories', 'Territories with addresses but no assigned reps', territoriesNoRep.length, 'Assign reps or pause this territory before rollout.', territoriesNoRep);
+      add('warn', 'Boundary Files', 'Territories missing active KMZ/KML boundary', territoriesNoBoundary.length, 'Add a territory_boundary_files row mapped to the correct Storage path.', territoriesNoBoundary);
+      add('bad', 'Pricing', 'Territories missing Mega or Gig active offer coverage', territoriesNoOffers.length, 'Add active fieldos_pricing_offers rows for Mega and Gig.', territoriesNoOffers);
+      return issues.sort((a,b) => (a.severity === 'bad' ? 0 : 1) - (b.severity === 'bad' ? 0 : 1) || b.count - a.count);
+    }
+
+    function renderAdminControlCenter() {
+      if (!document.body.classList.contains('admin-enabled')) return;
+      renderAdminSalesReview();
+      renderAdminReps();
+      renderAdminTerritories();
+      renderAdminBoundaries();
+      renderAdminDataQuality();
+    }
+
+    function renderAdminSalesReview() {
+      const rows = buildSalesQueueRows(state.sales_orders, state.address_events, buildAddressMap(), currentFilters());
+      const filter = els.adminSalesReviewFilter?.value || 'all';
+      const reviewRows = rows.map(r => {
+        const raw = state.sales_orders.find(s => idKey(s.id) === idKey(r.raw_id)) || state.sales_orders.find(s => String(s.created_at) === String(r.created_at) && (getRepName(s) === r.rep_name || buildAddressLabel(buildAddressMap(), s) === r.address)) || {};
+        return { ...r, raw_id: r.raw_id || raw.id || '', review_status: r.review_status || saleReviewStatus(raw), review_note: r.review_note || raw.review_note || raw.admin_note || '', raw };
+      }).filter(r => filter === 'all' || r.review_status === filter || (filter === 'needs_review' && (!r.review_status || r.review_status === 'submitted' || r.review_status === 'needs_review')));
+      const needsReview = reviewRows.filter(r => !r.review_status || ['submitted','needs_review'].includes(r.review_status)).length;
+      const missingSnapshot = reviewRows.filter(r => !r.offer_snapshot && !r.offer_code).length;
+      const missingContact = reviewRows.filter(r => !r.phone || !r.email).length;
+      setText('admin-kpi-sales-submitted', formatNumber(rows.length));
+      setText('admin-kpi-sales-review', formatNumber(needsReview));
+      setText('admin-kpi-sales-snapshot', formatNumber(missingSnapshot));
+      setText('admin-kpi-sales-contact', formatNumber(missingContact));
+      if (!els.adminSalesReviewBody) return;
+      els.adminSalesReviewBody.innerHTML = reviewRows.length ? reviewRows.map(r => {
+        const flags = [];
+        if (!r.phone || !r.email) flags.push('<span class="admin-tag bad">Missing contact</span>');
+        if (!r.offer_snapshot && !r.offer_code) flags.push('<span class="admin-tag warn">No snapshot</span>');
+        if (!r.raw_id) flags.push('<span class="admin-tag warn">No row id</span>');
+        return `<tr><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${statusTag(r.review_status)}${r.review_note ? '<div class="admin-note">'+escapeHtml(r.review_note)+'</div>' : ''}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}<div class="admin-note">${escapeHtml(r.address || '')}</div></td><td>${escapeHtml(r.package_name || '—')}<div class="admin-note">${escapeHtml(r.offer_promo || '')} ${escapeHtml(r.monthly_total || '')}</div></td><td>${escapeHtml(r.phone || '—')}<br>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.install_date || '—')}<br>${escapeHtml(r.install_time || '—')}</td><td>${flags.join(' ') || '<span class="admin-tag good">OK</span>'}</td><td><div class="admin-actions"><button class="inline-admin-btn good" data-sale-review="entered_in_zip" data-sale-id="${escapeHtml(r.raw_id)}">Entered</button><button class="inline-admin-btn warn" data-sale-review="needs_review" data-sale-id="${escapeHtml(r.raw_id)}">Flag</button><button class="inline-admin-btn bad" data-sale-review="rejected" data-sale-id="${escapeHtml(r.raw_id)}">Reject</button></div></td></tr>`;
+      }).join('') : '<tr><td colspan="10" style="color:#94a3b8;">No sales found for this review filter.</td></tr>';
+      if (els.adminExportSalesReview) els.adminExportSalesReview.onclick = () => csvDownload('fieldos_admin_sales_review.csv', reviewRows.map(r => ({ created_at: r.created_at, review_status: r.review_status, rep: r.rep_name, territory: r.territory, customer: r.customer_name, phone: r.phone, email: r.email, address: r.address, package: r.package_name, offer: r.offer_promo, monthly_total: r.monthly_total, install_date: r.install_date, install_time: r.install_time, notes: r.notes })));
+    }
+
+    function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+
+    function renderAdminReps() {
+      const repTerrMap = adminRepTerritoryMap();
+      const q = String(els.adminRepSearch?.value || '').toLowerCase().trim();
+      const teamFilter = els.adminRepTeamFilter?.value || 'all';
+      const teams = [...new Set(state.reps.map(r => firstNonEmpty(r.team_slug, r.team, r.company, r.vendor, r.source)).filter(Boolean))].sort();
+      if (els.adminRepTeamFilter && els.adminRepTeamFilter.options.length <= 1) {
+        els.adminRepTeamFilter.innerHTML = '<option value="all">All Teams</option>' + teams.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      }
+      let rows = state.reps.map(r => {
+        const terrs = repTerrMap.get(idKey(r.id)) || (r.territory ? [r.territory] : []);
+        const events = state.address_events.filter(ev => getRepName(ev) === getRepName(r));
+        const sales = state.sales_orders.filter(s => getRepName(s) === getRepName(r));
+        return { row: r, name: getRepName(r) || r.full_name || '', email: r.email || '', phone: r.phone || '', team: firstNonEmpty(r.team_slug, r.team, r.company, r.vendor, r.source), role: r.role || '', territories: terrs, events: events.length, sales: sales.length, is_active: r.is_active !== false };
+      });
+      if (teamFilter !== 'all') rows = rows.filter(r => r.team === teamFilter);
+      if (q) rows = rows.filter(r => [r.name, r.email, r.phone, r.team, r.role, r.territories.join(' ')].join(' ').toLowerCase().includes(q));
+      setText('admin-kpi-reps-total', formatNumber(state.reps.length));
+      setText('admin-kpi-reps-active', formatNumber(state.reps.filter(r => r.is_active !== false).length));
+      setText('admin-kpi-reps-no-territory', formatNumber(state.reps.filter(r => !(repTerrMap.get(idKey(r.id)) || []).length && !String(r.territory || '').trim()).length));
+      setText('admin-kpi-reps-teams', formatNumber(teams.length));
+      if (els.adminRepsBody) els.adminRepsBody.innerHTML = rows.length ? rows.map(r => `<tr><td><strong>${escapeHtml(r.name || '—')}</strong><div class="admin-note">ID: ${escapeHtml(idKey(r.row.id) || '—')}</div></td><td>${escapeHtml(r.phone || '—')}<br>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.team || '—')}<div class="admin-note">${escapeHtml(r.role || '')}</div></td><td>${r.territories.length ? r.territories.map(t => '<span class="admin-tag info">'+escapeHtml(t)+'</span>').join(' ') : '<span class="admin-tag warn">No territory</span>'}</td><td>${formatNumber(r.events)} events<br>${formatNumber(r.sales)} sales</td><td>${r.is_active ? '<span class="admin-tag good">Active</span>' : '<span class="admin-tag bad">Inactive</span>'}</td><td><div class="admin-actions"><button class="inline-admin-btn ${r.is_active ? 'bad' : 'good'}" data-rep-active="${r.is_active ? 'false' : 'true'}" data-rep-id="${escapeHtml(idKey(r.row.id))}">${r.is_active ? 'Deactivate' : 'Activate'}</button><button class="inline-admin-btn" data-open-rep="${escapeHtml(idKey(r.row.id))}">Details</button></div></td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No reps found.</td></tr>';
+      if (els.adminExportReps) els.adminExportReps.onclick = () => csvDownload('fieldos_reps_admin.csv', rows.map(r => ({ name: r.name, email: r.email, phone: r.phone, team: r.team, role: r.role, territories: r.territories.join('; '), events: r.events, sales: r.sales, is_active: r.is_active })));
+    }
+
+    function renderAdminTerritories() {
+      const rows = territoryRowsForAdmin();
+      const noReps = rows.filter(r => !r.reps.length && r.total > 0).length;
+      const noBoundary = rows.filter(r => !r.boundaries.length && r.total > 0).length;
+      const noOffers = rows.filter(r => (!r.offerMega || !r.offerGig) && r.total > 0).length;
+      setText('admin-kpi-territories-total', formatNumber(rows.length));
+      setText('admin-kpi-territories-no-reps', formatNumber(noReps));
+      setText('admin-kpi-territories-no-boundary', formatNumber(noBoundary));
+      setText('admin-kpi-territories-no-offers', formatNumber(noOffers));
+      if (els.adminTerritoriesBody) els.adminTerritoriesBody.innerHTML = rows.length ? rows.map(r => {
+        const offerHtml = `${r.offerMega ? '<span class="admin-tag good">Mega</span>' : '<span class="admin-tag bad">Missing Mega</span>'} ${r.offerGig ? '<span class="admin-tag good">Gig</span>' : '<span class="admin-tag bad">Missing Gig</span>'}`;
+        const rec = !r.reps.length ? 'Assign a rep before launching.' : !r.boundaries.length ? 'Add boundary mapping.' : (!r.offerMega || !r.offerGig) ? 'Fix pricing coverage.' : r.pending > 0 ? 'Continue working pending doors.' : 'Territory is fully worked.';
+        return `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.total)}</td><td>${formatNumber(r.worked)} worked<br>${formatNumber(r.pending)} pending</td><td>${formatNumber(r.sales)}</td><td>${r.reps.length ? r.reps.map(x => '<span class="admin-tag info">'+escapeHtml(x)+'</span>').join(' ') : '<span class="admin-tag bad">No rep</span>'}</td><td>${r.boundaries.length ? '<span class="admin-tag good">'+formatNumber(r.boundaries.length)+' file(s)</span>' : '<span class="admin-tag bad">Missing</span>'}</td><td>${offerHtml}</td><td>${escapeHtml(rec)}</td></tr>`;
+      }).join('') : '<tr><td colspan="8" style="color:#94a3b8;">No territories found.</td></tr>';
+      if (els.adminExportTerritories) els.adminExportTerritories.onclick = () => csvDownload('fieldos_territories_admin.csv', rows.map(r => ({ territory: r.territory, addresses: r.total, worked: r.worked, pending: r.pending, sales: r.sales, reps: r.reps.join('; '), boundary_files: r.boundaries.length, mega_offer: r.offerMega, gig_offer: r.offerGig })));
+    }
+
+    function renderAdminBoundaries() {
+      const rows = adminState.territory_boundary_files || [];
+      const active = rows.filter(r => r.is_active !== false);
+      const territoryRows = territoryRowsForAdmin();
+      const missing = territoryRows.filter(t => t.total > 0 && !t.boundaries.length).length;
+      const dupMap = new Map();
+      active.forEach(r => { const k = adminTerritoryKey(r.territory); dupMap.set(k, (dupMap.get(k)||0)+1); });
+      const dups = [...dupMap.values()].filter(v => v > 1).length;
+      setText('admin-kpi-boundaries-total', formatNumber(rows.length));
+      setText('admin-kpi-boundaries-active', formatNumber(active.length));
+      setText('admin-kpi-boundaries-missing', formatNumber(missing));
+      setText('admin-kpi-boundaries-duplicates', formatNumber(dups));
+      if (els.adminBoundariesBody) els.adminBoundariesBody.innerHTML = rows.length ? rows.map(r => `<tr><td>${escapeHtml(r.team_slug || 'all')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.display_name || '—')}</td><td><strong>${escapeHtml(r.bucket_name || 'fieldos-boundaries')}</strong><div class="admin-note">${escapeHtml(r.file_path || '')}</div></td><td>${escapeHtml(r.file_type || 'kmz')}</td><td>${r.is_active !== false ? '<span class="admin-tag good">Active</span>' : '<span class="admin-tag warn">Inactive</span>'}</td><td><div class="admin-actions"><button class="inline-admin-btn ${r.is_active !== false ? 'warn' : 'good'}" data-boundary-active="${r.is_active !== false ? 'false' : 'true'}" data-boundary-id="${escapeHtml(idKey(r.id))}">${r.is_active !== false ? 'Deactivate' : 'Activate'}</button><button class="inline-admin-btn" data-copy-path="${escapeHtml(r.file_path || '')}">Copy Path</button></div></td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No boundary mappings found.</td></tr>';
+      if (els.adminExportBoundaries) els.adminExportBoundaries.onclick = () => csvDownload('fieldos_boundary_files_admin.csv', rows.map(r => ({ team_slug: r.team_slug, territory: r.territory, display_name: r.display_name, bucket_name: r.bucket_name, file_path: r.file_path, file_type: r.file_type, is_active: r.is_active })));
+    }
+
+    function renderAdminDataQuality() {
+      const issues = buildQualityIssues();
+      adminState.quality_issues = issues;
+      const gps = issues.find(i => i.issue === 'Addresses missing GPS coordinates')?.count || 0;
+      const dups = issues.find(i => i.issue === 'Possible duplicate addresses')?.count || 0;
+      const salesIssues = issues.filter(i => i.area === 'Sales').reduce((s,i) => s + i.count, 0);
+      setText('admin-kpi-quality-issues', formatNumber(issues.length));
+      setText('admin-kpi-quality-gps', formatNumber(gps));
+      setText('admin-kpi-quality-duplicates', formatNumber(dups));
+      setText('admin-kpi-quality-sales', formatNumber(salesIssues));
+      if (els.adminQualityList) els.adminQualityList.innerHTML = issues.length ? issues.slice(0, 8).map(i => `<div class="warning-item ${i.severity === 'bad' ? 'bad' : ''}"><strong>${escapeHtml(i.area)}:</strong> ${escapeHtml(i.issue)} — ${formatNumber(i.count)}. <span style="color:#cbd5e1;">${escapeHtml(i.recommended_fix)}</span></div>`).join('') : '<div class="warning-item good">No major data quality issues found in the currently loaded data.</div>';
+      if (els.adminQualityBody) els.adminQualityBody.innerHTML = issues.length ? issues.map((i, idx) => `<tr class="row-btn" data-quality-index="${idx}"><td>${i.severity === 'bad' ? '<span class="admin-tag bad">High</span>' : '<span class="admin-tag warn">Medium</span>'}</td><td>${escapeHtml(i.area)}</td><td>${escapeHtml(i.issue)}</td><td>${formatNumber(i.count)}</td><td>${escapeHtml(i.recommended_fix)}</td></tr>`).join('') : '<tr><td colspan="5" style="color:#94a3b8;">No data quality issues found.</td></tr>';
+      if (els.adminExportQuality) els.adminExportQuality.onclick = () => csvDownload('fieldos_data_quality_issues.csv', issues.map(i => ({ severity: i.severity, area: i.area, issue: i.issue, count: i.count, recommended_fix: i.recommended_fix })));
+    }
+
+    async function updateAdminRow(table, id, payload, successMessage) {
+      const allowed = await isMainAdminSession();
+      if (!allowed) { els.status.textContent = 'Admin action blocked: main admin login required.'; els.status.classList.add('error'); return; }
+      if (!id) { els.status.textContent = 'Admin action blocked: missing row id.'; els.status.classList.add('error'); return; }
+      const { error } = await supabaseClient.from(table).update(payload).eq('id', id);
+      if (error) {
+        els.status.textContent = error.message || 'Admin update failed.';
+        els.status.classList.add('error');
+        return;
+      }
+      els.status.classList.remove('error');
+      els.status.textContent = successMessage || 'Admin update saved.';
+      await loadData();
+    }
+
+    document.addEventListener('click', async function(e) {
+      const saleBtn = e.target.closest('[data-sale-review]');
+      if (saleBtn) {
+        const status = saleBtn.getAttribute('data-sale-review');
+        const id = saleBtn.getAttribute('data-sale-id');
+        const note = status === 'needs_review' || status === 'rejected' ? prompt('Optional admin note for this sale:') : '';
+        await updateAdminRow('sales_orders', id, { review_status: status, review_note: note || null, reviewed_at: new Date().toISOString(), reviewed_by: getSessionEmailLower() }, 'Sales review status updated.');
+        return;
+      }
+      const repBtn = e.target.closest('[data-rep-active]');
+      if (repBtn) {
+        const id = repBtn.getAttribute('data-rep-id');
+        const isActive = repBtn.getAttribute('data-rep-active') === 'true';
+        await updateAdminRow('reps', id, { is_active: isActive, updated_at: new Date().toISOString() }, 'Rep active status updated.');
+        return;
+      }
+      const boundaryBtn = e.target.closest('[data-boundary-active]');
+      if (boundaryBtn) {
+        const id = boundaryBtn.getAttribute('data-boundary-id');
+        const isActive = boundaryBtn.getAttribute('data-boundary-active') === 'true';
+        await updateAdminRow('territory_boundary_files', id, { is_active: isActive, updated_at: new Date().toISOString() }, 'Boundary mapping updated.');
+        return;
+      }
+      const copyBtn = e.target.closest('[data-copy-path]');
+      if (copyBtn) {
+        const path = copyBtn.getAttribute('data-copy-path') || '';
+        try { await navigator.clipboard.writeText(path); els.status.textContent = 'Copied file path: ' + path; } catch (err) { els.status.textContent = path; }
+        return;
+      }
+      const qualityRow = e.target.closest('[data-quality-index]');
+      if (qualityRow) {
+        const issue = adminState.quality_issues[Number(qualityRow.getAttribute('data-quality-index'))];
+        if (issue) openDetail('Data Quality Detail: ' + issue.issue, issue.detailRows && issue.detailRows.length ? issue.detailRows : [issue]);
+      }
+      const repDetailBtn = e.target.closest('[data-open-rep]');
+      if (repDetailBtn) {
+        const id = repDetailBtn.getAttribute('data-open-rep');
+        const rep = state.reps.find(r => idKey(r.id) === id);
+        if (rep) openDetail('Rep Detail', [rep]);
+      }
+    });
+
+    [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality].forEach((tab, idx) => {
+      if (!tab) return;
+      const names = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality'];
+      tab.onclick = () => setActiveTab(names[idx]);
+    });
+    if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.onchange = renderAdminSalesReview;
+    if (els.adminRepSearch) els.adminRepSearch.oninput = renderAdminReps;
+    if (els.adminRepTeamFilter) els.adminRepTeamFilter.onchange = renderAdminReps;
+    const adminRefreshReps = document.getElementById('admin-refresh-reps');
+    if (adminRefreshReps) adminRefreshReps.onclick = loadData;
+
 
     init();
   </script>
