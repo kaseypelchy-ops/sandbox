@@ -216,6 +216,12 @@
       </div>
 
       <div class="panel controls">
+        <select id="team-filter">
+          <option value="all">All Teams</option>
+          <option value="fiber">Fiber Sales Team</option>
+          <option value="sfi">Sales Focus Inc.</option>
+          <option value="lynxx">Lynxx</option>
+        </select>
         <select id="territory-filter"><option value="all">All Territories</option></select>
         <select id="rep-filter"><option value="all">All Reps</option></select>
         <input id="start-date" type="date" />
@@ -233,6 +239,7 @@
       </div>
 
       <div id="status-line" class="status-line">Signed in. Loading data...</div>
+      <div class="status-line">Recovery view: this dashboard reads the core FieldOS tables directly and filters by the Team dropdown. It does not depend on experimental active/historical views.</div>
 
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
@@ -749,7 +756,7 @@
             <div class="panel-head">
               <div>
                 <h2>AI Analysis Summary</h2>
-                <div class="panel-sub">Automated field readout based on current active FieldOS activity only. Historical imports are excluded from coaching, route pace, and gap analysis.</div>
+                <div class="panel-sub">Automated field readout based on the current filtered activity.</div>
               </div>
             </div>
             <div id="current-stop" class="current-stop">
@@ -807,16 +814,43 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
-    const activeTeam = (urlParams.get('team') || '').toLowerCase().trim();
+
+    // Main admin dashboard recovery:
+    // Do not hard-lock the entire dashboard to ?team=sfi / ?team=fiber.
+    // The URL can preselect a team, but the visible Team filter controls what is loaded.
+    const initialTeamParam = (urlParams.get('team') || 'all').toLowerCase().trim();
+    const DEFAULT_TEAM_FILTER = ['fiber', 'sfi', 'lynxx'].includes(initialTeamParam) ? initialTeamParam : 'all';
+
     const TEAM_TERRITORIES = {
-      fiber: ['bryson_city_nc', 'cameron_tx', 'crawford_tx'],
-      sfi: ['pottsville_pa', 'saint_marys_pa'],
-      lynxx: ['battle_mountain_nv', 'elko_nv']
+      fiber: [
+        'bryson_city_nc',
+        'cameron_tx',
+        'crawford_tx',
+        'elmwood_ne',
+        'palmyra_ne',
+        'syracuse_ne',
+        'wilber_ne'
+      ],
+      sfi: [
+        'pottsville_pa',
+        'saint_marys_pa'
+      ],
+      lynxx: [
+        'battle_mountain_nv',
+        'elko_nv'
+      ]
     };
-    const TEAM_LABELS = { fiber: 'Fiber Sales Team', sfi: 'Sales Focus Inc.', lynxx: 'Lynxx' };
-    const allowedTerritories = TEAM_TERRITORIES[activeTeam] || null;
-    const allowedTerritoryKeys = allowedTerritories ? allowedTerritories.map(normalizeTerritory) : null;
-    const isCompanyView = !allowedTerritories;
+
+    const TEAM_LABELS = {
+      all: 'All Teams',
+      fiber: 'Fiber Sales Team',
+      sfi: 'Sales Focus Inc.',
+      lynxx: 'Lynxx'
+    };
+
+    // Keep main admin tools available from the main dashboard.
+    // Team filtering is handled by the Team dropdown instead of the URL.
+    const isCompanyView = true;
     const SALE_STATUSES = new Set(['mega', 'gig']);
 
     const els = {
@@ -826,7 +860,7 @@
       tabOverview: document.getElementById('tab-overview'), tabSales: document.getElementById('tab-sales'), tabPricing: document.getElementById('tab-pricing'), tabInstallCapacity: document.getElementById('tab-install-capacity'), tabRoute: document.getElementById('tab-route'),
       tabPanelOverview: document.getElementById('tab-panel-overview'), tabPanelSales: document.getElementById('tab-panel-sales'), tabPanelPricing: document.getElementById('tab-panel-pricing'), tabPanelInstallCapacity: document.getElementById('tab-panel-install-capacity'), tabPanelRoute: document.getElementById('tab-panel-route'),
       salesQueueBody: document.getElementById('sales-queue-body'), exportSalesQueue: document.getElementById('export-sales-queue-btn'), installCapacityBody: document.getElementById('install-capacity-body'), installCapacityDetailBody: document.getElementById('install-capacity-detail-body'), installCapacityAlerts: document.getElementById('install-capacity-alerts'), exportInstallCapacity: document.getElementById('export-install-capacity-btn'), pricingOffersBody: document.getElementById('pricing-offers-body'), pricingCoverageBody: document.getElementById('pricing-coverage-body'), promoWarnings: document.getElementById('promo-warning-list'), exportPricingOffers: document.getElementById('export-pricing-offers-btn'),
-      territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
+      team: document.getElementById('team-filter'), territory: document.getElementById('territory-filter'), rep: document.getElementById('rep-filter'), start: document.getElementById('start-date'), end: document.getElementById('end-date'), refresh: document.getElementById('refresh-btn'), exportActivity: document.getElementById('export-activity-btn'), exportSales: document.getElementById('export-sales-btn'), exportEvents: document.getElementById('export-events-btn'), activitySearch: document.getElementById('activity-search'), autoRefresh: document.getElementById('auto-refresh'), status: document.getElementById('status-line'), repList: document.getElementById('rep-list'), scheduleList: document.getElementById('schedule-list'), activityBody: document.getElementById('activity-body'),
       routeRender: document.getElementById('route-render-btn'), routePlay: document.getElementById('route-play-btn'), routePause: document.getElementById('route-pause-btn'), routeReset: document.getElementById('route-reset-btn'), routeSpeed: document.getElementById('route-speed'), routeStatus: document.getElementById('route-status'), routeStops: document.getElementById('route-stat-stops'), routeDoors: document.getElementById('route-stat-doors'), routeWindow: document.getElementById('route-stat-window'), routePace: document.getElementById('route-stat-pace'), currentStop: document.getElementById('current-stop'), aiSummary: document.getElementById('ai-summary'),
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
@@ -841,17 +875,10 @@
     let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0, fieldos_pricing_offers: 0 };
 
     function setDashboardHeader() {
-      if (isCompanyView) {
-        els.dashboardTitle.textContent = 'Company Admin Dashboard';
-        els.dashboardSubtitle.textContent = 'Company-wide view across all territories.';
-        els.authTitle.textContent = 'Company Dashboard Login';
-        els.authSubtitle.textContent = 'Sign in with your company admin dashboard credentials.';
-      } else {
-        els.dashboardTitle.textContent = (TEAM_LABELS[activeTeam] || activeTeam) + ' Dashboard';
-        els.dashboardSubtitle.textContent = 'RLS-protected view limited to your assigned records.';
-        els.authTitle.textContent = (TEAM_LABELS[activeTeam] || activeTeam) + ' Login';
-        els.authSubtitle.textContent = 'Sign in with your vendor dashboard credentials.';
-      }
+      els.dashboardTitle.textContent = 'Company Admin Dashboard';
+      els.dashboardSubtitle.textContent = 'Company-wide view across teams. Use the Team filter to switch between Fiber, SFI, Lynxx, or All Teams.';
+      els.authTitle.textContent = 'Company Dashboard Login';
+      els.authSubtitle.textContent = 'Sign in with your company admin dashboard credentials.';
     }
 
     function normalizeTerritory(value) {
@@ -873,9 +900,39 @@
         battle_mountain: 'battle_mountain_nv',
         battle_mountain_nevada: 'battle_mountain_nv',
         elko: 'elko_nv',
-        elko_nevada: 'elko_nv'
+        elko_nevada: 'elko_nv',
+        elmwood: 'elmwood_ne',
+        elmwood_nebraska: 'elmwood_ne',
+        palmyra: 'palmyra_ne',
+        palmyra_nebraska: 'palmyra_ne',
+        syracuse: 'syracuse_ne',
+        syracuse_nebraska: 'syracuse_ne',
+        wilber: 'wilber_ne',
+        wilber_nebraska: 'wilber_ne',
+        palestine: 'palestine_tx',
+        palestine_texas: 'palestine_tx',
+        point_coupee: 'point_coupee_la',
+        point_coupee_louisiana: 'point_coupee_la',
+        maringouin: 'point_coupee_la',
+        burnsville: 'burnsville_nc',
+        burnsville_north_carolina: 'burnsville_nc'
       };
       return aliases[key] || key;
+    }
+
+    function selectedTeamFilter() {
+      const fromSelect = els?.team?.value;
+      const selected = String(fromSelect || DEFAULT_TEAM_FILTER || 'all').toLowerCase().trim();
+      return ['fiber', 'sfi', 'lynxx'].includes(selected) ? selected : 'all';
+    }
+
+    function selectedTeamLabel() {
+      return TEAM_LABELS[selectedTeamFilter()] || 'All Teams';
+    }
+
+    function allowedTerritoryKeysForTeam(teamSlug) {
+      const list = TEAM_TERRITORIES[String(teamSlug || '').toLowerCase().trim()] || null;
+      return list ? list.map(normalizeTerritory) : null;
     }
 
     function idKey(value) {
@@ -979,12 +1036,18 @@
 
     function pricingOfferMatchesTeam(row) {
       if (!row) return false;
-      if (isCompanyView) return true;
-      const team = String(row.team_slug || '').toLowerCase().trim();
-      if (team && team !== 'all' && team !== activeTeam) return false;
+
+      const selectedTeam = selectedTeamFilter();
+      if (selectedTeam === 'all') return true;
+
+      const rowTeam = String(row.team_slug || '').toLowerCase().trim();
+      if (rowTeam && rowTeam !== 'all' && rowTeam !== selectedTeam) return false;
+
       const territory = normalizeTerritory(row.territory || 'all');
       if (!territory || territory === 'all') return true;
-      return allowedTerritoryKeys ? allowedTerritoryKeys.includes(territory) : true;
+
+      const allowedKeys = allowedTerritoryKeysForTeam(selectedTeam);
+      return allowedKeys ? allowedKeys.includes(territory) : true;
     }
 
     function activeDateStatus(row) {
@@ -1100,8 +1163,15 @@
     }
 
     function rowMatchesTeam(row, addressMap = null, slotMap = null) {
-      if (!allowedTerritoryKeys) return true;
-      return allowedTerritoryKeys.includes(normalizeTerritory(getRowTerritory(row, addressMap, slotMap)));
+      const selectedTeam = selectedTeamFilter();
+      if (selectedTeam === 'all') return true;
+
+      const rowTeam = getDashboardTeamSlug(row, addressMap, slotMap);
+      if (rowTeam) return rowTeam === selectedTeam;
+
+      const territoryKey = normalizeTerritory(getRowTerritory(row, addressMap, slotMap));
+      const allowedKeys = allowedTerritoryKeysForTeam(selectedTeam);
+      return allowedKeys ? allowedKeys.includes(territoryKey) : true;
     }
 
     function rowMatchesUiTerritory(row, territoryValue, addressMap = null, slotMap = null) {
@@ -1151,6 +1221,7 @@
 
     function currentFilters() {
       return {
+        team: selectedTeamFilter(),
         territory: els.territory.value || 'all',
         rep: els.rep.value || 'all',
         start: els.start.value,
@@ -1220,43 +1291,6 @@
       }
     }
 
-
-    const ACTIVE_EVENT_VIEW = 'fieldos_active_address_events';
-    const ACTIVE_SALES_VIEW = 'fieldos_active_sales_orders';
-    const HISTORICAL_SOURCE_SYSTEMS = new Set([
-      'legacy_fieldos',
-      'legacy_fiber_sales',
-      'legacy_lightningos'
-    ]);
-
-    function isHistoricalOperationalRow(row) {
-      if (!row) return false;
-      const source = String(row.source_system || '').toLowerCase().trim();
-      const review = String(row.review_status || '').toLowerCase().trim();
-      const teamSlug = String(row.team_slug || '').toLowerCase().trim();
-
-      if (source && HISTORICAL_SOURCE_SYSTEMS.has(source)) return true;
-      if (source && source.startsWith('legacy_')) return true;
-      if (review === 'historical') return true;
-      if (teamSlug === 'lightningos') return true;
-
-      return false;
-    }
-
-    function activeOperationalRows(rows) {
-      return (rows || []).filter(row => !isHistoricalOperationalRow(row));
-    }
-
-    async function fetchActiveDashboardRows(preferredView, fallbackTable, opts = {}) {
-      try {
-        return await fetchAllPages(preferredView, opts);
-      } catch (err) {
-        console.warn(`${preferredView} could not be loaded. Falling back to ${fallbackTable} and filtering historical rows in the browser.`, err);
-        const rows = await fetchAllPages(fallbackTable, opts);
-        return activeOperationalRows(rows);
-      }
-    }
-
     async function loadData() {
       const { data: authData } = await supabaseClient.auth.getSession();
       if (!authData.session) { showAuthScreen('Your session expired. Please sign in again.'); return; }
@@ -1283,8 +1317,8 @@
         const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings, fieldos_pricing_offers] = await Promise.all([
           fetchAllPages('addresses', { order: { column: 'address1', ascending: true } }),
           fetchAllPages('reps', { order: { column: 'full_name', ascending: true } }),
-          fetchActiveDashboardRows(ACTIVE_EVENT_VIEW, 'address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
-          fetchActiveDashboardRows(ACTIVE_SALES_VIEW, 'sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
+          fetchAllPages('address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
+          fetchAllPages('sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
           fetchAllPages('schedule_slots', { order: { column: 'slot_date', ascending: true } }),
           fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters }),
           fetchOptionalAllPages('fieldos_pricing_offers', { order: { column: 'priority', ascending: true } })
@@ -1319,9 +1353,10 @@
 
         populateFilters();
         const rendered = renderAll();
-        els.status.textContent = isCompanyView
-          ? `Data loaded successfully. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`
-          : `Data loaded successfully for ${TEAM_LABELS[activeTeam] || activeTeam}. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`;
+        const selectedTeam = selectedTeamFilter();
+        els.status.textContent = selectedTeam === 'all'
+          ? `Data loaded successfully for All Teams. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`
+          : `Data loaded successfully for ${selectedTeamLabel()}. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`;
       } catch (err) {
         els.status.textContent = err.message || 'Could not load Supabase data.';
         els.status.classList.add('error');
@@ -1438,7 +1473,7 @@
       const addressMap = buildAddressMap();
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
 
-      return activeOperationalRows(state.address_events)
+      return state.address_events
         .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
         .map(ev => {
           const linkedAddress = getLinkedAddress(ev, addressMap);
@@ -1765,10 +1800,10 @@
       const addressMap = buildAddressMap();
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
-      const filteredEvents = activeOperationalRows(state.address_events)
+      const filteredEvents = state.address_events
         .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
         .sort((a, b) => timeValue(a.created_at) - timeValue(b.created_at));
-      const filteredSales = activeOperationalRows(state.sales_orders).filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
       const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
       const latestMap = latestEventsMap(filteredEvents);
 
@@ -1981,10 +2016,10 @@
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
 
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
-      const filteredEvents = activeOperationalRows(state.address_events).filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
+      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
       cachedFilteredEvents = filteredEvents;
 
-      const filteredSales = activeOperationalRows(state.sales_orders).filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
       const filteredBookings = state.schedule_bookings
         .map(b => ({ ...b, slot: slotMap.get(idKey(b.schedule_slot_id)) || slotMap.get(idKey(b.slot_id)) || null }))
         .filter(b => rowMatchesUiTerritory(b, filters.territory, addressMap, slotMap) && rowMatchesRep(b, filters.rep));
@@ -2265,7 +2300,7 @@
         return key && key === territoryKey;
       });
       if (territoryRow && territoryRow.team_slug) return String(territoryRow.team_slug).trim().toLowerCase();
-      if (['cameron_tx','crawford_tx','bryson_city_nc','wilber_ne'].includes(territoryKey)) return 'fiber';
+      if (['cameron_tx','crawford_tx','bryson_city_nc','elmwood_ne','palmyra_ne','syracuse_ne','wilber_ne','palestine_tx','point_coupee_la','burnsville_nc'].includes(territoryKey)) return 'fiber';
       if (['pottsville_pa','saint_marys_pa','st_marys_pa'].includes(territoryKey)) return 'sfi';
       if (['battle_mountain_nv','elko_nv'].includes(territoryKey)) return 'lynxx';
       return normalizedDirect || '';
@@ -2601,6 +2636,14 @@
     els.modal.onclick = (e) => { if (e.target === els.modal) els.modal.classList.remove('open'); };
     els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRows);
     els.refresh.onclick = loadData;
+    if (els.team) {
+      els.team.value = DEFAULT_TEAM_FILTER;
+      els.team.onchange = () => {
+        if (els.territory) els.territory.value = 'all';
+        if (els.rep) els.rep.value = 'all';
+        loadData();
+      };
+    }
     els.territory.onchange = renderAll;
     els.rep.onchange = renderAll;
     els.activitySearch.oninput = renderAll;
@@ -2762,7 +2805,6 @@
     }
 
     async function isMainAdminSession() {
-      if (!isCompanyView) return false;
       const email = await getCurrentUserEmail();
       return FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
     }
@@ -3045,12 +3087,9 @@
     }
 
     function getDashboardTeamSlugForInvoice() {
-      if (!isCompanyView && activeTeam) {
-        const lower = String(activeTeam).toLowerCase();
-        if (lower.indexOf('fiber') >= 0) return 'fiber';
-        if (lower.indexOf('sales focus') >= 0 || lower.indexOf('sfi') >= 0) return 'sfi';
-        if (lower.indexOf('lynxx') >= 0) return 'lynxx';
-      }
+      const selectedTeam = selectedTeamFilter();
+      if (selectedTeam && selectedTeam !== 'all') return selectedTeam;
+
       const filters = currentFilters();
       if (filters.territory && filters.territory !== 'all') {
         const terr = normalizeTerritory(filters.territory);
