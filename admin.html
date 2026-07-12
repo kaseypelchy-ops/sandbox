@@ -250,7 +250,6 @@
         <button id="tab-vendor-scorecard" class="tab-btn admin-only">Vendor Scorecard</button>
         <button id="tab-admin-audit" class="tab-btn admin-only">Admin Audit</button>
         <button id="tab-daily-reports" class="tab-btn admin-only">Daily Reports</button>
-        <button id="tab-lightningos-history" class="tab-btn admin-only">LightningOS History</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -716,116 +715,6 @@
         </div>
       </div>
 
-
-      <div id="tab-panel-lightningos-history" class="tab-panel admin-only">
-        <div class="admin-alert">
-          <strong>LightningOS historical-only view.</strong>
-          This section reads from the LightningOS historical archive/views and does not create active territories, rep assignments, schedule slots, or rep-app access.
-        </div>
-
-        <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Historical Sales</div><div id="lightningos-kpi-total-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows loaded from LightningOS historical sales.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Installed</div><div id="lightningos-kpi-installed" class="admin-tool-value">0</div><div class="admin-tool-sub">Historical install outcome = installed.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Canceled</div><div id="lightningos-kpi-canceled" class="admin-tool-value">0</div><div class="admin-tool-sub">Historical install outcome = canceled.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Markets</div><div id="lightningos-kpi-markets" class="admin-tool-value">0</div><div class="admin-tool-sub">Historical territories/campaigns represented.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Reps</div><div id="lightningos-kpi-reps" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique reps in historical view.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Unmatched</div><div id="lightningos-kpi-unmatched" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows not matched to a current FieldOS address.</div></div>
-        </div>
-
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>LightningOS Historical Campaign Summary</h2>
-                <div class="panel-sub">Historical market totals from LightningOS only.</div>
-              </div>
-              <div class="admin-actions">
-                <button id="lightningos-refresh-btn" class="primary">Refresh LightningOS</button>
-                <button id="lightningos-export-campaigns-btn">Export Campaigns</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Market</th>
-                    <th>Total Sales</th>
-                    <th>Gig</th>
-                    <th>Mega</th>
-                    <th>Installed</th>
-                    <th>Canceled</th>
-                    <th>Needs Rescheduled</th>
-                    <th>Unmatched</th>
-                    <th>Date Range</th>
-                  </tr>
-                </thead>
-                <tbody id="lightningos-campaign-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>LightningOS Historical Rep Summary</h2>
-                <div class="panel-sub">Rep totals stay attached to LightningOS, even if the rep later moved to Fiber Sales Team.</div>
-              </div>
-              <div class="admin-actions">
-                <button id="lightningos-export-reps-btn">Export Reps</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Rep</th>
-                    <th>Market</th>
-                    <th>Total Sales</th>
-                    <th>Gig</th>
-                    <th>Mega</th>
-                    <th>Installed</th>
-                    <th>Canceled</th>
-                    <th>Date Range</th>
-                  </tr>
-                </thead>
-                <tbody id="lightningos-rep-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>LightningOS Historical Sales Detail</h2>
-              <div class="panel-sub">Latest 500 historical sales rows. Use export for the loaded detail rows.</div>
-            </div>
-            <div class="admin-actions">
-              <button id="lightningos-export-sales-btn">Export Loaded Sales</button>
-            </div>
-          </div>
-          <div id="lightningos-status" class="status-line">Open this tab to load LightningOS historical data.</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Install Date</th>
-                  <th>Rep</th>
-                  <th>Market</th>
-                  <th>Customer</th>
-                  <th>Address</th>
-                  <th>Package</th>
-                  <th>Outcome</th>
-                  <th>Legacy Status</th>
-                  <th>Account</th>
-                </tr>
-              </thead>
-              <tbody id="lightningos-sales-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
       <div id="tab-panel-route" class="tab-panel">
         <div class="route-grid">
           <div class="panel">
@@ -860,7 +749,7 @@
             <div class="panel-head">
               <div>
                 <h2>AI Analysis Summary</h2>
-                <div class="panel-sub">Automated field readout based on the current filtered activity.</div>
+                <div class="panel-sub">Automated field readout based on current active FieldOS activity only. Historical imports are excluded from coaching, route pace, and gap analysis.</div>
               </div>
             </div>
             <div id="current-stop" class="current-stop">
@@ -942,14 +831,14 @@
       modal: document.getElementById('detail-modal'), detailTitle: document.getElementById('detail-title'), detailHead: document.getElementById('detail-head'), detailBody: document.getElementById('detail-body'), detailClose: document.getElementById('detail-close'), detailExport: document.getElementById('detail-export'), dashboardTitle: document.getElementById('dashboard-title'), dashboardSubtitle: document.getElementById('dashboard-subtitle')
     };
 
-    let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [], lightningos_campaign_summary: [], lightningos_rep_summary: [], lightningos_sales: [], lightningos_loaded: false };
+    let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
     let currentDetailRows = [];
     let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
     let routeMap, routeLayer, routeLine, routeReplayMarker, routeReplayTimer;
     let routeReplayPoints = [];
     let routeReplayIndex = 0;
     let cachedFilteredEvents = [];
-    let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0, fieldos_pricing_offers: 0, lightningos_sales: 0 };
+    let loadedCounts = { addresses: 0, reps: 0, address_events: 0, sales_orders: 0, schedule_slots: 0, schedule_bookings: 0, fieldos_pricing_offers: 0 };
 
     function setDashboardHeader() {
       if (isCompanyView) {
@@ -1331,54 +1220,40 @@
       }
     }
 
-    function isHistoricalSalesRow(row) {
-      const teamSlug = String(row?.team_slug || '').toLowerCase().trim();
-      const sourceSystem = String(row?.source_system || '').toLowerCase().trim();
-      const reviewStatus = String(row?.review_status || '').toLowerCase().trim();
-      return teamSlug === 'lightningos'
-        || sourceSystem === 'legacy_lightningos'
-        || reviewStatus === 'historical';
+
+    const ACTIVE_EVENT_VIEW = 'fieldos_active_address_events';
+    const ACTIVE_SALES_VIEW = 'fieldos_active_sales_orders';
+    const HISTORICAL_SOURCE_SYSTEMS = new Set([
+      'legacy_fieldos',
+      'legacy_fiber_sales',
+      'legacy_lightningos'
+    ]);
+
+    function isHistoricalOperationalRow(row) {
+      if (!row) return false;
+      const source = String(row.source_system || '').toLowerCase().trim();
+      const review = String(row.review_status || '').toLowerCase().trim();
+      const teamSlug = String(row.team_slug || '').toLowerCase().trim();
+
+      if (source && HISTORICAL_SOURCE_SYSTEMS.has(source)) return true;
+      if (source && source.startsWith('legacy_')) return true;
+      if (review === 'historical') return true;
+      if (teamSlug === 'lightningos') return true;
+
+      return false;
     }
 
-    function activeSalesOnly(rows) {
-      return (rows || []).filter(row => !isHistoricalSalesRow(row));
+    function activeOperationalRows(rows) {
+      return (rows || []).filter(row => !isHistoricalOperationalRow(row));
     }
 
-    async function fetchActiveSalesRows(salesFilters = []) {
+    async function fetchActiveDashboardRows(preferredView, fallbackTable, opts = {}) {
       try {
-        return await fetchAllPages('fieldos_active_sales_orders', {
-          order: { column: 'created_at', ascending: false },
-          filters: salesFilters
-        });
+        return await fetchAllPages(preferredView, opts);
       } catch (err) {
-        console.warn('fieldos_active_sales_orders view could not be loaded; falling back to sales_orders with client-side historical filtering.', err);
-        const rows = await fetchAllPages('sales_orders', {
-          order: { column: 'created_at', ascending: false },
-          filters: salesFilters
-        });
-        return activeSalesOnly(rows);
-      }
-    }
-
-    async function fetchLimitedRows(table, opts = {}, limit = 500) {
-      let query = supabaseClient.from(table).select(opts.select || '*').range(0, Math.max(0, limit - 1));
-      if (opts.order) query = query.order(opts.order.column, { ascending: opts.order.ascending !== false });
-      (opts.filters || []).forEach(f => {
-        if (f.type === 'eq') query = query.eq(f.column, f.value);
-        if (f.type === 'gte') query = query.gte(f.column, f.value);
-        if (f.type === 'lte') query = query.lte(f.column, f.value);
-      });
-      const { data, error } = await query;
-      if (error) throw new Error(`${table}: ${error.message || 'Supabase query failed'}`);
-      return data || [];
-    }
-
-    async function fetchOptionalLimitedRows(table, opts = {}, limit = 500) {
-      try {
-        return await fetchLimitedRows(table, opts, limit);
-      } catch (err) {
-        console.warn(`${table} could not be loaded as an optional dashboard table:`, err);
-        return [];
+        console.warn(`${preferredView} could not be loaded. Falling back to ${fallbackTable} and filtering historical rows in the browser.`, err);
+        const rows = await fetchAllPages(fallbackTable, opts);
+        return activeOperationalRows(rows);
       }
     }
 
@@ -1408,8 +1283,8 @@
         const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings, fieldos_pricing_offers] = await Promise.all([
           fetchAllPages('addresses', { order: { column: 'address1', ascending: true } }),
           fetchAllPages('reps', { order: { column: 'full_name', ascending: true } }),
-          fetchAllPages('address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
-          fetchActiveSalesRows(salesFilters),
+          fetchActiveDashboardRows(ACTIVE_EVENT_VIEW, 'address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
+          fetchActiveDashboardRows(ACTIVE_SALES_VIEW, 'sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
           fetchAllPages('schedule_slots', { order: { column: 'slot_date', ascending: true } }),
           fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters }),
           fetchOptionalAllPages('fieldos_pricing_offers', { order: { column: 'priority', ascending: true } })
@@ -1439,11 +1314,7 @@
           sales_orders: sales_orders.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
           schedule_slots: teamSlots,
           schedule_bookings: schedule_bookings.filter(row => rowMatchesTeam(row, teamAddressMap, teamSlotMap)),
-          fieldos_pricing_offers: fieldos_pricing_offers.filter(pricingOfferMatchesTeam),
-          lightningos_campaign_summary: state.lightningos_campaign_summary || [],
-          lightningos_rep_summary: state.lightningos_rep_summary || [],
-          lightningos_sales: state.lightningos_sales || [],
-          lightningos_loaded: state.lightningos_loaded || false
+          fieldos_pricing_offers: fieldos_pricing_offers.filter(pricingOfferMatchesTeam)
         };
 
         populateFilters();
@@ -1567,7 +1438,7 @@
       const addressMap = buildAddressMap();
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
 
-      return state.address_events
+      return activeOperationalRows(state.address_events)
         .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
         .map(ev => {
           const linkedAddress = getLinkedAddress(ev, addressMap);
@@ -1894,10 +1765,10 @@
       const addressMap = buildAddressMap();
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
-      const filteredEvents = state.address_events
+      const filteredEvents = activeOperationalRows(state.address_events)
         .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
         .sort((a, b) => timeValue(a.created_at) - timeValue(b.created_at));
-      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const filteredSales = activeOperationalRows(state.sales_orders).filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
       const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
       const latestMap = latestEventsMap(filteredEvents);
 
@@ -2110,10 +1981,10 @@
       const slotMap = new Map(state.schedule_slots.map(s => [idKey(s.id), s]));
 
       const filteredAddresses = state.addresses.filter(a => rowMatchesUiTerritory(a, filters.territory, addressMap, slotMap));
-      const filteredEvents = state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
+      const filteredEvents = activeOperationalRows(state.address_events).filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep));
       cachedFilteredEvents = filteredEvents;
 
-      const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
+      const filteredSales = activeOperationalRows(state.sales_orders).filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
       const filteredBookings = state.schedule_bookings
         .map(b => ({ ...b, slot: slotMap.get(idKey(b.schedule_slot_id)) || slotMap.get(idKey(b.slot_id)) || null }))
         .filter(b => rowMatchesUiTerritory(b, filters.territory, addressMap, slotMap) && rowMatchesRep(b, filters.rep));
@@ -2689,7 +2560,6 @@
         ['vendor-scorecard', els.tabVendorScorecard, els.tabPanelVendorScorecard],
         ['admin-audit', els.tabAdminAudit, els.tabPanelAdminAudit],
         ['daily-reports', els.tabDailyReports, els.tabPanelDailyReports],
-        ['lightningos-history', els.tabLightningosHistory, els.tabPanelLightningosHistory],
         ['route', els.tabRoute, els.tabPanelRoute]
       ];
 
@@ -2711,7 +2581,6 @@
       if (selected === 'vendor-scorecard') setTimeout(renderAdminVendorScorecard, 40);
       if (selected === 'admin-audit') setTimeout(renderAdminAuditLog, 40);
       if (selected === 'daily-reports') setTimeout(renderAdminDailyReports, 40);
-      if (selected === 'lightningos-history') setTimeout(() => loadLightningOsHistoricalData(false), 40);
     }
 
     function openDetail(title, rows) {
@@ -2801,7 +2670,6 @@
       tabVendorScorecard: document.getElementById('tab-vendor-scorecard'),
       tabAdminAudit: document.getElementById('tab-admin-audit'),
       tabDailyReports: document.getElementById('tab-daily-reports'),
-      tabLightningosHistory: document.getElementById('tab-lightningos-history'),
       tabPanelSalesReview: document.getElementById('tab-panel-sales-review'),
       tabPanelRepsAdmin: document.getElementById('tab-panel-reps-admin'),
       tabPanelTerritoriesAdmin: document.getElementById('tab-panel-territories-admin'),
@@ -2813,21 +2681,6 @@
       tabPanelVendorScorecard: document.getElementById('tab-panel-vendor-scorecard'),
       tabPanelAdminAudit: document.getElementById('tab-panel-admin-audit'),
       tabPanelDailyReports: document.getElementById('tab-panel-daily-reports'),
-      tabPanelLightningosHistory: document.getElementById('tab-panel-lightningos-history'),
-      lightningosTotalSales: document.getElementById('lightningos-kpi-total-sales'),
-      lightningosInstalled: document.getElementById('lightningos-kpi-installed'),
-      lightningosCanceled: document.getElementById('lightningos-kpi-canceled'),
-      lightningosMarkets: document.getElementById('lightningos-kpi-markets'),
-      lightningosReps: document.getElementById('lightningos-kpi-reps'),
-      lightningosUnmatched: document.getElementById('lightningos-kpi-unmatched'),
-      lightningosCampaignBody: document.getElementById('lightningos-campaign-body'),
-      lightningosRepBody: document.getElementById('lightningos-rep-body'),
-      lightningosSalesBody: document.getElementById('lightningos-sales-body'),
-      lightningosStatus: document.getElementById('lightningos-status'),
-      lightningosRefreshBtn: document.getElementById('lightningos-refresh-btn'),
-      lightningosExportCampaigns: document.getElementById('lightningos-export-campaigns-btn'),
-      lightningosExportReps: document.getElementById('lightningos-export-reps-btn'),
-      lightningosExportSales: document.getElementById('lightningos-export-sales-btn'),
       adminSalesReviewBody: document.getElementById('admin-sales-review-body'),
       adminSalesReviewFilter: document.getElementById('admin-sales-review-filter'),
       adminExportSalesReview: document.getElementById('admin-export-sales-review'),
@@ -2896,119 +2749,6 @@
       adminFormClose: document.getElementById('admin-form-close'),
       adminFormCancel: document.getElementById('admin-form-cancel')
     });
-
-
-    function sumNumber(rows, field) {
-      return (rows || []).reduce((sum, row) => sum + Number(row?.[field] || 0), 0);
-    }
-
-    function lightningDateRange(row) {
-      const start = row?.first_install_date || row?.first_sale_at || '';
-      const end = row?.last_install_date || row?.last_sale_at || '';
-      if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
-      return start ? formatDate(start) : (end ? formatDate(end) : '—');
-    }
-
-    async function loadLightningOsHistoricalData(force = false) {
-      if (state.lightningos_loaded && !force) {
-        renderLightningOsHistorical();
-        return;
-      }
-
-      if (els.lightningosStatus) {
-        els.lightningosStatus.classList.remove('error');
-        els.lightningosStatus.textContent = 'Loading LightningOS historical data...';
-      }
-
-      const [campaigns, reps, sales] = await Promise.all([
-        fetchOptionalAllPages('fieldos_lightningos_historical_campaign_summary', { order: { column: 'total_sales', ascending: false } }),
-        fetchOptionalAllPages('fieldos_lightningos_historical_rep_summary', { order: { column: 'total_sales', ascending: false } }),
-        fetchOptionalLimitedRows('fieldos_lightningos_historical_sales', { order: { column: 'install_date', ascending: false } }, 500)
-      ]);
-
-      state.lightningos_campaign_summary = campaigns || [];
-      state.lightningos_rep_summary = reps || [];
-      state.lightningos_sales = sales || [];
-      state.lightningos_loaded = true;
-      loadedCounts.lightningos_sales = sales.length;
-
-      renderLightningOsHistorical();
-
-      if (els.lightningosStatus) {
-        if (!campaigns.length && !reps.length && !sales.length) {
-          els.lightningosStatus.classList.add('error');
-          els.lightningosStatus.textContent = 'No LightningOS historical views returned data. Confirm the archive table/views exist and SELECT grants are in place.';
-        } else {
-          els.lightningosStatus.classList.remove('error');
-          els.lightningosStatus.textContent = `Loaded ${formatNumber(campaigns.length)} campaign row(s), ${formatNumber(reps.length)} rep row(s), and ${formatNumber(sales.length)} sales detail row(s).`;
-        }
-      }
-    }
-
-    function renderLightningOsHistorical() {
-      const campaigns = state.lightningos_campaign_summary || [];
-      const reps = state.lightningos_rep_summary || [];
-      const sales = state.lightningos_sales || [];
-
-      setText('lightningos-kpi-total-sales', formatNumber(sumNumber(campaigns, 'total_sales')));
-      setText('lightningos-kpi-installed', formatNumber(sumNumber(campaigns, 'installed_sales')));
-      setText('lightningos-kpi-canceled', formatNumber(sumNumber(campaigns, 'canceled_sales')));
-      setText('lightningos-kpi-markets', formatNumber(campaigns.length || new Set(sales.map(r => r.territory).filter(Boolean)).size));
-      setText('lightningos-kpi-reps', formatNumber(new Set(reps.map(r => r.rep_name).filter(Boolean)).size || new Set(sales.map(r => r.rep_name).filter(Boolean)).size));
-      setText('lightningos-kpi-unmatched', formatNumber(sumNumber(campaigns, 'unmatched_address_count')));
-
-      if (els.lightningosCampaignBody) {
-        els.lightningosCampaignBody.innerHTML = campaigns.length ? campaigns.map(row => `
-          <tr>
-            <td>${escapeHtml(row.territory || '—')}</td>
-            <td>${formatNumber(row.total_sales)}</td>
-            <td>${formatNumber(row.gig_sales)}</td>
-            <td>${formatNumber(row.mega_sales)}</td>
-            <td>${formatNumber(row.installed_sales)}</td>
-            <td>${formatNumber(row.canceled_sales)}</td>
-            <td>${formatNumber(row.needs_rescheduled_sales)}</td>
-            <td>${formatNumber(row.unmatched_address_count)}</td>
-            <td>${escapeHtml(lightningDateRange(row))}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No LightningOS campaign summary rows found.</td></tr>';
-      }
-
-      if (els.lightningosRepBody) {
-        els.lightningosRepBody.innerHTML = reps.length ? reps.map(row => `
-          <tr>
-            <td>${escapeHtml(row.rep_name || '—')}</td>
-            <td>${escapeHtml(row.territory || '—')}</td>
-            <td>${formatNumber(row.total_sales)}</td>
-            <td>${formatNumber(row.gig_sales)}</td>
-            <td>${formatNumber(row.mega_sales)}</td>
-            <td>${formatNumber(row.installed_sales)}</td>
-            <td>${formatNumber(row.canceled_sales)}</td>
-            <td>${escapeHtml(lightningDateRange(row))}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="8" style="color:#94a3b8;">No LightningOS rep summary rows found.</td></tr>';
-      }
-
-      if (els.lightningosSalesBody) {
-        els.lightningosSalesBody.innerHTML = sales.length ? sales.map(row => `
-          <tr>
-            <td>${escapeHtml(formatDate(row.install_date || row.created_at || ''))}</td>
-            <td>${escapeHtml(row.rep_name || '—')}</td>
-            <td>${escapeHtml(row.territory || '—')}</td>
-            <td>${escapeHtml(row.customer_name || '—')}</td>
-            <td>${escapeHtml([row.address1, row.city, row.state, row.zip || row.postal_code].filter(Boolean).join(', ') || '—')}</td>
-            <td>${escapeHtml(row.package_name || '—')}</td>
-            <td>${escapeHtml(row.install_outcome || '—')}</td>
-            <td>${escapeHtml(row.legacy_status || '—')}</td>
-            <td>${escapeHtml(row.legacy_account_number || '—')}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No LightningOS sales detail rows loaded.</td></tr>';
-      }
-
-      if (els.lightningosExportCampaigns) els.lightningosExportCampaigns.onclick = () => csvDownload('lightningos_historical_campaign_summary.csv', campaigns);
-      if (els.lightningosExportReps) els.lightningosExportReps.onclick = () => csvDownload('lightningos_historical_rep_summary.csv', reps);
-      if (els.lightningosExportSales) els.lightningosExportSales.onclick = () => csvDownload('lightningos_historical_sales_loaded.csv', sales);
-      if (els.lightningosRefreshBtn) els.lightningosRefreshBtn.onclick = () => loadLightningOsHistoricalData(true);
-    }
 
     function getSessionEmailLower() {
       const txt = String(els.sessionEmail?.textContent || '').trim().toLowerCase();
@@ -3105,8 +2845,8 @@
 
     const originalSetActiveTabForAdmin = setActiveTab;
     setActiveTab = function(tabName) {
-      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports','lightningos-history'];
-      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports','lightningos-history'];
+      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
+      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
       const isAdminTab = adminTabs.includes(tabName);
       const canShowAdmin = document.body.classList.contains('admin-enabled');
       if (restrictedAdminTabs.includes(tabName) && !canShowAdmin) {
@@ -3125,18 +2865,17 @@
       const showVendorScorecard = tabName === 'vendor-scorecard';
       const showAdminAudit = tabName === 'admin-audit';
       const showDailyReports = tabName === 'daily-reports';
-      const showLightningosHistory = tabName === 'lightningos-history';
 
       if (!isAdminTab) {
-        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports, els.tabLightningosHistory].forEach(el => el && el.classList.remove('active'));
-        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports, els.tabPanelLightningosHistory].forEach(el => el && el.classList.remove('active'));
+        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports].forEach(el => el && el.classList.remove('active'));
+        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports].forEach(el => el && el.classList.remove('active'));
         originalSetActiveTabForAdmin(tabName);
         return;
       }
 
       pauseRouteReplay();
-      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports, els.tabLightningosHistory].forEach(el => el && el.classList.remove('active'));
-      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports, els.tabPanelLightningosHistory].forEach(el => el && el.classList.remove('active'));
+      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach(el => el && el.classList.remove('active'));
+      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit].forEach(el => el && el.classList.remove('active'));
 
       if (showSalesReview) { els.tabSalesReview.classList.add('active'); els.tabPanelSalesReview.classList.add('active'); }
       if (showRepsAdmin) { els.tabRepsAdmin.classList.add('active'); els.tabPanelRepsAdmin.classList.add('active'); }
@@ -3149,7 +2888,6 @@
       if (showVendorScorecard) { els.tabVendorScorecard.classList.add('active'); els.tabPanelVendorScorecard.classList.add('active'); }
       if (showAdminAudit) { els.tabAdminAudit.classList.add('active'); els.tabPanelAdminAudit.classList.add('active'); }
       if (showDailyReports) { els.tabDailyReports.classList.add('active'); els.tabPanelDailyReports.classList.add('active'); }
-      if (showLightningosHistory) { els.tabLightningosHistory.classList.add('active'); els.tabPanelLightningosHistory.classList.add('active'); setTimeout(() => loadLightningOsHistoricalData(false), 40); }
       renderAdminControlCenter();
     };
 
@@ -4479,8 +4217,7 @@
       [els.tabRepQa, 'rep-qa'],
       [els.tabVendorScorecard, 'vendor-scorecard'],
       [els.tabAdminAudit, 'admin-audit'],
-      [els.tabDailyReports, 'daily-reports'],
-      [els.tabLightningosHistory, 'lightningos-history']
+      [els.tabDailyReports, 'daily-reports']
     ].forEach(([tab, name]) => {
       if (!tab) return;
       tab.onclick = () => setActiveTab(name);
