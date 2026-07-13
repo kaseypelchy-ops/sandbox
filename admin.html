@@ -1356,9 +1356,23 @@
 
       try {
         const filters = currentFilters();
+        const selectedTeamForQuery = selectedTeamFilter();
+
+        const addressFilters = [];
+        const repFilters = [];
         const eventFilters = [];
         const salesFilters = [];
+        const slotFilters = [];
         const bookingFilters = [];
+
+        if (selectedTeamForQuery !== 'all') {
+          addressFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+          repFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+          eventFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+          salesFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+          slotFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+          bookingFilters.push({ type: 'eq', column: 'team_slug', value: selectedTeamForQuery });
+        }
 
         if (filters.start) {
           eventFilters.push({ type: 'gte', column: 'created_at', value: filters.start + 'T00:00:00' });
@@ -1372,11 +1386,11 @@
         }
 
         const [addresses, reps, address_events, sales_orders, schedule_slots, schedule_bookings, fieldos_pricing_offers] = await Promise.all([
-          fetchAllPages('addresses', { order: { column: 'address1', ascending: true } }),
-          fetchAllPages('reps', { order: { column: 'full_name', ascending: true } }),
+          fetchAllPages('addresses', { order: { column: 'address1', ascending: true }, filters: addressFilters }),
+          fetchAllPages('reps', { order: { column: 'full_name', ascending: true }, filters: repFilters }),
           fetchAllPages('address_events', { order: { column: 'created_at', ascending: false }, filters: eventFilters }),
           fetchAllPages('sales_orders', { order: { column: 'created_at', ascending: false }, filters: salesFilters }),
-          fetchAllPages('schedule_slots', { order: { column: 'slot_date', ascending: true } }),
+          fetchAllPages('schedule_slots', { order: { column: 'slot_date', ascending: true }, filters: slotFilters }),
           fetchAllPages('schedule_bookings', { order: { column: 'created_at', ascending: false }, filters: bookingFilters }),
           fetchOptionalAllPages('fieldos_pricing_offers', { order: { column: 'priority', ascending: true } })
         ]);
@@ -3279,7 +3293,7 @@
       databaseHealthDataLoading = true;
       try {
         const [notificationQueue, appSettings, activeCampaignOverrides] = await Promise.all([
-          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false }, maxRows: 500 }),
           fetchOptionalAllPages('app_settings', { order: { column: 'key', ascending: true } }),
           fetchOptionalAllPages('fieldos_active_campaign_overrides', { order: { column: 'territory_key', ascending: true } })
         ]);
@@ -4667,10 +4681,23 @@
       [els.tabRepQa, 'rep-qa'],
       [els.tabVendorScorecard, 'vendor-scorecard'],
       [els.tabAdminAudit, 'admin-audit'],
-      [els.tabDailyReports, 'daily-reports']
+      [els.tabDailyReports, 'daily-reports'],
+      [els.tabHistoricalReporting, 'historical-reporting'],
+      [els.tabDatabaseHealth, 'database-health']
     ].forEach(([tab, name]) => {
       if (!tab) return;
       tab.onclick = () => setActiveTab(name);
+    });
+
+    // Safety net: bind every tab button by its id. This prevents new tabs from
+    // appearing clickable while missing an event handler.
+    document.querySelectorAll('.tab-btn[id^="tab-"]').forEach((tabButton) => {
+      if (tabButton.dataset.fieldosTabBound === 'true') return;
+      tabButton.dataset.fieldosTabBound = 'true';
+      tabButton.addEventListener('click', () => {
+        const tabName = tabButton.id.replace(/^tab-/, '');
+        if (tabName) setActiveTab(tabName);
+      });
     });
     if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.onchange = renderAdminSalesReview;
     if (els.adminRepSearch) els.adminRepSearch.oninput = renderAdminReps;
