@@ -1291,7 +1291,14 @@
     function showDashboard(session) {
       els.authScreen.classList.add('hidden');
       els.dashboardShell.classList.remove('hidden');
-      els.sessionEmail.textContent = session?.user?.email || 'Signed in';
+      const email = String(session?.user?.email || '').trim().toLowerCase();
+      els.sessionEmail.textContent = email || 'Signed in';
+
+      // Enable admin tabs immediately for known company admin emails so the UI does not feel frozen
+      // while the first Supabase data load is still running.
+      const likelyMainAdmin = FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
+      document.body.classList.toggle('admin-enabled', likelyMainAdmin);
+      document.body.classList.toggle('admin-denied', !likelyMainAdmin);
     }
 
     async function signIn() {
@@ -1344,7 +1351,7 @@
     async function loadData() {
       const { data: authData } = await supabaseClient.auth.getSession();
       if (!authData.session) { showAuthScreen('Your session expired. Please sign in again.'); return; }
-      els.status.textContent = 'Loading Supabase data...';
+      els.status.textContent = 'Loading core FieldOS data... Historical/import tables load only when their tab is opened.';
       els.status.classList.remove('error');
 
       try {
@@ -2714,8 +2721,20 @@
     els.tabSales.onclick = () => setActiveTab('sales');
     els.tabPricing.onclick = () => setActiveTab('pricing');
     if (els.tabInstallCapacity) els.tabInstallCapacity.onclick = () => setActiveTab('install-capacity');
-    if (els.tabHistoricalReporting) els.tabHistoricalReporting.onclick = () => setActiveTab('historical-reporting');
-    if (els.tabDatabaseHealth) els.tabDatabaseHealth.onclick = () => setActiveTab('database-health');
+    if (els.tabHistoricalReporting) {
+      els.tabHistoricalReporting.onclick = () => setActiveTab('historical-reporting');
+      els.tabHistoricalReporting.addEventListener('click', (e) => {
+        e.preventDefault();
+        setActiveTab('historical-reporting');
+      });
+    }
+    if (els.tabDatabaseHealth) {
+      els.tabDatabaseHealth.onclick = () => setActiveTab('database-health');
+      els.tabDatabaseHealth.addEventListener('click', (e) => {
+        e.preventDefault();
+        setActiveTab('database-health');
+      });
+    }
     els.tabRoute.onclick = () => setActiveTab('route');
     els.routeRender.onclick = renderRouteReplay;
     els.routePlay.onclick = playRouteReplay;
@@ -2740,7 +2759,7 @@
     // ──────────────────────────────────────────────────────────
     //  MAIN ADMIN CONTROL CENTER — hidden from vendor/team links
     // ──────────────────────────────────────────────────────────
-    const FIELDOS_MAIN_ADMIN_EMAILS = ['kasey.pelchy@zitomedia.com'];
+    const FIELDOS_MAIN_ADMIN_EMAILS = ['kasey.pelchy@zitomedia.com', 'zitomediamarketing@gmail.com'];
     const ADMIN_REVIEW_STATUSES = {
       submitted: 'Submitted',
       needs_review: 'Needs Review',
@@ -2756,6 +2775,10 @@
     };
 
     let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], fieldos_daily_report_recipients: [], fieldos_daily_report_runs: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '', fieldos_legacy_fiber_sales_import: [], fieldos_legacy_disposition_import: [], fieldos_legacy_lightningos_sales_import: [], fieldos_legacy_lightningos_schedule_import: [], fieldos_lightningos_historical_sales_archive: [], fieldos_historical_campaigns: [], notification_queue: [], app_settings: [], fieldos_active_campaign_overrides: [] };
+    let historicalDataLoaded = false;
+    let historicalDataLoading = false;
+    let databaseHealthDataLoaded = false;
+    let databaseHealthDataLoading = false;
 
     Object.assign(els, {
       tabSalesReview: document.getElementById('tab-sales-review'),
@@ -2886,7 +2909,44 @@
 
     async function isMainAdminSession() {
       const email = await getCurrentUserEmail();
-      return FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
+      if (!email) return false;
+      if (FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) return true;
+
+      // Fallback to Supabase access tables. If the table is not readable due to RLS,
+      // fail closed but do not break the dashboard.
+      try {
+        const { data, error } = await supabaseClient
+          .from('fieldos_admin_users')
+          .select('email,is_active,role')
+          .ilike('email', email)
+          .maybeSingle();
+        if (!error && data && data.is_active !== false) return true;
+      } catch (err) {
+        console.warn('fieldos_admin_users admin check failed', err);
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('dashboard_users')
+          .select('email,is_company_admin')
+          .ilike('email', email)
+          .maybeSingle();
+        if (!error && data && data.is_company_admin === true) return true;
+      } catch (err) {
+        console.warn('dashboard_users admin check failed', err);
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('fieldos_sales_ops_users')
+          .select('email,team_slug,is_active')
+          .ilike('email', email);
+        if (!error && Array.isArray(data) && data.some(r => r.is_active !== false && ['all','lightningos','fiber','sfi','lynxx'].includes(String(r.team_slug || '').toLowerCase()))) return true;
+      } catch (err) {
+        console.warn('fieldos_sales_ops_users admin check failed', err);
+      }
+
+      return false;
     }
 
     async function applyAdminAccessUi() {
@@ -2911,7 +2971,10 @@
         return false;
       }
       try {
-        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns, legacyFiberSales, legacyDispositionImport, legacyLightningSales, legacyLightningSchedule, lightningArchive, historicalCampaigns, notificationQueue, appSettings, activeCampaignOverrides] = await Promise.all([
+
+        // Keep the first admin load light. Heavy historical/import tables are lazy-loaded only
+        // when Historical Reporting or Database Health is opened.
+        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
@@ -2919,16 +2982,7 @@
           fetchOptionalAllPages('address_admin_notes', { order: { column: 'created_at', ascending: false } }),
           fetchOptionalAllPages('fieldos_admin_audit_log', { order: { column: 'created_at', ascending: false } }),
           fetchOptionalAllPages('fieldos_daily_report_recipients', { order: { column: 'email', ascending: true } }),
-          fetchOptionalAllPages('fieldos_daily_report_runs', { order: { column: 'created_at', ascending: false } }),
-          fetchOptionalAllPages('fieldos_legacy_fiber_sales_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_legacy_lightningos_sales_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_legacy_lightningos_schedule_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_lightningos_historical_sales_archive', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_historical_campaigns', { order: { column: 'display_name', ascending: true } }),
-          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false } }),
-          fetchOptionalAllPages('app_settings', { order: { column: 'key', ascending: true } }),
-          fetchOptionalAllPages('fieldos_active_campaign_overrides', { order: { column: 'team_slug', ascending: true } })
+          fetchOptionalAllPages('fieldos_daily_report_runs', { order: { column: 'created_at', ascending: false } })
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
@@ -2937,15 +2991,16 @@
         adminState.fieldos_admin_audit_log = adminAuditLog || [];
         adminState.fieldos_daily_report_recipients = dailyReportRecipients || [];
         adminState.fieldos_daily_report_runs = dailyReportRuns || [];
-        adminState.fieldos_legacy_fiber_sales_import = legacyFiberSales || [];
-        adminState.fieldos_legacy_disposition_import = legacyDispositionImport || [];
-        adminState.fieldos_legacy_lightningos_sales_import = legacyLightningSales || [];
-        adminState.fieldos_legacy_lightningos_schedule_import = legacyLightningSchedule || [];
-        adminState.fieldos_lightningos_historical_sales_archive = lightningArchive || [];
-        adminState.fieldos_historical_campaigns = historicalCampaigns || [];
-        adminState.notification_queue = notificationQueue || [];
-        adminState.app_settings = appSettings || [];
-        adminState.fieldos_active_campaign_overrides = activeCampaignOverrides || [];
+        // Lazy-loaded tables are preserved across refreshes and are not pulled on every load.
+        adminState.fieldos_legacy_fiber_sales_import = adminState.fieldos_legacy_fiber_sales_import || [];
+        adminState.fieldos_legacy_disposition_import = adminState.fieldos_legacy_disposition_import || [];
+        adminState.fieldos_legacy_lightningos_sales_import = adminState.fieldos_legacy_lightningos_sales_import || [];
+        adminState.fieldos_legacy_lightningos_schedule_import = adminState.fieldos_legacy_lightningos_schedule_import || [];
+        adminState.fieldos_lightningos_historical_sales_archive = adminState.fieldos_lightningos_historical_sales_archive || [];
+        adminState.fieldos_historical_campaigns = adminState.fieldos_historical_campaigns || [];
+        adminState.notification_queue = adminState.notification_queue || [];
+        adminState.app_settings = adminState.app_settings || [];
+        adminState.fieldos_active_campaign_overrides = adminState.fieldos_active_campaign_overrides || [];
 
         const mergedTerritories = new Map();
         (territoriesTableRows || []).forEach(function(row) {
@@ -3033,6 +3088,8 @@
       if (showHistoricalReporting) { els.tabHistoricalReporting.classList.add('active'); els.tabPanelHistoricalReporting.classList.add('active'); }
       if (showDatabaseHealth) { els.tabDatabaseHealth.classList.add('active'); els.tabPanelDatabaseHealth.classList.add('active'); }
       renderAdminControlCenter();
+      if (showHistoricalReporting) renderHistoricalReporting();
+      if (showDatabaseHealth) renderDatabaseHealth();
     };
 
     function adminTerritoryKey(value) { return normalizeTerritory(value || ''); }
@@ -3182,8 +3239,68 @@
       return String(firstNonEmpty(row?.package_name, row?.package, row?.status, row?.plan_name)).toLowerCase().includes(needle);
     }
 
+    function setHistoricalLoadingRows(message) {
+      const msg = escapeHtml(message || 'Loading historical reporting data...');
+      if (els.histFiberBody) els.histFiberBody.innerHTML = `<tr><td colspan="7" style="color:#94a3b8;">${msg}</td></tr>`;
+      if (els.histLightningBody) els.histLightningBody.innerHTML = `<tr><td colspan="7" style="color:#94a3b8;">${msg}</td></tr>`;
+      if (els.histImportBody) els.histImportBody.innerHTML = `<tr><td colspan="4" style="color:#94a3b8;">${msg}</td></tr>`;
+    }
+
+    async function loadHistoricalReportingData() {
+      if (historicalDataLoaded || historicalDataLoading) return;
+      historicalDataLoading = true;
+      setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+      try {
+        const [legacyFiberSales, legacyDispositionImport, legacyLightningSales, legacyLightningSchedule, lightningArchive, historicalCampaigns] = await Promise.all([
+          fetchOptionalAllPages('fieldos_legacy_fiber_sales_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_lightningos_sales_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_lightningos_schedule_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_lightningos_historical_sales_archive', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_historical_campaigns', { order: { column: 'display_name', ascending: true } })
+        ]);
+        adminState.fieldos_legacy_fiber_sales_import = legacyFiberSales || [];
+        adminState.fieldos_legacy_disposition_import = legacyDispositionImport || [];
+        adminState.fieldos_legacy_lightningos_sales_import = legacyLightningSales || [];
+        adminState.fieldos_legacy_lightningos_schedule_import = legacyLightningSchedule || [];
+        adminState.fieldos_lightningos_historical_sales_archive = lightningArchive || [];
+        adminState.fieldos_historical_campaigns = historicalCampaigns || [];
+        historicalDataLoaded = true;
+      } catch (err) {
+        console.warn('Historical reporting data failed to load', err);
+        setHistoricalLoadingRows('Historical reporting data could not be loaded. Check console/Supabase RLS permissions.');
+      } finally {
+        historicalDataLoading = false;
+      }
+    }
+
+    async function loadDatabaseHealthData() {
+      if (databaseHealthDataLoaded || databaseHealthDataLoading) return;
+      databaseHealthDataLoading = true;
+      try {
+        const [notificationQueue, appSettings, activeCampaignOverrides] = await Promise.all([
+          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('app_settings', { order: { column: 'key', ascending: true } }),
+          fetchOptionalAllPages('fieldos_active_campaign_overrides', { order: { column: 'territory_key', ascending: true } })
+        ]);
+        adminState.notification_queue = notificationQueue || [];
+        adminState.app_settings = appSettings || [];
+        adminState.fieldos_active_campaign_overrides = activeCampaignOverrides || [];
+        databaseHealthDataLoaded = true;
+      } catch (err) {
+        console.warn('Database health data failed to load', err);
+      } finally {
+        databaseHealthDataLoading = false;
+      }
+    }
+
     function renderHistoricalReporting() {
       if (!els.histFiberBody) return;
+      if (!historicalDataLoaded) {
+        setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+        loadHistoricalReportingData().then(() => renderHistoricalReporting());
+        return;
+      }
       const fiberHistoricalSales = (state.sales_orders || []).filter(row => {
         const team = getDashboardTeamSlug(row) || String(row.team_slug || '').toLowerCase().trim();
         return team === 'fiber' && !isCurrentOperationalTerritory('fiber', getRowTerritory(row));
@@ -3308,6 +3425,9 @@
 
     function renderDatabaseHealth() {
       if (!els.dbInventoryBody) return;
+      if (!databaseHealthDataLoaded && !databaseHealthDataLoading) {
+        loadDatabaseHealthData().then(() => renderDatabaseHealth());
+      }
       const sourceRows = buildSourceSplitRows();
       const warnings = buildDataAlignmentWarnings();
       const inventoryRows = [
@@ -3351,8 +3471,8 @@
       renderAdminVendorScorecard();
       renderAdminAuditLog();
       renderAdminDailyReports();
-      renderHistoricalReporting();
-      renderDatabaseHealth();
+      if (els.tabPanelHistoricalReporting && els.tabPanelHistoricalReporting.classList.contains('active')) renderHistoricalReporting();
+      if (els.tabPanelDatabaseHealth && els.tabPanelDatabaseHealth.classList.contains('active')) renderDatabaseHealth();
     }
 
     function saleInstallOutcome(row) {
