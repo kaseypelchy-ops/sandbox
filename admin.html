@@ -239,7 +239,7 @@
       </div>
 
       <div id="status-line" class="status-line">Signed in. Loading data...</div>
-      <div class="status-line">Recovery view: this dashboard reads the core FieldOS tables directly and filters by the Team dropdown. It does not depend on experimental active/historical views.</div>
+      <div class="status-line">Unified view: this dashboard reads the core FieldOS tables directly, filters by team/territory/date, and keeps historical reporting in separate admin-only tabs.</div>
 
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
@@ -257,6 +257,8 @@
         <button id="tab-vendor-scorecard" class="tab-btn admin-only">Vendor Scorecard</button>
         <button id="tab-admin-audit" class="tab-btn admin-only">Admin Audit</button>
         <button id="tab-daily-reports" class="tab-btn admin-only">Daily Reports</button>
+        <button id="tab-historical-reporting" class="tab-btn admin-only">Historical Reporting</button>
+        <button id="tab-database-health" class="tab-btn admin-only">Database Health</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -719,6 +721,54 @@
         <div class="admin-panel-card">
           <h2>Daily Report History</h2>
           <div class="table-wrap"><table><thead><tr><th>Created</th><th>Report Date</th><th>Recipient</th><th>Scope</th><th>Status</th><th>Subject</th><th>Actions</th></tr></thead><tbody id="admin-daily-report-runs-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-historical-reporting" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Fiber Historical Sales</div><div id="hist-kpi-fiber-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Fiber sales in non-current territories from sales_orders.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">LightningOS Sales</div><div id="hist-kpi-lightningos-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows from the LightningOS archive/import tables.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Legacy Dispositions</div><div id="hist-kpi-legacy-dispositions" class="admin-tool-value">0</div><div class="admin-tool-sub">Imported historical disposition rows.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Historical Campaigns</div><div id="hist-kpi-campaigns" class="admin-tool-value">0</div><div class="admin-tool-sub">Campaign/territory rows represented in history.</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>Fiber Historical Campaigns</h2><div class="panel-sub">This intentionally excludes current Fiber territories: Bryson City, Cameron, Crawford, Elmwood, Palmyra, Syracuse, and Wilber.</div></div><div class="admin-actions"><button id="hist-export-fiber">Export Fiber History</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Sales</th><th>Gig</th><th>Mega</th><th>First Sale</th><th>Last Sale</th><th>Source</th></tr></thead><tbody id="hist-fiber-body"></tbody></table></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>LightningOS Historical Campaigns</h2><div class="panel-sub">Separate historical reporting, not mixed with Fiber/SFI/Lynxx active operations.</div></div><div class="admin-actions"><button id="hist-export-lightningos">Export LightningOS History</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Sales</th><th>Installed</th><th>Canceled</th><th>Needs Rescheduled</th><th>First Install</th><th>Last Install</th></tr></thead><tbody id="hist-lightningos-body"></tbody></table></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>Import / Archive Tables</h2><div class="panel-sub">Loaded row counts from staging/archive tables. These support history but should not drive daily ops KPIs.</div></div><div class="admin-actions"><button id="hist-export-imports">Export Import Counts</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Table</th><th>Rows Loaded</th><th>Dashboard Use</th><th>Notes</th></tr></thead><tbody id="hist-import-body"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-panel-database-health" class="tab-panel admin-only">
+        <div class="admin-tools-grid">
+          <div class="admin-tool-card"><div class="admin-tool-label">Core Tables Loaded</div><div id="db-kpi-core-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Core FieldOS tables pulled by this dashboard.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Loaded Rows</div><div id="db-kpi-loaded-rows" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows currently loaded into the browser.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Warnings</div><div id="db-kpi-warnings" class="admin-tool-value">0</div><div class="admin-tool-sub">Alignment issues to review.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Supabase Views</div><div id="db-kpi-views" class="admin-tool-value">0</div><div class="admin-tool-sub">This dashboard is designed to work without helper views.</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>Core Table Inventory</h2><div class="panel-sub">What the unified admin dashboard is reading right now.</div></div><div class="admin-actions"><button id="db-export-inventory">Export Inventory</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Table</th><th>Rows Loaded</th><th>Role in FieldOS</th><th>Source</th></tr></thead><tbody id="db-inventory-body"></tbody></table></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>Source System Split</h2><div class="panel-sub">Shows why Fiber cannot be filtered out just because source_system says legacy.</div></div><div class="admin-actions"><button id="db-export-source-split">Export Source Split</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Team</th><th>Territory</th><th>Source System</th><th>Rows</th></tr></thead><tbody id="db-source-body"></tbody></table></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>Data Alignment Warnings</h2><div class="panel-sub">Flags where one table has territory data that another core table does not.</div></div><div class="admin-actions"><button id="db-export-warnings">Export Warnings</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Issue</th><th>Team</th><th>Territory</th><th>Evidence</th><th>Recommended Fix</th></tr></thead><tbody id="db-warning-body"></tbody></table></div>
         </div>
       </div>
 
@@ -2595,6 +2645,8 @@
         ['vendor-scorecard', els.tabVendorScorecard, els.tabPanelVendorScorecard],
         ['admin-audit', els.tabAdminAudit, els.tabPanelAdminAudit],
         ['daily-reports', els.tabDailyReports, els.tabPanelDailyReports],
+        ['historical-reporting', els.tabHistoricalReporting, els.tabPanelHistoricalReporting],
+        ['database-health', els.tabDatabaseHealth, els.tabPanelDatabaseHealth],
         ['route', els.tabRoute, els.tabPanelRoute]
       ];
 
@@ -2616,6 +2668,8 @@
       if (selected === 'vendor-scorecard') setTimeout(renderAdminVendorScorecard, 40);
       if (selected === 'admin-audit') setTimeout(renderAdminAuditLog, 40);
       if (selected === 'daily-reports') setTimeout(renderAdminDailyReports, 40);
+      if (selected === 'historical-reporting') setTimeout(renderHistoricalReporting, 40);
+      if (selected === 'database-health') setTimeout(renderDatabaseHealth, 40);
     }
 
     function openDetail(title, rows) {
@@ -2660,6 +2714,8 @@
     els.tabSales.onclick = () => setActiveTab('sales');
     els.tabPricing.onclick = () => setActiveTab('pricing');
     if (els.tabInstallCapacity) els.tabInstallCapacity.onclick = () => setActiveTab('install-capacity');
+    if (els.tabHistoricalReporting) els.tabHistoricalReporting.onclick = () => setActiveTab('historical-reporting');
+    if (els.tabDatabaseHealth) els.tabDatabaseHealth.onclick = () => setActiveTab('database-health');
     els.tabRoute.onclick = () => setActiveTab('route');
     els.routeRender.onclick = renderRouteReplay;
     els.routePlay.onclick = playRouteReplay;
@@ -2699,7 +2755,7 @@
       cancelled: 'Cancelled'
     };
 
-    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], fieldos_daily_report_recipients: [], fieldos_daily_report_runs: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '' };
+    let adminState = { rep_territories: [], territory_boundary_files: [], fieldos_territories: [], territories: [], quality_issues: [], address_admin_notes: [], fieldos_admin_audit_log: [], fieldos_daily_report_recipients: [], fieldos_daily_report_runs: [], import_preview_rows: [], qa_flags: [], vendor_scorecards: [], selected_address_id: '', fieldos_legacy_fiber_sales_import: [], fieldos_legacy_disposition_import: [], fieldos_legacy_lightningos_sales_import: [], fieldos_legacy_lightningos_schedule_import: [], fieldos_lightningos_historical_sales_archive: [], fieldos_historical_campaigns: [], notification_queue: [], app_settings: [], fieldos_active_campaign_overrides: [] };
 
     Object.assign(els, {
       tabSalesReview: document.getElementById('tab-sales-review'),
@@ -2778,6 +2834,30 @@
       adminExportReportRecipients: document.getElementById('admin-export-report-recipients'),
       adminDailyReportRecipientsBody: document.getElementById('admin-daily-report-recipients-body'),
       adminDailyReportRunsBody: document.getElementById('admin-daily-report-runs-body'),
+      tabHistoricalReporting: document.getElementById('tab-historical-reporting'),
+      tabDatabaseHealth: document.getElementById('tab-database-health'),
+      tabPanelHistoricalReporting: document.getElementById('tab-panel-historical-reporting'),
+      tabPanelDatabaseHealth: document.getElementById('tab-panel-database-health'),
+      histKpiFiberSales: document.getElementById('hist-kpi-fiber-sales'),
+      histKpiLightningSales: document.getElementById('hist-kpi-lightningos-sales'),
+      histKpiLegacyDispositions: document.getElementById('hist-kpi-legacy-dispositions'),
+      histKpiCampaigns: document.getElementById('hist-kpi-campaigns'),
+      histFiberBody: document.getElementById('hist-fiber-body'),
+      histLightningBody: document.getElementById('hist-lightningos-body'),
+      histImportBody: document.getElementById('hist-import-body'),
+      histExportFiber: document.getElementById('hist-export-fiber'),
+      histExportLightning: document.getElementById('hist-export-lightningos'),
+      histExportImports: document.getElementById('hist-export-imports'),
+      dbKpiCoreTables: document.getElementById('db-kpi-core-tables'),
+      dbKpiLoadedRows: document.getElementById('db-kpi-loaded-rows'),
+      dbKpiWarnings: document.getElementById('db-kpi-warnings'),
+      dbKpiViews: document.getElementById('db-kpi-views'),
+      dbInventoryBody: document.getElementById('db-inventory-body'),
+      dbSourceBody: document.getElementById('db-source-body'),
+      dbWarningBody: document.getElementById('db-warning-body'),
+      dbExportInventory: document.getElementById('db-export-inventory'),
+      dbExportSourceSplit: document.getElementById('db-export-source-split'),
+      dbExportWarnings: document.getElementById('db-export-warnings'),
       adminAddRepBtn: document.getElementById('admin-add-rep-btn'),
       adminAddTerritoryBtn: document.getElementById('admin-add-territory-btn'),
       adminAddBoundaryBtn: document.getElementById('admin-add-boundary-btn'),
@@ -2831,7 +2911,7 @@
         return false;
       }
       try {
-        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns] = await Promise.all([
+        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns, legacyFiberSales, legacyDispositionImport, legacyLightningSales, legacyLightningSchedule, lightningArchive, historicalCampaigns, notificationQueue, appSettings, activeCampaignOverrides] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
@@ -2839,7 +2919,16 @@
           fetchOptionalAllPages('address_admin_notes', { order: { column: 'created_at', ascending: false } }),
           fetchOptionalAllPages('fieldos_admin_audit_log', { order: { column: 'created_at', ascending: false } }),
           fetchOptionalAllPages('fieldos_daily_report_recipients', { order: { column: 'email', ascending: true } }),
-          fetchOptionalAllPages('fieldos_daily_report_runs', { order: { column: 'created_at', ascending: false } })
+          fetchOptionalAllPages('fieldos_daily_report_runs', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('fieldos_legacy_fiber_sales_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_lightningos_sales_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_lightningos_schedule_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_lightningos_historical_sales_archive', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_historical_campaigns', { order: { column: 'display_name', ascending: true } }),
+          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false } }),
+          fetchOptionalAllPages('app_settings', { order: { column: 'key', ascending: true } }),
+          fetchOptionalAllPages('fieldos_active_campaign_overrides', { order: { column: 'team_slug', ascending: true } })
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
@@ -2848,6 +2937,15 @@
         adminState.fieldos_admin_audit_log = adminAuditLog || [];
         adminState.fieldos_daily_report_recipients = dailyReportRecipients || [];
         adminState.fieldos_daily_report_runs = dailyReportRuns || [];
+        adminState.fieldos_legacy_fiber_sales_import = legacyFiberSales || [];
+        adminState.fieldos_legacy_disposition_import = legacyDispositionImport || [];
+        adminState.fieldos_legacy_lightningos_sales_import = legacyLightningSales || [];
+        adminState.fieldos_legacy_lightningos_schedule_import = legacyLightningSchedule || [];
+        adminState.fieldos_lightningos_historical_sales_archive = lightningArchive || [];
+        adminState.fieldos_historical_campaigns = historicalCampaigns || [];
+        adminState.notification_queue = notificationQueue || [];
+        adminState.app_settings = appSettings || [];
+        adminState.fieldos_active_campaign_overrides = activeCampaignOverrides || [];
 
         const mergedTerritories = new Map();
         (territoriesTableRows || []).forEach(function(row) {
@@ -2887,8 +2985,8 @@
 
     const originalSetActiveTabForAdmin = setActiveTab;
     setActiveTab = function(tabName) {
-      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
-      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports'];
+      const adminTabs = ['sales-review','reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports','historical-reporting','database-health'];
+      const restrictedAdminTabs = ['reps-admin','territories-admin','boundaries-admin','data-quality','address-timeline','address-import','rep-qa','vendor-scorecard','admin-audit','daily-reports','historical-reporting','database-health'];
       const isAdminTab = adminTabs.includes(tabName);
       const canShowAdmin = document.body.classList.contains('admin-enabled');
       if (restrictedAdminTabs.includes(tabName) && !canShowAdmin) {
@@ -2907,17 +3005,19 @@
       const showVendorScorecard = tabName === 'vendor-scorecard';
       const showAdminAudit = tabName === 'admin-audit';
       const showDailyReports = tabName === 'daily-reports';
+      const showHistoricalReporting = tabName === 'historical-reporting';
+      const showDatabaseHealth = tabName === 'database-health';
 
       if (!isAdminTab) {
-        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports].forEach(el => el && el.classList.remove('active'));
-        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports].forEach(el => el && el.classList.remove('active'));
+        [els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports, els.tabHistoricalReporting, els.tabDatabaseHealth].forEach(el => el && el.classList.remove('active'));
+        [els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports, els.tabPanelHistoricalReporting, els.tabPanelDatabaseHealth].forEach(el => el && el.classList.remove('active'));
         originalSetActiveTabForAdmin(tabName);
         return;
       }
 
       pauseRouteReplay();
-      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit].forEach(el => el && el.classList.remove('active'));
-      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit].forEach(el => el && el.classList.remove('active'));
+      [els.tabOverview, els.tabSales, els.tabPricing, els.tabRoute, els.tabSalesReview, els.tabRepsAdmin, els.tabTerritoriesAdmin, els.tabBoundariesAdmin, els.tabDataQuality, els.tabAddressTimeline, els.tabAddressImport, els.tabRepQa, els.tabVendorScorecard, els.tabAdminAudit, els.tabDailyReports, els.tabHistoricalReporting, els.tabDatabaseHealth].forEach(el => el && el.classList.remove('active'));
+      [els.tabPanelOverview, els.tabPanelSales, els.tabPanelPricing, els.tabPanelRoute, els.tabPanelSalesReview, els.tabPanelRepsAdmin, els.tabPanelTerritoriesAdmin, els.tabPanelBoundariesAdmin, els.tabPanelDataQuality, els.tabPanelAddressTimeline, els.tabPanelAddressImport, els.tabPanelRepQa, els.tabPanelVendorScorecard, els.tabPanelAdminAudit, els.tabPanelDailyReports, els.tabPanelHistoricalReporting, els.tabPanelDatabaseHealth].forEach(el => el && el.classList.remove('active'));
 
       if (showSalesReview) { els.tabSalesReview.classList.add('active'); els.tabPanelSalesReview.classList.add('active'); }
       if (showRepsAdmin) { els.tabRepsAdmin.classList.add('active'); els.tabPanelRepsAdmin.classList.add('active'); }
@@ -2930,6 +3030,8 @@
       if (showVendorScorecard) { els.tabVendorScorecard.classList.add('active'); els.tabPanelVendorScorecard.classList.add('active'); }
       if (showAdminAudit) { els.tabAdminAudit.classList.add('active'); els.tabPanelAdminAudit.classList.add('active'); }
       if (showDailyReports) { els.tabDailyReports.classList.add('active'); els.tabPanelDailyReports.classList.add('active'); }
+      if (showHistoricalReporting) { els.tabHistoricalReporting.classList.add('active'); els.tabPanelHistoricalReporting.classList.add('active'); }
+      if (showDatabaseHealth) { els.tabDatabaseHealth.classList.add('active'); els.tabPanelDatabaseHealth.classList.add('active'); }
       renderAdminControlCenter();
     };
 
@@ -3049,6 +3151,193 @@
       return issues.sort((a,b) => (a.severity === 'bad' ? 0 : 1) - (b.severity === 'bad' ? 0 : 1) || b.count - a.count);
     }
 
+
+    function activeTerritorySetForTeam(teamSlug) {
+      const keys = TEAM_TERRITORIES[String(teamSlug || '').toLowerCase().trim()] || [];
+      return new Set(keys.map(normalizeTerritory));
+    }
+
+    function isCurrentOperationalTerritory(teamSlug, territory) {
+      const team = String(teamSlug || '').toLowerCase().trim();
+      if (!team) return false;
+      const key = normalizeTerritory(territory);
+      return activeTerritorySetForTeam(team).has(key);
+    }
+
+    function rowSourceLabel(row) {
+      return String(row?.source_system || row?._source_table || row?.source || '[blank/live]').trim() || '[blank/live]';
+    }
+
+    function groupRows(rows, keyFn, seedFn, addFn) {
+      const map = new Map();
+      (rows || []).forEach(row => {
+        const key = keyFn(row);
+        if (!map.has(key)) map.set(key, seedFn(row));
+        addFn(map.get(key), row);
+      });
+      return Array.from(map.values());
+    }
+
+    function pkgIs(row, needle) {
+      return String(firstNonEmpty(row?.package_name, row?.package, row?.status, row?.plan_name)).toLowerCase().includes(needle);
+    }
+
+    function renderHistoricalReporting() {
+      if (!els.histFiberBody) return;
+      const fiberHistoricalSales = (state.sales_orders || []).filter(row => {
+        const team = getDashboardTeamSlug(row) || String(row.team_slug || '').toLowerCase().trim();
+        return team === 'fiber' && !isCurrentOperationalTerritory('fiber', getRowTerritory(row));
+      });
+
+      const lightningRows = (adminState.fieldos_lightningos_historical_sales_archive || []).length
+        ? adminState.fieldos_lightningos_historical_sales_archive
+        : (adminState.fieldos_legacy_lightningos_sales_import || []);
+
+      const legacyDispositionRows = adminState.fieldos_legacy_disposition_import || [];
+
+      const fiberGroups = groupRows(
+        fiberHistoricalSales,
+        row => normalizeTerritory(getRowTerritory(row) || 'unknown'),
+        row => ({ territory: getRowTerritory(row) || 'unknown', sales: 0, gig: 0, mega: 0, first: '', last: '', source: new Set() }),
+        (g, row) => {
+          g.sales += 1;
+          if (pkgIs(row, 'gig')) g.gig += 1;
+          if (pkgIs(row, 'mega')) g.mega += 1;
+          const t = firstNonEmpty(row.created_at, row.install_date, row.date);
+          if (t && (!g.first || timeValue(t) < timeValue(g.first))) g.first = t;
+          if (t && (!g.last || timeValue(t) > timeValue(g.last))) g.last = t;
+          g.source.add(rowSourceLabel(row));
+        }
+      ).sort((a,b) => b.sales - a.sales);
+
+      const lightningGroups = groupRows(
+        lightningRows,
+        row => normalizeTerritory(getRowTerritory(row) || row.territory || 'unknown'),
+        row => ({ territory: getRowTerritory(row) || row.territory || 'unknown', sales: 0, installed: 0, canceled: 0, needs_rescheduled: 0, first: '', last: '' }),
+        (g, row) => {
+          g.sales += 1;
+          const outcome = String(firstNonEmpty(row.install_outcome, row.status, row.install_status)).toLowerCase().trim();
+          if (outcome === 'installed') g.installed += 1;
+          if (outcome === 'canceled' || outcome === 'cancelled') g.canceled += 1;
+          if (outcome === 'needs_rescheduled' || outcome === 'needs rescheduled' || outcome === 'rescheduled') g.needs_rescheduled += 1;
+          const t = firstNonEmpty(row.install_date, row.created_at, row.date);
+          if (t && (!g.first || timeValue(t) < timeValue(g.first))) g.first = t;
+          if (t && (!g.last || timeValue(t) > timeValue(g.last))) g.last = t;
+        }
+      ).sort((a,b) => b.sales - a.sales);
+
+      const campaignCount = new Set([
+        ...fiberGroups.map(r => 'fiber:' + normalizeTerritory(r.territory)),
+        ...lightningGroups.map(r => 'lightningos:' + normalizeTerritory(r.territory)),
+        ...(adminState.fieldos_historical_campaigns || []).map(r => String(r.team_slug || 'history') + ':' + normalizeTerritory(r.territory_key || r.territory || r.display_name))
+      ]).size;
+
+      if (els.histKpiFiberSales) els.histKpiFiberSales.textContent = formatNumber(fiberHistoricalSales.length);
+      if (els.histKpiLightningSales) els.histKpiLightningSales.textContent = formatNumber(lightningRows.length);
+      if (els.histKpiLegacyDispositions) els.histKpiLegacyDispositions.textContent = formatNumber(legacyDispositionRows.length);
+      if (els.histKpiCampaigns) els.histKpiCampaigns.textContent = formatNumber(campaignCount);
+
+      els.histFiberBody.innerHTML = fiberGroups.length ? fiberGroups.map(r => `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.sales)}</td><td>${formatNumber(r.gig)}</td><td>${formatNumber(r.mega)}</td><td>${escapeHtml(formatDate(r.first))}</td><td>${escapeHtml(formatDate(r.last))}</td><td>${escapeHtml(Array.from(r.source).join(', '))}</td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No Fiber historical sales found outside current active Fiber territories.</td></tr>';
+
+      els.histLightningBody.innerHTML = lightningGroups.length ? lightningGroups.map(r => `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.sales)}</td><td>${formatNumber(r.installed)}</td><td>${formatNumber(r.canceled)}</td><td>${formatNumber(r.needs_rescheduled)}</td><td>${escapeHtml(formatDate(r.first))}</td><td>${escapeHtml(formatDate(r.last))}</td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No LightningOS historical rows loaded or accessible.</td></tr>';
+
+      const importRows = [
+        { table: 'fieldos_legacy_fiber_sales_import', rows: (adminState.fieldos_legacy_fiber_sales_import || []).length, use: 'Import audit', notes: 'Original Fiber sales import rows; use sales_orders for live dashboard metrics.' },
+        { table: 'fieldos_legacy_disposition_import', rows: (adminState.fieldos_legacy_disposition_import || []).length, use: 'Import audit', notes: 'Original historical disposition import rows.' },
+        { table: 'fieldos_legacy_lightningos_sales_import', rows: (adminState.fieldos_legacy_lightningos_sales_import || []).length, use: 'LightningOS history', notes: 'Original LightningOS sales staging table.' },
+        { table: 'fieldos_lightningos_historical_sales_archive', rows: (adminState.fieldos_lightningos_historical_sales_archive || []).length, use: 'LightningOS history', notes: 'Preferred LightningOS archive source.' },
+        { table: 'fieldos_legacy_lightningos_schedule_import', rows: (adminState.fieldos_legacy_lightningos_schedule_import || []).length, use: 'Schedule history', notes: 'LightningOS historical schedule source.' },
+        { table: 'fieldos_historical_campaigns', rows: (adminState.fieldos_historical_campaigns || []).length, use: 'Campaign labels', notes: 'Manual historical campaign registry.' }
+      ];
+      els.histImportBody.innerHTML = importRows.map(r => `<tr><td><code>${escapeHtml(r.table)}</code></td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.use)}</td><td>${escapeHtml(r.notes)}</td></tr>`).join('');
+
+      if (els.histExportFiber) els.histExportFiber.onclick = () => csvDownload('fieldos_fiber_historical_campaigns.csv', fiberGroups.map(r => ({ territory:r.territory, sales:r.sales, gig:r.gig, mega:r.mega, first_sale:r.first, last_sale:r.last, source:Array.from(r.source).join('|') })));
+      if (els.histExportLightning) els.histExportLightning.onclick = () => csvDownload('fieldos_lightningos_historical_campaigns.csv', lightningGroups);
+      if (els.histExportImports) els.histExportImports.onclick = () => csvDownload('fieldos_import_archive_counts.csv', importRows);
+    }
+
+    function buildSourceSplitRows() {
+      const rows = [];
+      groupRows(
+        state.address_events || [],
+        row => ['address_events', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowSourceLabel(row)].map(String).join('|'),
+        row => ({ dataset:'address_events', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowSourceLabel(row), rows:0 }),
+        (g) => { g.rows += 1; }
+      ).forEach(r => rows.push(r));
+      groupRows(
+        state.sales_orders || [],
+        row => ['sales_orders', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowSourceLabel(row)].map(String).join('|'),
+        row => ({ dataset:'sales_orders', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowSourceLabel(row), rows:0 }),
+        (g) => { g.rows += 1; }
+      ).forEach(r => rows.push(r));
+      return rows.sort((a,b) => String(a.dataset).localeCompare(String(b.dataset)) || String(a.team).localeCompare(String(b.team)) || String(a.territory).localeCompare(String(b.territory)) || b.rows-a.rows);
+    }
+
+    function buildDataAlignmentWarnings() {
+      const warnings = [];
+      const addWarning = (severity, issue, team, territory, evidence, fix) => warnings.push({ severity, issue, team, territory, evidence, fix });
+      const addressKeys = new Set((state.addresses || []).map(r => (String(getDashboardTeamSlug(r) || r.team_slug || '') + ':' + normalizeTerritory(getRowTerritory(r) || r.territory))).filter(k => !k.endsWith(':')));
+      const salesKeys = new Set((state.sales_orders || []).map(r => (String(getDashboardTeamSlug(r) || r.team_slug || '') + ':' + normalizeTerritory(getRowTerritory(r) || r.territory))).filter(k => !k.endsWith(':')));
+      const slotKeys = new Set((state.schedule_slots || []).map(r => (String(getDashboardTeamSlug(r) || r.team_slug || '') + ':' + normalizeTerritory(getRowTerritory(r) || r.territory))).filter(k => !k.endsWith(':')));
+      const boundaryKeys = new Set((adminState.territory_boundary_files || []).map(r => (String(r.team_slug || '') + ':' + normalizeTerritory(r.territory))).filter(k => !k.endsWith(':')));
+
+      salesKeys.forEach(k => {
+        if (!addressKeys.has(k)) {
+          const [team, territory] = k.split(':');
+          addWarning('warn', 'Sales exist without loaded addresses', team, territory, 'sales_orders has rows, but addresses does not for this team/territory in the current load.', 'Dashboard should include sales-only territories in territory filters; import addresses if this territory is active.');
+        }
+      });
+      addressKeys.forEach(k => {
+        if (!slotKeys.has(k)) {
+          const [team, territory] = k.split(':');
+          addWarning('info', 'Addresses exist without schedule slots', team, territory, 'addresses has rows, but schedule_slots does not.', 'Seed install capacity if the market should allow booking.');
+        }
+        if (!boundaryKeys.has(k) && ['fiber','sfi','lynxx'].includes(k.split(':')[0])) {
+          const [team, territory] = k.split(':');
+          addWarning('info', 'Addresses exist without boundary file', team, territory, 'addresses has rows, but territory_boundary_files does not.', 'Upload/assign a KMZ/KML if map boundaries should auto-load.');
+        }
+      });
+      boundaryKeys.forEach(k => {
+        if (!addressKeys.has(k)) {
+          const [team, territory] = k.split(':');
+          addWarning('info', 'Boundary exists without loaded addresses', team, territory, 'Boundary file exists, but no matching addresses loaded.', 'Check team_slug/territory naming or import addresses if active.');
+        }
+      });
+      return warnings;
+    }
+
+    function renderDatabaseHealth() {
+      if (!els.dbInventoryBody) return;
+      const sourceRows = buildSourceSplitRows();
+      const warnings = buildDataAlignmentWarnings();
+      const inventoryRows = [
+        { table:'addresses', rows:state.addresses.length, role:'Rep map/address universe', source:'Core table' },
+        { table:'address_events', rows:state.address_events.length, role:'Dispositions/door knocks', source:'Core table' },
+        { table:'sales_orders', rows:state.sales_orders.length, role:'Sales queue/review/invoicing', source:'Core table' },
+        { table:'schedule_slots', rows:state.schedule_slots.length, role:'Install capacity', source:'Core table' },
+        { table:'schedule_bookings', rows:state.schedule_bookings.length, role:'Booked installs', source:'Core table' },
+        { table:'reps', rows:state.reps.length, role:'Rep management/filtering', source:'Core table' },
+        { table:'rep_territories', rows:(adminState.rep_territories || []).length, role:'Rep-to-territory assignment', source:'Admin table' },
+        { table:'territories', rows:(adminState.territories || []).length, role:'Territory master list', source:'Admin table' },
+        { table:'territory_boundary_files', rows:(adminState.territory_boundary_files || []).length, role:'Boundary/KMZ references', source:'Admin table' },
+        { table:'fieldos_pricing_offers', rows:state.fieldos_pricing_offers.length, role:'Offer cards/pricing', source:'Core table' },
+        { table:'notification_queue', rows:(adminState.notification_queue || []).length, role:'Queued sale/booking notifications', source:'Ops table' }
+      ];
+
+      if (els.dbKpiCoreTables) els.dbKpiCoreTables.textContent = formatNumber(10);
+      if (els.dbKpiLoadedRows) els.dbKpiLoadedRows.textContent = formatNumber(inventoryRows.reduce((sum,r) => sum + Number(r.rows || 0), 0));
+      if (els.dbKpiWarnings) els.dbKpiWarnings.textContent = formatNumber(warnings.length);
+      if (els.dbKpiViews) els.dbKpiViews.textContent = '0';
+
+      els.dbInventoryBody.innerHTML = inventoryRows.map(r => `<tr><td><code>${escapeHtml(r.table)}</code></td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.role)}</td><td>${escapeHtml(r.source)}</td></tr>`).join('');
+      els.dbSourceBody.innerHTML = sourceRows.length ? sourceRows.map(r => `<tr><td>${escapeHtml(r.dataset)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.source_system)}</td><td>${formatNumber(r.rows)}</td></tr>`).join('') : '<tr><td colspan="5" style="color:#94a3b8;">No source rows loaded.</td></tr>';
+      els.dbWarningBody.innerHTML = warnings.length ? warnings.map(r => `<tr><td><span class="admin-tag ${r.severity === 'warn' ? 'warn' : 'info'}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.issue)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.evidence)}</td><td>${escapeHtml(r.fix)}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#22c55e;">No major alignment warnings found in the loaded data.</td></tr>';
+
+      if (els.dbExportInventory) els.dbExportInventory.onclick = () => csvDownload('fieldos_core_table_inventory.csv', inventoryRows);
+      if (els.dbExportSourceSplit) els.dbExportSourceSplit.onclick = () => csvDownload('fieldos_source_system_split.csv', sourceRows);
+      if (els.dbExportWarnings) els.dbExportWarnings.onclick = () => csvDownload('fieldos_data_alignment_warnings.csv', warnings);
+    }
+
     function renderAdminControlCenter() {
       renderAdminSalesReview();
       if (!document.body.classList.contains('admin-enabled')) return;
@@ -3062,6 +3351,8 @@
       renderAdminVendorScorecard();
       renderAdminAuditLog();
       renderAdminDailyReports();
+      renderHistoricalReporting();
+      renderDatabaseHealth();
     }
 
     function saleInstallOutcome(row) {
