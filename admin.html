@@ -1315,6 +1315,7 @@
 
     async function fetchAllPages(table, opts = {}) {
       const pageSize = 1000;
+      const maxRows = Number(opts.maxRows || 0);
       let from = 0;
       let rows = [];
 
@@ -1331,6 +1332,7 @@
         if (error) throw new Error(`${table}: ${error.message || 'Supabase query failed'}`);
         const page = data || [];
         rows = rows.concat(page);
+        if (maxRows && rows.length >= maxRows) return rows.slice(0, maxRows);
         if (page.length < pageSize) break;
         from += pageSize;
       }
@@ -3267,7 +3269,7 @@
       try {
         const [legacyFiberSales, legacyDispositionImport, legacyLightningSales, legacyLightningSchedule, lightningArchive, historicalCampaigns] = await Promise.all([
           fetchOptionalAllPages('fieldos_legacy_fiber_sales_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true } }),
+          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true }, maxRows: 1000 }),
           fetchOptionalAllPages('fieldos_legacy_lightningos_sales_import', { order: { column: 'id', ascending: true } }),
           fetchOptionalAllPages('fieldos_legacy_lightningos_schedule_import', { order: { column: 'id', ascending: true } }),
           fetchOptionalAllPages('fieldos_lightningos_historical_sales_archive', { order: { column: 'id', ascending: true } }),
@@ -3310,9 +3312,21 @@
 
     function renderHistoricalReporting() {
       if (!els.histFiberBody) return;
+
+      // If this tab is clicked again while the import/archive tables are loading,
+      // show the loading row and stop. This prevents a recursive Promise/render loop.
+      if (historicalDataLoading) {
+        setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+        return;
+      }
+
       if (!historicalDataLoaded) {
         setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
-        loadHistoricalReportingData().then(() => renderHistoricalReporting());
+        loadHistoricalReportingData().then(() => {
+          if (els.tabPanelHistoricalReporting && els.tabPanelHistoricalReporting.classList.contains('active')) {
+            renderHistoricalReporting();
+          }
+        });
         return;
       }
       const fiberHistoricalSales = (state.sales_orders || []).filter(row => {
@@ -3439,9 +3453,22 @@
 
     function renderDatabaseHealth() {
       if (!els.dbInventoryBody) return;
-      if (!databaseHealthDataLoaded && !databaseHealthDataLoading) {
-        loadDatabaseHealthData().then(() => renderDatabaseHealth());
+
+      if (!databaseHealthDataLoaded && databaseHealthDataLoading) {
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading database health data...</td></tr>';
+        return;
       }
+
+      if (!databaseHealthDataLoaded && !databaseHealthDataLoading) {
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading database health data...</td></tr>';
+        loadDatabaseHealthData().then(() => {
+          if (els.tabPanelDatabaseHealth && els.tabPanelDatabaseHealth.classList.contains('active')) {
+            renderDatabaseHealth();
+          }
+        });
+        return;
+      }
+
       const sourceRows = buildSourceSplitRows();
       const warnings = buildDataAlignmentWarnings();
       const inventoryRows = [
@@ -4686,11 +4713,12 @@
       [els.tabDatabaseHealth, 'database-health']
     ].forEach(([tab, name]) => {
       if (!tab) return;
+      tab.dataset.fieldosTabBound = 'true';
       tab.onclick = () => setActiveTab(name);
     });
 
     // Safety net: bind every tab button by its id. This prevents new tabs from
-    // appearing clickable while missing an event handler.
+    // appearing clickable while missing an event handler. Already-bound tabs are skipped.
     document.querySelectorAll('.tab-btn[id^="tab-"]').forEach((tabButton) => {
       if (tabButton.dataset.fieldosTabBound === 'true') return;
       tabButton.dataset.fieldosTabBound = 'true';
