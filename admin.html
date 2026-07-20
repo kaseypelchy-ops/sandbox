@@ -898,8 +898,22 @@
       lynxx: 'Lynxx'
     };
 
+    const VALID_TEAM_SLUGS = ['fiber', 'sfi', 'lynxx'];
+
+    // Security model:
+    // Main company admins may choose All Teams.
+    // Team/vendor admins are locked to their allowed team(s).
+    // The URL team parameter can preselect a team, but it cannot grant wider access.
+    let dashboardAccess = {
+      resolved: false,
+      email: '',
+      isCompanyAdmin: false,
+      allowedTeams: [],
+      forcedTeam: DEFAULT_TEAM_FILTER !== 'all' ? DEFAULT_TEAM_FILTER : ''
+    };
+
     // Keep main admin tools available from the main dashboard.
-    // Team filtering is handled by the Team dropdown instead of the URL.
+    // Team filtering is handled by the Team dropdown, but it is permission-locked below.
     const isCompanyView = true;
     const SALE_STATUSES = new Set(['mega', 'gig']);
 
@@ -970,19 +984,94 @@
       return aliases[key] || key;
     }
 
+    function normalizeTeamSlug(value) {
+      const raw = String(value || '').toLowerCase().trim();
+      if (!raw) return '';
+      if (raw === 'all' || raw === 'company' || raw === 'company_admin') return 'all';
+      if (raw === 'fiber' || raw.includes('fiber sales') || raw.includes('fiber_sales')) return 'fiber';
+      if (raw === 'sfi' || raw.includes('sales focus')) return 'sfi';
+      if (raw === 'lynxx' || raw.includes('lynx')) return 'lynxx';
+      return VALID_TEAM_SLUGS.includes(raw) ? raw : '';
+    }
+
+    function normalizeAllowedTeams(value) {
+      const source = Array.isArray(value) ? value : [value];
+      const teams = [];
+      source.forEach((item) => {
+        if (Array.isArray(item)) {
+          item.forEach(inner => {
+            const team = normalizeTeamSlug(inner);
+            if (team && team !== 'all' && !teams.includes(team)) teams.push(team);
+          });
+          return;
+        }
+        String(item || '').split(',').forEach(part => {
+          const team = normalizeTeamSlug(part);
+          if (team && team !== 'all' && !teams.includes(team)) teams.push(team);
+        });
+      });
+      return teams;
+    }
+
+    function canUseAllTeams() {
+      return dashboardAccess.isCompanyAdmin === true;
+    }
+
     function selectedTeamFilter() {
-      const fromSelect = els?.team?.value;
-      const selected = String(fromSelect || DEFAULT_TEAM_FILTER || 'all').toLowerCase().trim();
-      return ['fiber', 'sfi', 'lynxx'].includes(selected) ? selected : 'all';
+      const fromSelect = normalizeTeamSlug(els?.team?.value);
+      const fallback = normalizeTeamSlug(DEFAULT_TEAM_FILTER) || dashboardAccess.forcedTeam || '';
+
+      if (canUseAllTeams()) {
+        if (fromSelect === 'all') return 'all';
+        if (VALID_TEAM_SLUGS.includes(fromSelect)) return fromSelect;
+        if (VALID_TEAM_SLUGS.includes(fallback)) return fallback;
+        return 'all';
+      }
+
+      const allowed = dashboardAccess.allowedTeams || [];
+      if (VALID_TEAM_SLUGS.includes(fromSelect) && allowed.includes(fromSelect)) return fromSelect;
+      if (VALID_TEAM_SLUGS.includes(fallback) && allowed.includes(fallback)) return fallback;
+      return allowed[0] || '';
     }
 
     function selectedTeamLabel() {
-      return TEAM_LABELS[selectedTeamFilter()] || 'All Teams';
+      return TEAM_LABELS[selectedTeamFilter()] || 'No Team Access';
     }
 
     function allowedTerritoryKeysForTeam(teamSlug) {
       const list = TEAM_TERRITORIES[String(teamSlug || '').toLowerCase().trim()] || null;
       return list ? list.map(normalizeTerritory) : null;
+    }
+
+    function updateTeamFilterOptions() {
+      if (!els?.team) return;
+
+      const current = selectedTeamFilter();
+      const teams = canUseAllTeams()
+        ? ['all', ...VALID_TEAM_SLUGS]
+        : (dashboardAccess.allowedTeams || []).filter(t => VALID_TEAM_SLUGS.includes(t));
+
+      els.team.innerHTML = '';
+
+      if (teams.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No team access';
+        els.team.appendChild(option);
+        els.team.disabled = true;
+        return;
+      }
+
+      teams.forEach(team => {
+        const option = document.createElement('option');
+        option.value = team;
+        option.textContent = TEAM_LABELS[team] || team;
+        els.team.appendChild(option);
+      });
+
+      const nextValue = teams.includes(current) ? current : teams[0];
+      els.team.value = nextValue;
+      els.team.disabled = !canUseAllTeams() && teams.length <= 1;
     }
 
     function idKey(value) {
@@ -1294,11 +1383,11 @@
       const email = String(session?.user?.email || '').trim().toLowerCase();
       els.sessionEmail.textContent = email || 'Signed in';
 
-      // Enable admin tabs immediately for known company admin emails so the UI does not feel frozen
-      // while the first Supabase data load is still running.
+      // Provisional UI state until resolveDashboardAccess() completes.
       const likelyMainAdmin = FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
       document.body.classList.toggle('admin-enabled', likelyMainAdmin);
       document.body.classList.toggle('admin-denied', !likelyMainAdmin);
+      document.body.classList.toggle('team-admin-locked', !likelyMainAdmin);
     }
 
     async function signIn() {
@@ -1353,7 +1442,20 @@
     async function loadData() {
       const { data: authData } = await supabaseClient.auth.getSession();
       if (!authData.session) { showAuthScreen('Your session expired. Please sign in again.'); return; }
-      els.status.textContent = 'Loading core FieldOS data... Historical/import tables load only when their tab is opened.';
+
+      await resolveDashboardAccess();
+      updateTeamFilterOptions();
+
+      const selectedTeamForQueryBeforeLoad = selectedTeamFilter();
+      if (!canUseAllTeams() && !selectedTeamForQueryBeforeLoad) {
+        els.status.textContent = 'Your dashboard login is not assigned to a team. Ask the company admin to assign your email to Fiber, SFI, or Lynxx.';
+        els.status.classList.add('error');
+        state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
+        renderAll();
+        return;
+      }
+
+      els.status.textContent = 'Loading core FieldOS data... Historical/import tables load only for company admin users.';
       els.status.classList.remove('error');
 
       try {
@@ -2652,6 +2754,28 @@
     }
 
     function setActiveTab(tabName) {
+      const companyOnlyTabs = new Set([
+        'reps-admin',
+        'territories-admin',
+        'boundaries-admin',
+        'data-quality',
+        'address-timeline',
+        'address-import',
+        'rep-qa',
+        'vendor-scorecard',
+        'admin-audit',
+        'daily-reports',
+        'historical-reporting',
+        'database-health'
+      ]);
+
+      if (companyOnlyTabs.has(tabName) && !canUseAllTeams()) {
+        tabName = 'overview';
+        if (els.status) {
+          els.status.textContent = 'That tab is company-admin only. This team dashboard is locked to its assigned team.';
+        }
+      }
+
       const tabs = [
         ['overview', els.tabOverview, els.tabPanelOverview],
         ['sales', els.tabSales, els.tabPanelSales],
@@ -2923,33 +3047,57 @@
       return String(data?.session?.user?.email || '').trim().toLowerCase();
     }
 
-    async function isMainAdminSession() {
-      const email = await getCurrentUserEmail();
-      if (!email) return false;
-      if (FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) return true;
+    async function resolveDashboardAccess({ force = false } = {}) {
+      if (dashboardAccess.resolved && !force) return dashboardAccess;
 
-      // Fallback to Supabase access tables. If the table is not readable due to RLS,
-      // fail closed but do not break the dashboard.
+      const email = await getCurrentUserEmail();
+      const mainAdminEmail = FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
+
+      let isCompanyAdmin = mainAdminEmail;
+      let allowedTeams = [];
+      const urlTeam = normalizeTeamSlug(initialTeamParam);
+      if (VALID_TEAM_SLUGS.includes(urlTeam)) allowedTeams.push(urlTeam);
+
+      // Preferred path: SQL RPC from the security setup file.
+      try {
+        const { data, error } = await supabaseClient.rpc('fieldos_dashboard_access');
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!error && row) {
+          isCompanyAdmin = isCompanyAdmin || row.is_company_admin === true;
+          allowedTeams = allowedTeams.concat(normalizeAllowedTeams(row.allowed_teams || row.allowed_team || row.team_slug || row.team));
+        }
+      } catch (err) {
+        console.warn('fieldos_dashboard_access RPC not available yet; using fallback access checks.', err);
+      }
+
+      // Fallback checks so the dashboard still works before the RPC SQL is installed.
+      try {
+        const { data, error } = await supabaseClient
+          .from('dashboard_users')
+          .select('email,team,is_company_admin')
+          .ilike('email', email)
+          .maybeSingle();
+
+        if (!error && data) {
+          isCompanyAdmin = isCompanyAdmin || data.is_company_admin === true;
+          allowedTeams = allowedTeams.concat(normalizeAllowedTeams(data.team));
+        }
+      } catch (err) {
+        console.warn('dashboard_users access check failed', err);
+      }
+
       try {
         const { data, error } = await supabaseClient
           .from('fieldos_admin_users')
           .select('email,is_active,role')
           .ilike('email', email)
           .maybeSingle();
-        if (!error && data && data.is_active !== false) return true;
-      } catch (err) {
-        console.warn('fieldos_admin_users admin check failed', err);
-      }
 
-      try {
-        const { data, error } = await supabaseClient
-          .from('dashboard_users')
-          .select('email,is_company_admin')
-          .ilike('email', email)
-          .maybeSingle();
-        if (!error && data && data.is_company_admin === true) return true;
+        if (!error && data && data.is_active !== false) {
+          isCompanyAdmin = true;
+        }
       } catch (err) {
-        console.warn('dashboard_users admin check failed', err);
+        console.warn('fieldos_admin_users access check failed', err);
       }
 
       try {
@@ -2957,24 +3105,58 @@
           .from('fieldos_sales_ops_users')
           .select('email,team_slug,is_active')
           .ilike('email', email);
-        if (!error && Array.isArray(data) && data.some(r => r.is_active !== false && ['all','lightningos','fiber','sfi','lynxx'].includes(String(r.team_slug || '').toLowerCase()))) return true;
+
+        if (!error && Array.isArray(data)) {
+          data
+            .filter(row => row.is_active !== false)
+            .forEach(row => allowedTeams = allowedTeams.concat(normalizeAllowedTeams(row.team_slug)));
+        }
       } catch (err) {
-        console.warn('fieldos_sales_ops_users admin check failed', err);
+        console.warn('fieldos_sales_ops_users access check failed', err);
       }
 
-      return false;
+      allowedTeams = [...new Set(allowedTeams.filter(t => VALID_TEAM_SLUGS.includes(t)))];
+
+      if (isCompanyAdmin) {
+        allowedTeams = [...VALID_TEAM_SLUGS];
+      }
+
+      dashboardAccess = {
+        resolved: true,
+        email,
+        isCompanyAdmin,
+        allowedTeams,
+        forcedTeam: urlTeam && VALID_TEAM_SLUGS.includes(urlTeam) ? urlTeam : ''
+      };
+
+      updateTeamFilterOptions();
+
+      document.body.classList.toggle('admin-enabled', isCompanyAdmin);
+      document.body.classList.toggle('admin-denied', !isCompanyAdmin);
+      document.body.classList.toggle('team-admin-locked', !isCompanyAdmin);
+
+      return dashboardAccess;
+    }
+
+    async function isMainAdminSession() {
+      const access = await resolveDashboardAccess();
+      return access.isCompanyAdmin === true;
     }
 
     async function applyAdminAccessUi() {
-      const allowed = await isMainAdminSession();
+      const access = await resolveDashboardAccess();
+      const allowed = access.isCompanyAdmin === true;
       document.body.classList.toggle('admin-enabled', allowed);
       document.body.classList.toggle('admin-denied', !allowed);
+      document.body.classList.toggle('team-admin-locked', !allowed);
+      updateTeamFilterOptions();
+
       const note = document.getElementById('admin-access-note');
       if (note) {
         note.className = 'admin-alert';
         note.textContent = allowed
-          ? 'Full admin tools are enabled for the main company admin login. Sales review/invoicing can be used from this queue.'
-          : 'Sales review and invoicing are available for this dashboard. Full control-center admin tabs remain hidden from team/vendor links.';
+          ? 'Full company admin tools are enabled. You can view All Teams or filter to a specific team.'
+          : `Team dashboard locked to ${access.allowedTeams.map(t => TEAM_LABELS[t] || t).join(', ') || 'no assigned team'}. Company-wide, historical, database health, and cross-team admin tools are hidden.`;
       }
       return allowed;
     }
@@ -3263,6 +3445,7 @@
     }
 
     async function loadHistoricalReportingData() {
+      if (!canUseAllTeams()) return;
       if (historicalDataLoaded || historicalDataLoading) return;
       historicalDataLoading = true;
       setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
@@ -3291,6 +3474,7 @@
     }
 
     async function loadDatabaseHealthData() {
+      if (!canUseAllTeams()) return;
       if (databaseHealthDataLoaded || databaseHealthDataLoading) return;
       databaseHealthDataLoading = true;
       try {
@@ -3312,6 +3496,11 @@
 
     function renderHistoricalReporting() {
       if (!els.histFiberBody) return;
+
+      if (!canUseAllTeams()) {
+        setHistoricalLoadingRows('Historical reporting is company-admin only and is not available from team dashboards.');
+        return;
+      }
 
       // If this tab is clicked again while the import/archive tables are loading,
       // show the loading row and stop. This prevents a recursive Promise/render loop.
@@ -3453,6 +3642,12 @@
 
     function renderDatabaseHealth() {
       if (!els.dbInventoryBody) return;
+
+      if (!canUseAllTeams()) {
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Database Health is company-admin only and is hidden from team dashboards.</td></tr>';
+        if (els.dbWarningList) els.dbWarningList.innerHTML = '<li>Team dashboards are locked to their assigned team and cannot view cross-team database health.</li>';
+        return;
+      }
 
       if (!databaseHealthDataLoaded && databaseHealthDataLoading) {
         els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading database health data...</td></tr>';
