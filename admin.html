@@ -207,7 +207,7 @@
         <div>
           <div class="eyebrow">Zito FieldOS</div>
           <h1 id="dashboard-title">Admin Dashboard</h1>
-          <p id="dashboard-subtitle" class="sub">RLS-protected dashboard wired to Supabase.</p>
+          <p id="dashboard-subtitle" class="sub">Team performance and sales activity dashboard.</p>
         </div>
         <div class="auth-top-right">
           <div id="session-email" class="pill">Not signed in</div>
@@ -236,7 +236,7 @@
       </div>
 
       <div id="status-line" class="status-line">Signed in. Loading data...</div>
-      <div class="status-line">Unified view: this dashboard reads the core FieldOS tables directly, filters by team/territory/date, and keeps historical reporting in separate admin-only tabs.</div>
+      <div class="status-line">Use the filters above to review team performance, territory activity, sales, install capacity, and rep follow-up.</div>
 
       <div class="tab-bar">
         <button id="tab-overview" class="tab-btn active">Overview</button>
@@ -255,7 +255,7 @@
         <button id="tab-admin-audit" class="tab-btn admin-only">Admin Audit</button>
         <button id="tab-daily-reports" class="tab-btn admin-only">Daily Reports</button>
         <button id="tab-historical-reporting" class="tab-btn admin-only">Historical Reporting</button>
-        <button id="tab-database-health" class="tab-btn admin-only">Database Health</button>
+        <button id="tab-database-health" class="tab-btn admin-only">System Status</button>
         <button id="tab-route" class="tab-btn">Route Replay + AI Analysis</button>
       </div>
 
@@ -276,14 +276,14 @@
           <div class="chart-box"><canvas id="territory-chart"></canvas></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><div><h2>Disposition Mix</h2><div class="panel-sub">Counts from address_events.</div></div></div>
+          <div class="panel-head"><div><h2>Disposition Mix</h2><div class="panel-sub">Latest disposition activity by outcome.</div></div></div>
           <div class="chart-box"><canvas id="disposition-chart"></canvas></div>
         </div>
       </div>
 
       <div class="grid-2">
         <div class="panel">
-          <div class="panel-head"><div><h2>Sales Trend</h2><div class="panel-sub">Daily sales from sales_orders.</div></div></div>
+          <div class="panel-head"><div><h2>Sales Trend</h2><div class="panel-sub">Daily submitted sales.</div></div></div>
           <div class="chart-box"><canvas id="sales-trend-chart"></canvas></div>
         </div>
         <div class="panel">
@@ -350,7 +350,7 @@
 
       <div id="tab-panel-pricing" class="tab-panel">
         <div class="pricing-summary">
-          <div class="pricing-card"><div class="pricing-card-label">Active Offers</div><div id="pricing-active-count" class="pricing-card-value">0</div><div class="pricing-card-sub">Rows visible from fieldos_pricing_offers.</div></div>
+          <div class="pricing-card"><div class="pricing-card-label">Active Offers</div><div id="pricing-active-count" class="pricing-card-value">0</div><div class="pricing-card-sub">Active offers available to this team.</div></div>
           <div class="pricing-card"><div class="pricing-card-label">Covered Territories</div><div id="pricing-territory-count" class="pricing-card-value">0</div><div class="pricing-card-sub">Exact territory or all-territory coverage.</div></div>
           <div class="pricing-card"><div class="pricing-card-label">Sales Missing Snapshot</div><div id="pricing-missing-snapshot" class="pricing-card-value">0</div><div class="pricing-card-sub">Submitted sales without offer_snapshot.</div></div>
           <div class="pricing-card"><div class="pricing-card-label">Modem Fee Flags</div><div id="pricing-modem-flags" class="pricing-card-value">0</div><div class="pricing-card-sub">Active offers where modem fee is not $0.</div></div>
@@ -386,7 +386,7 @@
           <div class="panel-head">
             <div>
               <h2>Active Pricing Offers</h2>
-              <div class="panel-sub">The active offer rows the dashboard can read from Supabase. These should match what reps can quote in the field app.</div>
+              <div class="panel-sub">Current approved offers available for reps to quote in the field app.</div>
             </div>
             <div class="admin-actions"><button id="admin-add-offer-btn" class="admin-only">+ Add Offer</button><button id="export-pricing-offers-btn">Export Active Offers</button></div>
           </div>
@@ -417,7 +417,7 @@
       <div id="tab-panel-sales-review" class="tab-panel">
         <div id="admin-access-note" class="admin-alert">Sales review and invoicing tools are scoped to the current company/team dashboard. Full admin tools stay restricted to the main company admin login.</div>
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Submitted Sales</div><div id="admin-kpi-sales-submitted" class="admin-tool-value">0</div><div class="admin-tool-sub">Current sales_orders rows in the filtered view.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Submitted Sales</div><div id="admin-kpi-sales-submitted" class="admin-tool-value">0</div><div class="admin-tool-sub">Submitted sales in the current view.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Entered in ZiP</div><div id="admin-kpi-sales-entered" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales marked entered and waiting for install outcome.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Ready to Invoice</div><div id="admin-kpi-sales-ready-invoice" class="admin-tool-value">0</div><div class="admin-tool-sub">Installed sales not yet assigned an invoice ID.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Invoiced</div><div id="admin-kpi-sales-invoiced" class="admin-tool-value">0</div><div class="admin-tool-sub">Sales already exported with an invoice ID.</div></div>
@@ -496,7 +496,7 @@
           <div class="panel-head">
             <div>
               <h2>Daily Slot Detail</h2>
-              <div class="panel-sub">Breakdown by territory, install date, and time label. Uses schedule_slots plus schedule_bookings when available.</div>
+              <div class="panel-sub">Install openings and booked appointments by territory, date, and time.</div>
             </div>
           </div>
           <div class="table-wrap">
@@ -510,14 +510,14 @@
 
       <div id="tab-panel-reps-admin" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Total Reps</div><div id="admin-kpi-reps-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows visible from reps.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Active Reps</div><div id="admin-kpi-reps-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Assumes active unless is_active=false.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">No Territory</div><div id="admin-kpi-reps-no-territory" class="admin-tool-value">0</div><div class="admin-tool-sub">Reps without an assigned rep_territories row.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Teams</div><div id="admin-kpi-reps-teams" class="admin-tool-value">0</div><div class="admin-tool-sub">Distinct company/team values found.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Total Reps</div><div id="admin-kpi-reps-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Team members available in this dashboard.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Active Reps</div><div id="admin-kpi-reps-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Reps currently available for field work.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">No Territory</div><div id="admin-kpi-reps-no-territory" class="admin-tool-value">0</div><div class="admin-tool-sub">Active reps without an assigned territory.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Teams</div><div id="admin-kpi-reps-teams" class="admin-tool-value">0</div><div class="admin-tool-sub">Teams represented in the current view.</div></div>
         </div>
         <div class="panel">
           <div class="panel-head">
-            <div><h2>Rep Management</h2><div class="panel-sub">Add reps, edit contact/profile fields, assign territories, and activate/deactivate users without touching Supabase manually.</div></div>
+            <div><h2>Rep Management</h2><div class="panel-sub">Add reps, update contact info, assign territories, and manage active status.</div></div>
             <div class="admin-actions"><button id="admin-add-rep-btn">+ Add Rep</button><button id="admin-export-reps">Export Reps</button></div>
           </div>
           <div class="admin-search-row"><input id="admin-rep-search" placeholder="Search reps, email, phone, territory" /><select id="admin-rep-team-filter"><option value="all">All Teams</option></select><button id="admin-refresh-reps">Refresh</button></div>
@@ -527,27 +527,27 @@
 
       <div id="tab-panel-territories-admin" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Territories</div><div id="admin-kpi-territories-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Distinct loaded address territories.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Territories</div><div id="admin-kpi-territories-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Territories available in the current view.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Missing Reps</div><div id="admin-kpi-territories-no-reps" class="admin-tool-value">0</div><div class="admin-tool-sub">Territories with addresses but no assigned rep.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Missing Boundary</div><div id="admin-kpi-territories-no-boundary" class="admin-tool-value">0</div><div class="admin-tool-sub">Active territories without a KMZ/KML mapping.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Missing Offers</div><div id="admin-kpi-territories-no-offers" class="admin-tool-value">0</div><div class="admin-tool-sub">Mega/Gig coverage gaps.</div></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><div><h2>Territory Manager</h2><div class="panel-sub">Operational view of addresses, reps, boundaries, pricing coverage, worked rate, and sales.</div></div><div class="admin-actions"><button id="admin-add-territory-btn">+ Add Territory</button><button id="admin-export-territories">Export Territories</button></div></div>
+          <div class="panel-head"><div><h2>Territory Manager</h2><div class="panel-sub">Operational view of territory coverage, assigned reps, map boundaries, offers, worked rate, and sales.</div></div><div class="admin-actions"><button id="admin-add-territory-btn">+ Add Territory</button><button id="admin-export-territories">Export Territories</button></div></div>
           <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Addresses</th><th>Worked / Pending</th><th>Sales</th><th>Assigned Reps</th><th>Boundary</th><th>Offer Coverage</th><th>Recommended Action</th><th>Actions</th></tr></thead><tbody id="admin-territories-body"></tbody></table></div>
         </div>
       </div>
 
       <div id="tab-panel-boundaries-admin" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Boundary Rows</div><div id="admin-kpi-boundaries-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows in territory_boundary_files.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Active Files</div><div id="admin-kpi-boundaries-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Files active for automatic app loading.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Boundary Records</div><div id="admin-kpi-boundaries-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Mapped territory files.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Active Files</div><div id="admin-kpi-boundaries-active" class="admin-tool-value">0</div><div class="admin-tool-sub">Files currently used by the field app.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Missing Territories</div><div id="admin-kpi-boundaries-missing" class="admin-tool-value">0</div><div class="admin-tool-sub">Loaded address territories without active boundary mapping.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Duplicates</div><div id="admin-kpi-boundaries-duplicates" class="admin-tool-value">0</div><div class="admin-tool-sub">Multiple active files for one territory.</div></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><div><h2>Boundary File Manager</h2><div class="panel-sub">Upload KMZ/KML files to Supabase Storage, create mappings, and manage active automatic map loading by territory.</div></div><div class="admin-actions"><button id="admin-add-boundary-btn">+ Add Boundary Mapping</button><button id="admin-upload-boundary-btn">Upload KMZ/KML</button><button id="admin-export-boundaries">Export Boundaries</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Team</th><th>Territory</th><th>Display Name</th><th>Bucket / Path</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-boundaries-body"></tbody></table></div>
+          <div class="panel-head"><div><h2>Boundary File Manager</h2><div class="panel-sub">Upload and manage territory map files used by the rep app.</div></div><div class="admin-actions"><button id="admin-add-boundary-btn">+ Add Boundary Mapping</button><button id="admin-upload-boundary-btn">Upload KMZ/KML</button><button id="admin-export-boundaries">Export Boundaries</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Team</th><th>Territory</th><th>Display Name</th><th>File Location</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-boundaries-body"></tbody></table></div>
         </div>
       </div>
 
@@ -588,13 +588,13 @@
 
       <div id="tab-panel-address-import" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Preview Rows</div><div id="admin-kpi-import-preview" class="admin-tool-value">0</div><div class="admin-tool-sub">Valid parsed rows ready to import.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Duplicate Flags</div><div id="admin-kpi-import-dupes" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows that appear to match existing addresses.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Missing Required</div><div id="admin-kpi-import-missing" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows missing address or territory.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Preview Records</div><div id="admin-kpi-import-preview" class="admin-tool-value">0</div><div class="admin-tool-sub">Valid parsed rows ready to import.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Duplicate Flags</div><div id="admin-kpi-import-dupes" class="admin-tool-value">0</div><div class="admin-tool-sub">Records that appear to match existing addresses.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Missing Required</div><div id="admin-kpi-import-missing" class="admin-tool-value">0</div><div class="admin-tool-sub">Records missing address or territory.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Last Import</div><div id="admin-kpi-import-last" class="admin-tool-value">—</div><div class="admin-tool-sub">Most recent import attempt from this browser session.</div></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><div><h2>Address CSV Import Tool</h2><div class="panel-sub">Upload a territory address CSV, preview it, detect duplicates, then import directly into Supabase addresses.</div></div><div class="admin-actions"><button id="admin-preview-address-import" class="primary">Preview CSV</button><button id="admin-run-address-import">Import Valid Rows</button></div></div>
+          <div class="panel-head"><div><h2>Address CSV Import Tool</h2><div class="panel-sub">Upload a territory address CSV, preview it, detect duplicates, then add it to the active address list.</div></div><div class="admin-actions"><button id="admin-preview-address-import" class="primary">Preview CSV</button><button id="admin-run-address-import">Import Valid Records</button></div></div>
           <div class="admin-form-grid">
             <div class="admin-form-field"><label>CSV File</label><input id="admin-address-import-file" class="admin-file-input" type="file" accept=".csv,text/csv" /></div>
             <div class="admin-form-field"><label>Default Territory</label><input id="admin-address-import-territory" placeholder="wilber_ne" /></div>
@@ -635,14 +635,14 @@
 
       <div id="tab-panel-admin-audit" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Audit Events</div><div id="admin-kpi-audit-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Admin writes loaded from fieldos_admin_audit_log.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Audit Events</div><div id="admin-kpi-audit-total" class="admin-tool-value">0</div><div class="admin-tool-sub">Saved admin activity records.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Today</div><div id="admin-kpi-audit-today" class="admin-tool-value">0</div><div class="admin-tool-sub">Admin changes created today.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Actors</div><div id="admin-kpi-audit-actors" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique admin users with audit entries.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Tables Changed</div><div id="admin-kpi-audit-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Unique tables affected by admin writes.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Areas Changed</div><div id="admin-kpi-audit-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Areas affected by admin changes.</div></div>
         </div>
         <div class="panel">
           <div class="panel-head"><div><h2>Admin Audit Log</h2><div class="panel-sub">Tracks admin actions such as rep updates, territory changes, boundary uploads, pricing changes, sales reviews, address notes, and CSV imports.</div></div><div class="admin-actions"><button id="admin-export-audit-log">Export Audit Log</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Table</th><th>Row</th><th>New Value</th></tr></thead><tbody id="admin-audit-body"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Area</th><th>Row</th><th>New Value</th></tr></thead><tbody id="admin-audit-body"></tbody></table></div>
         </div>
       </div>
 
@@ -650,7 +650,7 @@
       <div id="tab-panel-daily-reports" class="tab-panel admin-only">
         <div class="admin-tool-grid">
           <div class="admin-tool-card"><div class="admin-tool-label">Active Recipients</div><div id="admin-kpi-daily-report-recipients" class="admin-tool-value">0</div><div class="admin-tool-sub">People who receive the 8 AM report.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Report Runs</div><div id="admin-kpi-daily-report-runs" class="admin-tool-value">0</div><div class="admin-tool-sub">Saved report history rows.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Report Runs</div><div id="admin-kpi-daily-report-runs" class="admin-tool-value">0</div><div class="admin-tool-sub">Previously generated reports.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Latest Status</div><div id="admin-kpi-daily-report-status" class="admin-tool-value">—</div><div class="admin-tool-sub">Most recent send result.</div></div>
         </div>
 
@@ -724,14 +724,14 @@
       <div id="tab-panel-historical-reporting" class="tab-panel admin-only">
         <div class="admin-tools-grid">
           <div class="admin-tool-card"><div class="admin-tool-label">Fiber Historical Sales</div><div id="hist-kpi-fiber-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Fiber sales in non-current territories from sales_orders.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">LightningOS Sales</div><div id="hist-kpi-lightningos-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows from the LightningOS archive/import tables.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">LightningOS Sales</div><div id="hist-kpi-lightningos-sales" class="admin-tool-value">0</div><div class="admin-tool-sub">LightningOS historical records available for review.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Legacy Dispositions</div><div id="hist-kpi-legacy-dispositions" class="admin-tool-value">0</div><div class="admin-tool-sub">Imported historical disposition rows.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Historical Campaigns</div><div id="hist-kpi-campaigns" class="admin-tool-value">0</div><div class="admin-tool-sub">Campaign/territory rows represented in history.</div></div>
         </div>
 
         <div class="panel">
           <div class="panel-head"><div><h2>Fiber Historical Campaigns</h2><div class="panel-sub">This intentionally excludes current Fiber territories: Bryson City, Cameron, Crawford, Elmwood, Palmyra, Syracuse, and Wilber.</div></div><div class="admin-actions"><button id="hist-export-fiber">Export Fiber History</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Sales</th><th>Gig</th><th>Mega</th><th>First Sale</th><th>Last Sale</th><th>Source</th></tr></thead><tbody id="hist-fiber-body"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Territory</th><th>Sales</th><th>Gig</th><th>Mega</th><th>First Sale</th><th>Last Sale</th><th>Origin</th></tr></thead><tbody id="hist-fiber-body"></tbody></table></div>
         </div>
 
         <div class="panel">
@@ -740,31 +740,31 @@
         </div>
 
         <div class="panel">
-          <div class="panel-head"><div><h2>Import / Archive Tables</h2><div class="panel-sub">Loaded row counts from staging/archive tables. These support history but should not drive daily ops KPIs.</div></div><div class="admin-actions"><button id="hist-export-imports">Export Import Counts</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Table</th><th>Rows Loaded</th><th>Dashboard Use</th><th>Notes</th></tr></thead><tbody id="hist-import-body"></tbody></table></div>
+          <div class="panel-head"><div><h2>History Import Status</h2><div class="panel-sub">Imported history counts for internal review only. These do not drive daily team KPIs.</div></div><div class="admin-actions"><button id="hist-export-imports">Export Import Counts</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Area</th><th>Records</th><th>Use</th><th>Notes</th></tr></thead><tbody id="hist-import-body"></tbody></table></div>
         </div>
       </div>
 
       <div id="tab-panel-database-health" class="tab-panel admin-only">
         <div class="admin-tools-grid">
-          <div class="admin-tool-card"><div class="admin-tool-label">Core Tables Loaded</div><div id="db-kpi-core-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Core FieldOS tables pulled by this dashboard.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Loaded Rows</div><div id="db-kpi-loaded-rows" class="admin-tool-value">0</div><div class="admin-tool-sub">Rows currently loaded into the browser.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Live Sections</div><div id="db-kpi-core-tables" class="admin-tool-value">0</div><div class="admin-tool-sub">Live operating areas in the current view.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Records Loaded</div><div id="db-kpi-loaded-rows" class="admin-tool-value">0</div><div class="admin-tool-sub">Records available for the current filters.</div></div>
           <div class="admin-tool-card"><div class="admin-tool-label">Warnings</div><div id="db-kpi-warnings" class="admin-tool-value">0</div><div class="admin-tool-sub">Alignment issues to review.</div></div>
-          <div class="admin-tool-card"><div class="admin-tool-label">Supabase Views</div><div id="db-kpi-views" class="admin-tool-value">0</div><div class="admin-tool-sub">This dashboard is designed to work without helper views.</div></div>
+          <div class="admin-tool-card"><div class="admin-tool-label">Optional Helpers</div><div id="db-kpi-views" class="admin-tool-value">0</div><div class="admin-tool-sub">Designed to work without extra helper screens.</div></div>
         </div>
 
         <div class="panel">
-          <div class="panel-head"><div><h2>Core Table Inventory</h2><div class="panel-sub">What the unified admin dashboard is reading right now.</div></div><div class="admin-actions"><button id="db-export-inventory">Export Inventory</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Table</th><th>Rows Loaded</th><th>Role in FieldOS</th><th>Source</th></tr></thead><tbody id="db-inventory-body"></tbody></table></div>
+          <div class="panel-head"><div><h2>Current View Inventory</h2><div class="panel-sub">A plain-language check of what is available in the current view.</div></div><div class="admin-actions"><button id="db-export-inventory">Export Inventory</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Area</th><th>Records</th><th>Purpose</th><th>Origin</th></tr></thead><tbody id="db-inventory-body"></tbody></table></div>
         </div>
 
         <div class="panel">
-          <div class="panel-head"><div><h2>Source System Split</h2><div class="panel-sub">Shows why Fiber cannot be filtered out just because source_system says legacy.</div></div><div class="admin-actions"><button id="db-export-source-split">Export Source Split</button></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Team</th><th>Territory</th><th>Source System</th><th>Rows</th></tr></thead><tbody id="db-source-body"></tbody></table></div>
+          <div class="panel-head"><div><h2>Activity Origin Review</h2><div class="panel-sub">Internal review of current and historical activity sources.</div></div><div class="admin-actions"><button id="db-export-source-split">Export Origin Split</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Area</th><th>Team</th><th>Territory</th><th>Activity Origin</th><th>Records</th></tr></thead><tbody id="db-source-body"></tbody></table></div>
         </div>
 
         <div class="panel">
-          <div class="panel-head"><div><h2>Data Alignment Warnings</h2><div class="panel-sub">Flags where one table has territory data that another core table does not.</div></div><div class="admin-actions"><button id="db-export-warnings">Export Warnings</button></div></div>
+          <div class="panel-head"><div><h2>System Notices</h2><div class="panel-sub">Flags records that may need review before relying on reports.</div></div><div class="admin-actions"><button id="db-export-warnings">Export Warnings</button></div></div>
           <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Issue</th><th>Team</th><th>Territory</th><th>Evidence</th><th>Recommended Fix</th></tr></thead><tbody id="db-warning-body"></tbody></table></div>
         </div>
       </div>
@@ -775,7 +775,7 @@
             <div class="panel-head">
               <div>
                 <h2>Route Replay</h2>
-                <div class="panel-sub">Replays rep movement from logged address_events GPS points using the territory, rep, and date filters above.</div>
+                <div class="panel-sub">Replays rep movement using logged GPS points with the territory, rep, and date filters above.</div>
               </div>
             </div>
             <div class="route-controls">
@@ -927,7 +927,7 @@
     };
 
     let state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
-    let currentDetailRows = [];
+    let currentDetailRecords = [];
     let territoryChart, dispositionChart, salesTrendChart, refreshTimer;
     let routeMap, routeLayer, routeLine, routeReplayMarker, routeReplayTimer;
     let routeReplayPoints = [];
@@ -1220,7 +1220,7 @@
       return isNaN(d.getTime()) ? value : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
 
-    function buildAddressMapFromRows(rows) {
+    function buildAddressMapFromRecords(rows) {
       const map = new Map();
       rows.forEach(row => {
         ['id', 'address_id', 'location_id', 'zito_location_id', 'external_id'].forEach(field => {
@@ -1232,7 +1232,7 @@
     }
 
     function buildAddressMap() {
-      return buildAddressMapFromRows(state.addresses);
+      return buildAddressMapFromRecords(state.addresses);
     }
 
     function getLinkedAddress(row, addressMap) {
@@ -1400,7 +1400,7 @@
 
     async function fetchAllPages(table, opts = {}) {
       const pageSize = 1000;
-      const maxRows = Number(opts.maxRows || 0);
+      const maxRecords = Number(opts.maxRecords || 0);
       let from = 0;
       let rows = [];
 
@@ -1414,10 +1414,10 @@
         });
 
         const { data, error } = await query;
-        if (error) throw new Error(`${table}: ${error.message || 'Supabase query failed'}`);
+        if (error) throw new Error(`Could not load dashboard data: ${error.message || 'Request failed'}`);
         const page = data || [];
         rows = rows.concat(page);
-        if (maxRows && rows.length >= maxRows) return rows.slice(0, maxRows);
+        if (maxRecords && rows.length >= maxRecords) return rows.slice(0, maxRecords);
         if (page.length < pageSize) break;
         from += pageSize;
       }
@@ -1444,14 +1444,14 @@
 
       const selectedTeamForQueryBeforeLoad = selectedTeamFilter();
       if (!canUseAllTeams() && !selectedTeamForQueryBeforeLoad) {
-        els.status.textContent = 'Access denied: this login is not in dashboard_users. Add this user to dashboard_users with team = fiber, sfi, lynxx, or all.';
+        els.status.textContent = 'Access denied: this login is not approved for a FieldOS dashboard. Ask the company admin to assign dashboard access.';
         els.status.classList.add('error');
         state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
         renderAll();
         return;
       }
 
-      els.status.textContent = 'Loading core FieldOS data... Historical/import tables load only for company admin users.';
+      els.status.textContent = 'Loading your team dashboard... Company history tools load only for company admins.';
       els.status.classList.remove('error');
 
       try {
@@ -1505,10 +1505,10 @@
           fieldos_pricing_offers: fieldos_pricing_offers.length
         };
 
-        const allAddressMap = buildAddressMapFromRows(addresses);
+        const allAddressMap = buildAddressMapFromRecords(addresses);
         const allSlotMap = new Map(schedule_slots.map(s => [idKey(s.id), s]));
         const teamAddresses = addresses.filter(row => rowMatchesTeam(row, allAddressMap, allSlotMap));
-        const teamAddressMap = buildAddressMapFromRows(teamAddresses);
+        const teamAddressMap = buildAddressMapFromRecords(teamAddresses);
         const teamSlots = schedule_slots.filter(row => rowMatchesTeam(row, allAddressMap, allSlotMap));
         const teamSlotMap = new Map(teamSlots.map(s => [idKey(s.id), s]));
 
@@ -1526,10 +1526,10 @@
         const rendered = renderAll();
         const selectedTeam = selectedTeamFilter();
         els.status.textContent = selectedTeam === 'all'
-          ? `Data loaded successfully for All Teams. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`
-          : `Data loaded successfully for ${selectedTeamLabel()}. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`;
+          ? `Company dashboard loaded successfully. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`
+          : `Team dashboard loaded successfully for ${selectedTeamLabel()}. ${formatNumber(rendered.salesQueueCount)} sales row(s) in queue.`;
       } catch (err) {
-        els.status.textContent = err.message || 'Could not load Supabase data.';
+        els.status.textContent = err.message || 'Could not load dashboard data.';
         els.status.classList.add('error');
       }
     }
@@ -1562,9 +1562,9 @@
       els.rep.value = reps.includes(repValue) ? repValue : 'all';
     }
 
-    function buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters) {
+    function buildSalesQueueRecords(filteredSales, filteredEvents, addressMap, filters) {
       const orderAddressKeys = new Set();
-      const orderRows = filteredSales.map(s => {
+      const orderRecords = filteredSales.map(s => {
         const addressKey = idKey(s.address_id || s.location_id || s.zito_location_id || s.external_id);
         if (addressKey) orderAddressKeys.add(addressKey);
         const snapshot = getSaleSnapshot(s);
@@ -1603,7 +1603,7 @@
         };
       });
 
-      const fallbackEventRows = filteredEvents
+      const fallbackEventRecords = filteredEvents
         .filter(ev => SALE_STATUSES.has(String(ev.status || '').toLowerCase().trim()))
         .filter(ev => !orderAddressKeys.has(idKey(ev.address_id)))
         .map(ev => ({
@@ -1632,7 +1632,7 @@
           source: 'address_events'
         }));
 
-      return [...orderRows, ...fallbackEventRows]
+      return [...orderRecords, ...fallbackEventRecords]
         .filter(r => rowMatchesUiTerritory(r, filters.territory) && rowMatchesRep(r, filters.rep))
         .filter(r => !filters.search || Object.values(r).join(' ').toLowerCase().includes(filters.search))
         .sort((a,b) => timeValue(b.created_at) - timeValue(a.created_at));
@@ -1735,7 +1735,7 @@
       updateRouteStats(routeReplayPoints);
 
       if (!routeReplayPoints.length) {
-        els.routeStatus.textContent = 'No GPS points found for the selected filters. Make sure address_events stores lat/lng when reps disposition an address.';
+        els.routeStatus.textContent = 'No GPS points found for the selected filters. Make sure field activity is saving location points when reps disposition an address.';
         updateCurrentStop(null, 0);
         renderAiSummary([]);
         return;
@@ -1948,12 +1948,12 @@
       });
 
       const gaps = [];
-      Object.entries(byRep).forEach(([rep, repRows]) => {
-        repRows.sort((a,b) => timeValue(a.time) - timeValue(b.time));
-        for (let i = 1; i < repRows.length; i++) {
-          const gapMinutes = (timeValue(repRows[i].time) - timeValue(repRows[i - 1].time)) / 60000;
+      Object.entries(byRep).forEach(([rep, repRecords]) => {
+        repRecords.sort((a,b) => timeValue(a.time) - timeValue(b.time));
+        for (let i = 1; i < repRecords.length; i++) {
+          const gapMinutes = (timeValue(repRecords[i].time) - timeValue(repRecords[i - 1].time)) / 60000;
           if (Number.isFinite(gapMinutes) && gapMinutes >= 45) {
-            gaps.push(`${rep}: ${Math.round(gapMinutes)} minute gap between ${formatDateTime(repRows[i - 1].time)} and ${formatDateTime(repRows[i].time)}`);
+            gaps.push(`${rep}: ${Math.round(gapMinutes)} minute gap between ${formatDateTime(repRecords[i - 1].time)} and ${formatDateTime(repRecords[i].time)}`);
           }
         }
       });
@@ -1975,19 +1975,19 @@
         .filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap, slotMap) && rowMatchesRep(ev, filters.rep))
         .sort((a, b) => timeValue(a.created_at) - timeValue(b.created_at));
       const filteredSales = state.sales_orders.filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap) && rowMatchesRep(s, filters.rep));
-      const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
+      const salesQueueRecords = buildSalesQueueRecords(filteredSales, filteredEvents, addressMap, filters);
       const latestMap = latestEventsMap(filteredEvents);
 
       if (!filteredEvents.length) {
         els.aiSummary.innerHTML = `
           <div class="ai-box">
             <h3>Manager Readout</h3>
-            No disposition activity exists for the current filters. Select a territory, rep, and date range that has logged address_events.
+            No disposition activity exists for the current filters. Select a territory, rep, and date range with field activity.
           </div>`;
         return;
       }
 
-      const eventRows = filteredEvents.map(ev => {
+      const eventRecords = filteredEvents.map(ev => {
         const status = String(ev.status || 'pending').toLowerCase().trim();
         const bucket = dispositionBucket(status);
         const address = buildAddressLabel(addressMap, ev);
@@ -2005,18 +2005,18 @@
         };
       });
 
-      const workedRows = eventRows.filter(r => r.bucket !== 'pending');
-      const uniqueWorked = new Set(workedRows.map(r => r.addressKey).filter(Boolean)).size;
-      const uniqueSales = salesQueueRows.length;
+      const workedRecords = eventRecords.filter(r => r.bucket !== 'pending');
+      const uniqueWorked = new Set(workedRecords.map(r => r.addressKey).filter(Boolean)).size;
+      const uniqueSales = salesQueueRecords.length;
       const closeRate = safeRate(uniqueSales, uniqueWorked);
-      const firstEvent = eventRows[0];
-      const lastEvent = eventRows[eventRows.length - 1];
+      const firstEvent = eventRecords[0];
+      const lastEvent = eventRecords[eventRecords.length - 1];
       const activeHours = firstEvent && lastEvent ? Math.max((timeValue(lastEvent.time) - timeValue(firstEvent.time)) / 3600000, 0) : 0;
-      const eventsPerHour = activeHours ? workedRows.length / activeHours : 0;
+      const eventsPerHour = activeHours ? workedRecords.length / activeHours : 0;
 
       const bucketCounts = {};
       const dispositionCounts = {};
-      eventRows.forEach(row => {
+      eventRecords.forEach(row => {
         bucketCounts[row.bucket] = (bucketCounts[row.bucket] || 0) + 1;
         dispositionCounts[row.status] = (dispositionCounts[row.status] || 0) + 1;
       });
@@ -2025,21 +2025,21 @@
       const softCount = bucketCounts.soft_interest || 0;
       const hardNoCount = bucketCounts.hard_no || 0;
       const notFitCount = bucketCounts.not_a_fit || 0;
-      const contactCount = workedRows.filter(r => !['no_contact', 'pending'].includes(r.bucket)).length;
-      const noContactRate = safeRate(noContactCount, workedRows.length);
-      const contactRate = safeRate(contactCount, workedRows.length);
-      const softRate = safeRate(softCount, workedRows.length);
-      const hardNoRate = safeRate(hardNoCount, workedRows.length);
-      const noteCount = eventRows.filter(r => r.note).length;
-      const noteRate = safeRate(noteCount, eventRows.length);
-      const softNoNoteCount = eventRows.filter(r => r.bucket === 'soft_interest' && !r.note).length;
+      const contactCount = workedRecords.filter(r => !['no_contact', 'pending'].includes(r.bucket)).length;
+      const noContactRate = safeRate(noContactCount, workedRecords.length);
+      const contactRate = safeRate(contactCount, workedRecords.length);
+      const softRate = safeRate(softCount, workedRecords.length);
+      const hardNoRate = safeRate(hardNoCount, workedRecords.length);
+      const noteCount = eventRecords.filter(r => r.note).length;
+      const noteRate = safeRate(noteCount, eventRecords.length);
+      const softNoNoteCount = eventRecords.filter(r => r.bucket === 'soft_interest' && !r.note).length;
 
       const topStatuses = Object.entries(dispositionCounts)
         .sort((a,b) => b[1] - a[1])
         .slice(0, 6)
-        .map(([status, count]) => `${status}: ${formatNumber(count)} event(s), ${formatPercent(safeRate(count, eventRows.length))} of activity`);
+        .map(([status, count]) => `${status}: ${formatNumber(count)} event(s), ${formatPercent(safeRate(count, eventRecords.length))} of activity`);
 
-      const timeStats = buildTimeStats(eventRows);
+      const timeStats = buildTimeStats(eventRecords);
       const bestSalesWindow = timeStats
         .filter(t => t.worked >= 3)
         .sort((a,b) => safeRate(b.sales, b.worked) - safeRate(a.sales, a.worked) || b.sales - a.sales)[0];
@@ -2056,7 +2056,7 @@
         return `${t.label}: ${formatNumber(t.worked)} worked, ${saleText}, ${formatPercent(safeRate(t.noContact, t.worked))} no-contact rate`;
       });
 
-      const repStats = buildRepStats(eventRows);
+      const repStats = buildRepStats(eventRecords);
       const repSignals = [];
       repStats.slice(0, 8).forEach(rep => {
         const pieces = [];
@@ -2076,12 +2076,12 @@
       if (softRate >= .18 && closeRate < .05) coachingSignals.push(`Soft-interest volume is meaningful at ${formatPercent(softRate)}, but conversion is only ${formatPercent(closeRate)}. That points to a follow-up/talk-track gap, not just a territory problem.`);
       if (hardNoRate >= .25) coachingSignals.push(`Hard-no outcomes are elevated at ${formatPercent(hardNoRate)}. Review whether reps are leading with price too early or whether this pocket has stronger competitor/contract pressure.`);
       if (noteRate < .35 && softCount > 0) coachingSignals.push(`Only ${formatPercent(noteRate)} of events have notes, and ${formatNumber(softNoNoteCount)} soft-interest event(s) are missing notes. Warm leads need detail or the follow-up queue loses value.`);
-      if (eventsPerHour > 35 && workedRows.length >= 20) coachingSignals.push(`The pace is very fast at ${eventsPerHour.toFixed(1)} worked events/hr. This may be fine for dense streets, but it is worth checking route replay for drive-by style knocking.`);
+      if (eventsPerHour > 35 && workedRecords.length >= 20) coachingSignals.push(`The pace is very fast at ${eventsPerHour.toFixed(1)} worked events/hr. This may be fine for dense streets, but it is worth checking route replay for drive-by style knocking.`);
       if (eventsPerHour > 0 && eventsPerHour < 8 && activeHours >= 2) coachingSignals.push(`The pace is slow at ${eventsPerHour.toFixed(1)} worked events/hr. Look for long gaps, travel time, or reps spending too long away from the next door.`);
-      if (!routePoints.length && filteredEvents.length) coachingSignals.push('Activity exists, but the route cannot replay because the filtered address_events do not have usable lat/lng. Add GPS to disposition writes for better accountability.');
+      if (!routePoints.length && filteredEvents.length) coachingSignals.push('Activity exists, but the route cannot replay because the filtered activity does not have usable GPS points. Add GPS to field activity for better accountability.');
 
       const notHomeByAddress = {};
-      eventRows.filter(r => r.bucket === 'no_contact').forEach(row => {
+      eventRecords.filter(r => r.bucket === 'no_contact').forEach(row => {
         const key = row.addressKey || row.address;
         if (!notHomeByAddress[key]) notHomeByAddress[key] = { address: row.address, count: 0, latest: row.time };
         notHomeByAddress[key].count++;
@@ -2093,9 +2093,9 @@
         .slice(0, 6)
         .map(item => `${item.address}: ${formatNumber(item.count)} no-contact attempts, latest ${formatDateTime(item.latest)}`);
 
-      const gaps = analyzeGapsByRep(eventRows);
+      const gaps = analyzeGapsByRep(eventRecords);
 
-      const softFollowUps = eventRows
+      const softFollowUps = eventRecords
         .filter(row => row.bucket === 'soft_interest')
         .sort((a,b) => timeValue(b.time) - timeValue(a.time))
         .slice(0, 8)
@@ -2133,13 +2133,13 @@
       if (contactRate >= .5 && closeRate < .04) managerInterpretation.push(`The team is getting conversations (${formatPercent(contactRate)} contact rate), but not enough closes. That points more to offer positioning, objection handling, or follow-up discipline than to pure door access.`);
       if (contactRate < .35 && noContactRate >= .55) managerInterpretation.push(`The team is mostly not reaching decision makers. The first fix is timing and route sequencing, not changing the offer.`);
       if (softCount > uniqueSales * 2 && uniqueSales <= 2) managerInterpretation.push(`There are several warmer dispositions compared with closed sales. Management should inspect these notes and make sure reps are setting clear next steps.`);
-      if (notFitCount >= workedRows.length * .2) managerInterpretation.push(`A notable share of doors are blocked/not a fit. Validate whether the list has active customers, businesses, vacant homes, contract-heavy pockets, or competitor-heavy areas mixed in.`);
+      if (notFitCount >= workedRecords.length * .2) managerInterpretation.push(`A notable share of doors are blocked/not a fit. Validate whether the list has active customers, businesses, vacant homes, contract-heavy pockets, or competitor-heavy areas mixed in.`);
       if (!managerInterpretation.length) managerInterpretation.push(`This looks like a normal canvassing slice. The biggest improvement lever is tightening follow-up handling and shifting repeat not-homes into better time windows.`);
 
       els.aiSummary.innerHTML = `
         <div class="ai-box">
           <h3>Manager Readout</h3>
-          <strong>${formatNumber(workedRows.length)}</strong> worked event(s), <strong>${formatNumber(uniqueWorked)}</strong> unique worked door(s), <strong>${formatNumber(uniqueSales)}</strong> sale(s), and <strong>${formatPercent(closeRate)}</strong> close rate.<br>
+          <strong>${formatNumber(workedRecords.length)}</strong> worked event(s), <strong>${formatNumber(uniqueWorked)}</strong> unique worked door(s), <strong>${formatNumber(uniqueSales)}</strong> sale(s), and <strong>${formatPercent(closeRate)}</strong> close rate.<br>
           Event window: <strong>${escapeHtml(eventWindow)}</strong>. GPS replay window: <strong>${escapeHtml(gpsWindow)}</strong>. Pace: <strong>${eventsPerHour ? eventsPerHour.toFixed(1) + ' worked events/hr' : 'not enough time data'}</strong>.
           ${htmlList(managerInterpretation, 'No interpretation available.', 4)}
         </div>
@@ -2195,7 +2195,7 @@
         .map(b => ({ ...b, slot: slotMap.get(idKey(b.schedule_slot_id)) || slotMap.get(idKey(b.slot_id)) || null }))
         .filter(b => rowMatchesUiTerritory(b, filters.territory, addressMap, slotMap) && rowMatchesRep(b, filters.rep));
       const latestMap = latestEventsMap(filteredEvents);
-      const salesQueueRows = buildSalesQueueRows(filteredSales, filteredEvents, addressMap, filters);
+      const salesQueueRecords = buildSalesQueueRecords(filteredSales, filteredEvents, addressMap, filters);
 
       let pending = 0, worked = 0;
       filteredAddresses.forEach(a => {
@@ -2205,7 +2205,7 @@
         if (ev && status !== 'pending') worked++;
       });
 
-      const salesCount = salesQueueRows.length;
+      const salesCount = salesQueueRecords.length;
       document.getElementById('kpi-homes').textContent = formatNumber(filteredAddresses.length);
       document.getElementById('kpi-pending').textContent = formatNumber(pending);
       document.getElementById('kpi-worked').textContent = formatNumber(worked);
@@ -2214,12 +2214,12 @@
       document.getElementById('kpi-booked').textContent = formatNumber(filteredBookings.length);
 
       const salesByTerritory = {};
-      salesQueueRows.forEach(row => {
+      salesQueueRecords.forEach(row => {
         const territory = row.territory || 'Unknown';
         salesByTerritory[normalizeTerritory(territory)] = (salesByTerritory[normalizeTerritory(territory)] || 0) + 1;
       });
 
-      const territoryRows = [...new Set(filteredAddresses.map(a => a.territory).filter(Boolean))].map(territory => {
+      const territoryRecords = [...new Set(filteredAddresses.map(a => a.territory).filter(Boolean))].map(territory => {
         const territoryAddresses = filteredAddresses.filter(a => normalizeTerritory(a.territory) === normalizeTerritory(territory));
         const territoryEvents = territoryAddresses.map(a => latestMap.get(idKey(a.id))).filter(Boolean);
         return {
@@ -2235,14 +2235,14 @@
         const status = String(ev.status || 'pending').toLowerCase();
         dispositionCounts[status] = (dispositionCounts[status] || 0) + 1;
       });
-      const dispositionRows = Object.entries(dispositionCounts).map(([status, count]) => ({ status, count })).sort((a,b) => b.count - a.count).slice(0,10);
+      const dispositionRecords = Object.entries(dispositionCounts).map(([status, count]) => ({ status, count })).sort((a,b) => b.count - a.count).slice(0,10);
 
       const salesTrendMap = {};
-      salesQueueRows.forEach(s => {
+      salesQueueRecords.forEach(s => {
         const day = (s.created_at || '').slice(0,10);
         if (day) salesTrendMap[day] = (salesTrendMap[day] || 0) + 1;
       });
-      const salesTrendRows = Object.keys(salesTrendMap).sort().map(day => ({ label: formatDate(day), sales: salesTrendMap[day] }));
+      const salesTrendRecords = Object.keys(salesTrendMap).sort().map(day => ({ label: formatDate(day), sales: salesTrendMap[day] }));
 
       const repMap = {};
       filteredEvents.forEach(ev => {
@@ -2251,15 +2251,15 @@
         if (!repMap[rep]) repMap[rep] = { name: rep, worked: 0, sales: 0 };
         repMap[rep].worked++;
       });
-      salesQueueRows.forEach(row => {
+      salesQueueRecords.forEach(row => {
         const rep = row.rep_name;
         if (!rep) return;
         if (!repMap[rep]) repMap[rep] = { name: rep, worked: 0, sales: 0 };
         repMap[rep].sales++;
       });
-      const repRows = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
+      const repRecords = Object.values(repMap).sort((a,b) => b.sales - a.sales || b.worked - a.worked);
 
-      const utilizationRows = state.schedule_slots
+      const utilizationRecords = state.schedule_slots
         .filter(s => rowMatchesUiTerritory(s, filters.territory, addressMap, slotMap))
         .map(s => ({
           slot: formatDate(s.slot_date) + ' ' + (s.time_label || ''),
@@ -2271,27 +2271,27 @@
         .sort((a,b) => b.utilization - a.utilization)
         .slice(0,12);
 
-      const activityRows = [
-        ...salesQueueRows.map(s => ({ time: s.created_at, rep: s.rep_name || '—', territory: s.territory || '—', address: s.address || '—', type: s.source === 'sales_orders' ? 'Sale' : 'Sale Disposition', status: s.package_name || 'sale' })),
+      const activityRecords = [
+        ...salesQueueRecords.map(s => ({ time: s.created_at, rep: s.rep_name || '—', territory: s.territory || '—', address: s.address || '—', type: s.source === 'sales_orders' ? 'Sale' : 'Sale Disposition', status: s.package_name || 'sale' })),
         ...filteredEvents.map(ev => ({ time: ev.created_at, rep: getRepName(ev) || '—', territory: getRowTerritory(ev, addressMap, slotMap) || '—', address: buildAddressLabel(addressMap, ev), type: 'Disposition', status: ev.status || '—' })),
         ...filteredBookings.map(b => ({ time: b.created_at, rep: getRepName(b) || '—', territory: getRowTerritory(b, addressMap, slotMap) || '—', address: buildAddressLabel(addressMap, b), type: 'Booking', status: ((b.slot?.slot_date || '') + ' ' + (b.slot?.time_label || '')).trim() || 'booked' }))
       ].filter(r => !filters.search || [r.rep, r.territory, r.address, r.type, r.status].join(' ').toLowerCase().includes(filters.search))
        .sort((a,b) => timeValue(b.time) - timeValue(a.time))
        .slice(0,100);
 
-      renderTerritoryChart(territoryRows);
-      renderDispositionChart(dispositionRows);
-      renderSalesTrendChart(salesTrendRows);
-      renderRepList(repRows, filteredEvents, addressMap);
-      renderScheduleList(utilizationRows);
-      renderActivity(activityRows);
-      renderSalesQueue(salesQueueRows);
-      renderPricingAdmin(salesQueueRows);
+      renderTerritoryChart(territoryRecords);
+      renderDispositionChart(dispositionRecords);
+      renderSalesTrendChart(salesTrendRecords);
+      renderRepList(repRecords, filteredEvents, addressMap);
+      renderScheduleList(utilizationRecords);
+      renderActivity(activityRecords);
+      renderSalesQueue(salesQueueRecords);
+      renderPricingAdmin(salesQueueRecords);
       renderInstallCapacity(filteredSales, filteredBookings, addressMap, slotMap);
       if (els.tabPanelRoute && els.tabPanelRoute.classList.contains('active')) setTimeout(renderRouteReplay, 80);
 
-      els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRows);
-      els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', salesQueueRows);
+      els.exportActivity.onclick = () => csvDownload('fieldos_recent_activity.csv', activityRecords);
+      els.exportSales.onclick = () => csvDownload('fieldos_sales.csv', salesQueueRecords);
       els.exportEvents.onclick = () => csvDownload('fieldos_address_events.csv', filteredEvents.map(ev => ({
         created_at: ev.created_at,
         rep_name: getRepName(ev),
@@ -2300,9 +2300,9 @@
         note: ev.note,
         address: buildAddressLabel(addressMap, ev)
       })));
-      els.exportSalesQueue.onclick = () => csvDownload('fieldos_sales_queue.csv', salesQueueRows);
+      els.exportSalesQueue.onclick = () => csvDownload('fieldos_sales_queue.csv', salesQueueRecords);
 
-      return { salesQueueCount: salesQueueRows.length };
+      return { salesQueueCount: salesQueueRecords.length };
     }
 
     function chartUnavailable(containerId, message) {
@@ -2369,11 +2369,11 @@
       return offers.find(o => String(o.package_key || '').toLowerCase() === packageKey && (!normalizeTerritory(o.territory) || normalizeTerritory(o.territory) === 'all') && activeDateStatus(o) === 'Active') || null;
     }
 
-    function renderPricingAdmin(salesQueueRows) {
+    function renderPricingAdmin(salesQueueRecords) {
       const offers = (state.fieldos_pricing_offers || []).filter(o => o && o.is_active !== false);
       const activeOffers = offers.filter(o => activeDateStatus(o) === 'Active');
       const territories = [...new Set(state.addresses.map(a => a.territory).filter(Boolean))].sort((a,b) => normalizeTerritory(a).localeCompare(normalizeTerritory(b)));
-      const missingSnapshots = (salesQueueRows || []).filter(r => r.source === 'sales_orders' && !r.offer_snapshot).length;
+      const missingSnapshots = (salesQueueRecords || []).filter(r => r.source === 'sales_orders' && !r.offer_snapshot).length;
       const modemFlags = activeOffers.filter(o => modemFeeAmount(arrayFromJson(o.charges)) !== 0).length;
       const coveredTerritories = new Set(activeOffers.map(o => normalizeTerritory(o.territory || 'all')).filter(Boolean));
 
@@ -2409,13 +2409,13 @@
             <td>${escapeHtml((o.active_start || 'Start now') + ' → ' + (o.active_end || 'No end'))}</td>
             <td><div class="admin-actions"><button class="inline-admin-btn" data-duplicate-offer="${escapeHtml(idKey(o.id))}">Duplicate</button><button class="inline-admin-btn warn" data-deactivate-offer="${escapeHtml(idKey(o.id))}">Deactivate</button></div></td>
           </tr>`;
-        }).join('') : '<tr><td colspan="10" style="color:#94a3b8;">No active pricing offers loaded. Confirm RLS/grants on fieldos_pricing_offers.</td></tr>';
+        }).join('') : '<tr><td colspan="10" style="color:#94a3b8;">No active offers are available for this dashboard. Confirm the offer setup and team access.</td></tr>';
         [...els.pricingOffersBody.querySelectorAll('tr.row-btn')].forEach((tr, idx) => { tr.onclick = (ev) => { if (ev.target.closest('button')) return; openDetail('Pricing Offer Detail', [activeOffers[idx]]); }; });
       }
 
       const warnings = [];
-      if (!activeOffers.length) warnings.push({ type: 'bad', text: 'No active pricing offers are visible to this dashboard. Reps may still see fallback pricing if the pricing table cannot be read.' });
-      if (missingSnapshots) warnings.push({ type: 'bad', text: `${formatNumber(missingSnapshots)} submitted sale(s) are missing an offer snapshot. These may have been created before dynamic pricing was deployed or while optional sales_orders columns were missing.` });
+      if (!activeOffers.length) warnings.push({ type: 'bad', text: 'No active offers are available for this dashboard. Reps may still see fallback pricing if current offers cannot load.' });
+      if (missingSnapshots) warnings.push({ type: 'bad', text: `${formatNumber(missingSnapshots)} submitted sale(s) are missing a quoted-offer snapshot. Review before entering the order.` });
       if (modemFlags) warnings.push({ type: 'bad', text: `${formatNumber(modemFlags)} active offer(s) have a modem fee other than $0. Review immediately before reps quote pricing.` });
 
       const duplicates = new Map();
@@ -2552,7 +2552,7 @@
       });
 
       const grouped = new Map();
-      const detailRows = [];
+      const detailRecords = [];
 
       slots.forEach(slot => {
         const territory = getRowTerritory(slot, addressMap, slotMap) || slot.territory || 'Unknown Territory';
@@ -2606,7 +2606,7 @@
           }
         }
 
-        detailRows.push({
+        detailRecords.push({
           date,
           time,
           team_slug: teamSlug || 'unknown',
@@ -2667,15 +2667,15 @@
         };
       }).sort((a,b) => (b.severity === 'bad') - (a.severity === 'bad') || b.utilization - a.utilization || a.territory.localeCompare(b.territory));
 
-      detailRows.sort((a,b) => String(a.date || '').localeCompare(String(b.date || '')) || a.territory.localeCompare(b.territory) || String(a.time || '').localeCompare(String(b.time || '')));
-      return { rows, detailRows, activeBookings };
+      detailRecords.sort((a,b) => String(a.date || '').localeCompare(String(b.date || '')) || a.territory.localeCompare(b.territory) || String(a.time || '').localeCompare(String(b.time || '')));
+      return { rows, detailRecords, activeBookings };
     }
 
     function renderInstallCapacity() {
       if (!els.installCapacityBody) return;
       const data = buildInstallCapacityData();
       const rows = data.rows || [];
-      const detailRows = data.detailRows || [];
+      const detailRecords = data.detailRecords || [];
       const totals = rows.reduce((acc, r) => {
         acc.capacity += r.capacity || 0;
         acc.booked += r.booked || 0;
@@ -2683,13 +2683,13 @@
         acc.risks += r.severity === 'bad' || r.severity === 'warn' ? 1 : 0;
         return acc;
       }, { capacity:0, booked:0, available:0, risks:0 });
-      const nextRows = rows.filter(r => r.next_available && r.next_available !== '—').sort((a,b) => String(a.next_available_sort || '').localeCompare(String(b.next_available_sort || '')));
+      const nextRecords = rows.filter(r => r.next_available && r.next_available !== '—').sort((a,b) => String(a.next_available_sort || '').localeCompare(String(b.next_available_sort || '')));
       const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
       setText('install-kpi-capacity', formatNumber(totals.capacity));
       setText('install-kpi-booked', formatNumber(totals.booked));
       setText('install-kpi-available', formatNumber(totals.available));
       setText('install-kpi-utilization', formatPercent(totals.capacity ? totals.booked / totals.capacity : 0));
-      setText('install-kpi-next', nextRows[0] ? nextRows[0].next_available : '—');
+      setText('install-kpi-next', nextRecords[0] ? nextRecords[0].next_available : '—');
       setText('install-kpi-risks', formatNumber(totals.risks));
 
       els.installCapacityBody.innerHTML = rows.length ? rows.map(r => `
@@ -2703,9 +2703,9 @@
           <td>${escapeHtml(r.next_available || '—')}<br><span style="color:#94a3b8;">${formatNumber(r.open_days)} open day(s)</span></td>
           <td class="compact-cell">Installed: ${formatNumber(r.installed)}<br>Rescheduled: ${formatNumber(r.needs_rescheduled)}<br>Canceled: ${formatNumber(r.canceled)}</td>
           <td class="compact-cell"><span class="admin-tag ${r.severity === 'bad' ? 'bad' : r.severity === 'warn' ? 'warn' : 'good'}">${escapeHtml(r.severity === 'bad' ? 'High Risk' : r.severity === 'warn' ? 'Watch' : 'Good')}</span><br>${escapeHtml(r.risk)}</td>
-        </tr>`).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No schedule slots or install sales found for the selected filters. Load schedule_slots or adjust the date/territory filters.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="9" style="color:#94a3b8;">No install openings or install sales found for the selected filters. Adjust the date or territory filters.</td></tr>';
 
-      els.installCapacityDetailBody.innerHTML = detailRows.length ? detailRows.map(r => `
+      els.installCapacityDetailBody.innerHTML = detailRecords.length ? detailRecords.map(r => `
         <tr>
           <td>${escapeHtml(formatDate(r.date) || r.date || '—')}</td>
           <td>${escapeHtml(r.time || '—')}</td>
@@ -2816,22 +2816,22 @@
     }
 
     function openDetail(title, rows) {
-      currentDetailRows = (rows || []).filter(Boolean);
+      currentDetailRecords = (rows || []).filter(Boolean);
       els.detailTitle.textContent = title;
-      if (!currentDetailRows.length) {
+      if (!currentDetailRecords.length) {
         els.detailHead.innerHTML = '';
         els.detailBody.innerHTML = '<tr><td>No rows found.</td></tr>';
       } else {
-        const headers = Object.keys(currentDetailRows[0]);
+        const headers = Object.keys(currentDetailRecords[0]);
         els.detailHead.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
-        els.detailBody.innerHTML = currentDetailRows.map(row => '<tr>' + headers.map(h => `<td>${escapeHtml(row[h] ?? '')}</td>`).join('') + '</tr>').join('');
+        els.detailBody.innerHTML = currentDetailRecords.map(row => '<tr>' + headers.map(h => `<td>${escapeHtml(row[h] ?? '')}</td>`).join('') + '</tr>').join('');
       }
       els.modal.classList.add('open');
     }
 
     els.detailClose.onclick = () => els.modal.classList.remove('open');
     els.modal.onclick = (e) => { if (e.target === els.modal) els.modal.classList.remove('open'); };
-    els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRows);
+    els.detailExport.onclick = () => csvDownload((els.detailTitle.textContent || 'detail').toLowerCase().replace(/\s+/g, '_') + '.csv', currentDetailRecords);
     els.refresh.onclick = loadData;
     if (els.team) {
       els.team.value = DEFAULT_TEAM_FILTER;
@@ -3000,14 +3000,14 @@
       histExportLightning: document.getElementById('hist-export-lightningos'),
       histExportImports: document.getElementById('hist-export-imports'),
       dbKpiCoreTables: document.getElementById('db-kpi-core-tables'),
-      dbKpiLoadedRows: document.getElementById('db-kpi-loaded-rows'),
+      dbKpiLoadedRecords: document.getElementById('db-kpi-loaded-rows'),
       dbKpiWarnings: document.getElementById('db-kpi-warnings'),
       dbKpiViews: document.getElementById('db-kpi-views'),
       dbInventoryBody: document.getElementById('db-inventory-body'),
-      dbSourceBody: document.getElementById('db-source-body'),
+      dbOriginBody: document.getElementById('db-source-body'),
       dbWarningBody: document.getElementById('db-warning-body'),
       dbExportInventory: document.getElementById('db-export-inventory'),
-      dbExportSourceSplit: document.getElementById('db-export-source-split'),
+      dbExportOriginSplit: document.getElementById('db-export-source-split'),
       dbExportWarnings: document.getElementById('db-export-warnings'),
       adminAddRepBtn: document.getElementById('admin-add-rep-btn'),
       adminAddTerritoryBtn: document.getElementById('admin-add-territory-btn'),
@@ -3056,10 +3056,10 @@
           isCompanyAdmin = row.is_company_admin === true;
           allowedTeams = allowedTeams.concat(normalizeAllowedTeams(row.allowed_teams || row.allowed_team || row.team_slug || row.team));
         } else if (error) {
-          console.warn('fieldos_dashboard_access RPC error; falling back to dashboard_users read.', error);
+          console.warn('Dashboard access check returned an error; using fallback access check.', error);
         }
       } catch (err) {
-        console.warn('fieldos_dashboard_access RPC not available yet; falling back to dashboard_users read.', err);
+        console.warn('Dashboard access check is not available yet; using fallback access check.', err);
       }
 
       // Fallback path: read dashboard_users directly.
@@ -3101,7 +3101,7 @@
             }
           });
         } catch (err) {
-          console.warn('dashboard_users access check failed', err);
+          console.warn('Dashboard access check failed', err);
         }
       }
 
@@ -3146,17 +3146,17 @@
       if (note) {
         note.className = 'admin-alert';
         note.textContent = allowed
-          ? 'Full company admin tools are enabled from dashboard_users. You can view All Teams or filter to a specific team.'
-          : `Team dashboard locked by dashboard_users to ${access.allowedTeams.map(t => TEAM_LABELS[t] || t).join(', ') || 'no assigned team'}. Company-wide, historical, database health, and cross-team admin tools are hidden.`;
+          ? 'Full company admin tools are enabled. You can view All Teams or filter to a specific team.'
+          : `Team dashboard locked to ${access.allowedTeams.map(t => TEAM_LABELS[t] || t).join(', ') || 'no assigned team'}. Company-wide, history, system status, and cross-team admin tools are hidden.`;
       }
 
       if (els.dashboardTitle && els.dashboardSubtitle) {
         if (allowed) {
           els.dashboardTitle.textContent = 'Company Admin Dashboard';
-          els.dashboardSubtitle.textContent = 'Company-wide view controlled by dashboard_users.';
+          els.dashboardSubtitle.textContent = 'Company-wide view for approved company admins.';
         } else {
           els.dashboardTitle.textContent = `${selectedTeamLabel()} Dashboard`;
-          els.dashboardSubtitle.textContent = 'Team-scoped dashboard controlled by dashboard_users.';
+          els.dashboardSubtitle.textContent = 'Team-scoped dashboard for approved team users.';
         }
       }
 
@@ -3173,8 +3173,8 @@
       try {
 
         // Keep the first admin load light. Heavy historical/import tables are lazy-loaded only
-        // when Historical Reporting or Database Health is opened.
-        const [repTerritories, boundaryFiles, territoriesTableRows, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns] = await Promise.all([
+        // when Historical Reporting or System Status is opened.
+        const [repTerritories, boundaryFiles, territoriesTableRecords, fieldosTerritories, addressAdminNotes, adminAuditLog, dailyReportRecipients, dailyReportRuns] = await Promise.all([
           fetchOptionalAllPages('rep_territories', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territory_boundary_files', { order: { column: 'territory', ascending: true } }),
           fetchOptionalAllPages('territories', { order: { column: 'territory', ascending: true } }),
@@ -3186,7 +3186,7 @@
         ]);
         adminState.rep_territories = repTerritories || [];
         adminState.territory_boundary_files = boundaryFiles || [];
-        adminState.territories = territoriesTableRows || [];
+        adminState.territories = territoriesTableRecords || [];
         adminState.address_admin_notes = addressAdminNotes || [];
         adminState.fieldos_admin_audit_log = adminAuditLog || [];
         adminState.fieldos_daily_report_recipients = dailyReportRecipients || [];
@@ -3203,7 +3203,7 @@
         adminState.fieldos_active_campaign_overrides = adminState.fieldos_active_campaign_overrides || [];
 
         const mergedTerritories = new Map();
-        (territoriesTableRows || []).forEach(function(row) {
+        (territoriesTableRecords || []).forEach(function(row) {
           const key = adminTerritoryKey(row.territory || row.display_name || row.name);
           if (key) mergedTerritories.set(key, Object.assign({ _source_table: 'territories' }, row));
         });
@@ -3326,7 +3326,7 @@
       return m;
     }
 
-    function territoryRowsForAdmin() {
+    function territoryRecordsForAdmin() {
       const addressMap = buildAddressMap();
       const filters = currentFilters();
       const latest = latestEventsMap(state.address_events.filter(ev => rowMatchesUiTerritory(ev, filters.territory, addressMap) && rowMatchesRep(ev, filters.rep)));
@@ -3386,14 +3386,14 @@
       const missingSalesSnapshot = state.sales_orders.filter(s => !hasSaleSnapshot(s));
       const eventsMissingRep = state.address_events.filter(ev => !getRepName(ev));
       const eventsMissingAddress = state.address_events.filter(ev => !idKey(ev.address_id));
-      const territoryRows = territoryRowsForAdmin();
-      const territoriesNoRep = territoryRows.filter(t => !t.reps.length && t.total > 0);
-      const territoriesNoBoundary = territoryRows.filter(t => !t.boundaries.length && t.total > 0);
-      const territoriesNoOffers = territoryRows.filter(t => (!t.offerMega || !t.offerGig) && t.total > 0);
+      const territoryRecords = territoryRecordsForAdmin();
+      const territoriesNoRep = territoryRecords.filter(t => !t.reps.length && t.total > 0);
+      const territoriesNoBoundary = territoryRecords.filter(t => !t.boundaries.length && t.total > 0);
+      const territoriesNoOffers = territoryRecords.filter(t => (!t.offerMega || !t.offerGig) && t.total > 0);
       const repTerritoryMap = adminRepTerritoryMap();
       const repsNoTerritory = state.reps.filter(r => !(repTerritoryMap.get(idKey(r.id)) || []).length && !String(r.territory || '').trim());
 
-      function add(sev, area, issue, count, fix, detailRows) { if (count > 0) issues.push({ severity: sev, area, issue, count, recommended_fix: fix, detailRows: detailRows || [] }); }
+      function add(sev, area, issue, count, fix, detailRecords) { if (count > 0) issues.push({ severity: sev, area, issue, count, recommended_fix: fix, detailRecords: detailRecords || [] }); }
       add('warn', 'Addresses', 'Addresses missing GPS coordinates', missingGps.length, 'Geocode or refresh address lat/lng before relying on map routing.', missingGps);
       add('bad', 'Addresses', 'Addresses missing territory', missingTerritory.length, 'Assign a territory so reps, pricing, and KMZ files can load correctly.', missingTerritory);
       add('warn', 'Addresses', 'Possible duplicate addresses', duplicateCount, 'Review duplicate address keys and merge/disable duplicates where needed.', []);
@@ -3421,11 +3421,11 @@
       return activeTerritorySetForTeam(team).has(key);
     }
 
-    function rowSourceLabel(row) {
+    function rowOriginLabel(row) {
       return String(row?.source_system || row?._source_table || row?.source || '[blank/live]').trim() || '[blank/live]';
     }
 
-    function groupRows(rows, keyFn, seedFn, addFn) {
+    function groupRecords(rows, keyFn, seedFn, addFn) {
       const map = new Map();
       (rows || []).forEach(row => {
         const key = keyFn(row);
@@ -3439,8 +3439,8 @@
       return String(firstNonEmpty(row?.package_name, row?.package, row?.status, row?.plan_name)).toLowerCase().includes(needle);
     }
 
-    function setHistoricalLoadingRows(message) {
-      const msg = escapeHtml(message || 'Loading historical reporting data...');
+    function setHistoricalLoadingRecords(message) {
+      const msg = escapeHtml(message || 'Loading company history...');
       if (els.histFiberBody) els.histFiberBody.innerHTML = `<tr><td colspan="7" style="color:#94a3b8;">${msg}</td></tr>`;
       if (els.histLightningBody) els.histLightningBody.innerHTML = `<tr><td colspan="7" style="color:#94a3b8;">${msg}</td></tr>`;
       if (els.histImportBody) els.histImportBody.innerHTML = `<tr><td colspan="4" style="color:#94a3b8;">${msg}</td></tr>`;
@@ -3450,11 +3450,11 @@
       if (!canUseAllTeams()) return;
       if (historicalDataLoaded || historicalDataLoading) return;
       historicalDataLoading = true;
-      setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+      setHistoricalLoadingRecords('Loading company history...');
       try {
         const [legacyFiberSales, legacyDispositionImport, legacyLightningSales, legacyLightningSchedule, lightningArchive, historicalCampaigns] = await Promise.all([
           fetchOptionalAllPages('fieldos_legacy_fiber_sales_import', { order: { column: 'id', ascending: true } }),
-          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true }, maxRows: 1000 }),
+          fetchOptionalAllPages('fieldos_legacy_disposition_import', { order: { column: 'id', ascending: true }, maxRecords: 1000 }),
           fetchOptionalAllPages('fieldos_legacy_lightningos_sales_import', { order: { column: 'id', ascending: true } }),
           fetchOptionalAllPages('fieldos_legacy_lightningos_schedule_import', { order: { column: 'id', ascending: true } }),
           fetchOptionalAllPages('fieldos_lightningos_historical_sales_archive', { order: { column: 'id', ascending: true } }),
@@ -3469,7 +3469,7 @@
         historicalDataLoaded = true;
       } catch (err) {
         console.warn('Historical reporting data failed to load', err);
-        setHistoricalLoadingRows('Historical reporting data could not be loaded. Check console/Supabase RLS permissions.');
+        setHistoricalLoadingRecords('Company history could not be loaded. Refresh and try again, or contact the company admin.');
       } finally {
         historicalDataLoading = false;
       }
@@ -3481,7 +3481,7 @@
       databaseHealthDataLoading = true;
       try {
         const [notificationQueue, appSettings, activeCampaignOverrides] = await Promise.all([
-          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false }, maxRows: 500 }),
+          fetchOptionalAllPages('notification_queue', { order: { column: 'created_at', ascending: false }, maxRecords: 500 }),
           fetchOptionalAllPages('app_settings', { order: { column: 'key', ascending: true } }),
           fetchOptionalAllPages('fieldos_active_campaign_overrides', { order: { column: 'territory_key', ascending: true } })
         ]);
@@ -3500,19 +3500,19 @@
       if (!els.histFiberBody) return;
 
       if (!canUseAllTeams()) {
-        setHistoricalLoadingRows('Historical reporting is company-admin only and is not available from team dashboards.');
+        setHistoricalLoadingRecords('Company history is company-admin only and is not available from team dashboards.');
         return;
       }
 
       // If this tab is clicked again while the import/archive tables are loading,
       // show the loading row and stop. This prevents a recursive Promise/render loop.
       if (historicalDataLoading) {
-        setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+        setHistoricalLoadingRecords('Loading company history...');
         return;
       }
 
       if (!historicalDataLoaded) {
-        setHistoricalLoadingRows('Loading historical reporting data from Supabase...');
+        setHistoricalLoadingRecords('Loading company history...');
         loadHistoricalReportingData().then(() => {
           if (els.tabPanelHistoricalReporting && els.tabPanelHistoricalReporting.classList.contains('active')) {
             renderHistoricalReporting();
@@ -3525,13 +3525,13 @@
         return team === 'fiber' && !isCurrentOperationalTerritory('fiber', getRowTerritory(row));
       });
 
-      const lightningRows = (adminState.fieldos_lightningos_historical_sales_archive || []).length
+      const lightningRecords = (adminState.fieldos_lightningos_historical_sales_archive || []).length
         ? adminState.fieldos_lightningos_historical_sales_archive
         : (adminState.fieldos_legacy_lightningos_sales_import || []);
 
-      const legacyDispositionRows = adminState.fieldos_legacy_disposition_import || [];
+      const legacyDispositionRecords = adminState.fieldos_legacy_disposition_import || [];
 
-      const fiberGroups = groupRows(
+      const fiberGroups = groupRecords(
         fiberHistoricalSales,
         row => normalizeTerritory(getRowTerritory(row) || 'unknown'),
         row => ({ territory: getRowTerritory(row) || 'unknown', sales: 0, gig: 0, mega: 0, first: '', last: '', source: new Set() }),
@@ -3542,12 +3542,12 @@
           const t = firstNonEmpty(row.created_at, row.install_date, row.date);
           if (t && (!g.first || timeValue(t) < timeValue(g.first))) g.first = t;
           if (t && (!g.last || timeValue(t) > timeValue(g.last))) g.last = t;
-          g.source.add(rowSourceLabel(row));
+          g.source.add(rowOriginLabel(row));
         }
       ).sort((a,b) => b.sales - a.sales);
 
-      const lightningGroups = groupRows(
-        lightningRows,
+      const lightningGroups = groupRecords(
+        lightningRecords,
         row => normalizeTerritory(getRowTerritory(row) || row.territory || 'unknown'),
         row => ({ territory: getRowTerritory(row) || row.territory || 'unknown', sales: 0, installed: 0, canceled: 0, needs_rescheduled: 0, first: '', last: '' }),
         (g, row) => {
@@ -3569,41 +3569,41 @@
       ]).size;
 
       if (els.histKpiFiberSales) els.histKpiFiberSales.textContent = formatNumber(fiberHistoricalSales.length);
-      if (els.histKpiLightningSales) els.histKpiLightningSales.textContent = formatNumber(lightningRows.length);
-      if (els.histKpiLegacyDispositions) els.histKpiLegacyDispositions.textContent = formatNumber(legacyDispositionRows.length);
+      if (els.histKpiLightningSales) els.histKpiLightningSales.textContent = formatNumber(lightningRecords.length);
+      if (els.histKpiLegacyDispositions) els.histKpiLegacyDispositions.textContent = formatNumber(legacyDispositionRecords.length);
       if (els.histKpiCampaigns) els.histKpiCampaigns.textContent = formatNumber(campaignCount);
 
       els.histFiberBody.innerHTML = fiberGroups.length ? fiberGroups.map(r => `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.sales)}</td><td>${formatNumber(r.gig)}</td><td>${formatNumber(r.mega)}</td><td>${escapeHtml(formatDate(r.first))}</td><td>${escapeHtml(formatDate(r.last))}</td><td>${escapeHtml(Array.from(r.source).join(', '))}</td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No Fiber historical sales found outside current active Fiber territories.</td></tr>';
 
-      els.histLightningBody.innerHTML = lightningGroups.length ? lightningGroups.map(r => `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.sales)}</td><td>${formatNumber(r.installed)}</td><td>${formatNumber(r.canceled)}</td><td>${formatNumber(r.needs_rescheduled)}</td><td>${escapeHtml(formatDate(r.first))}</td><td>${escapeHtml(formatDate(r.last))}</td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No LightningOS historical rows loaded or accessible.</td></tr>';
+      els.histLightningBody.innerHTML = lightningGroups.length ? lightningGroups.map(r => `<tr><td><strong>${escapeHtml(r.territory)}</strong></td><td>${formatNumber(r.sales)}</td><td>${formatNumber(r.installed)}</td><td>${formatNumber(r.canceled)}</td><td>${formatNumber(r.needs_rescheduled)}</td><td>${escapeHtml(formatDate(r.first))}</td><td>${escapeHtml(formatDate(r.last))}</td></tr>`).join('') : '<tr><td colspan="7" style="color:#94a3b8;">No LightningOS historical records are available.</td></tr>';
 
-      const importRows = [
-        { table: 'fieldos_legacy_fiber_sales_import', rows: (adminState.fieldos_legacy_fiber_sales_import || []).length, use: 'Import audit', notes: 'Original Fiber sales import rows; use sales_orders for live dashboard metrics.' },
-        { table: 'fieldos_legacy_disposition_import', rows: (adminState.fieldos_legacy_disposition_import || []).length, use: 'Import audit', notes: 'Original historical disposition import rows.' },
-        { table: 'fieldos_legacy_lightningos_sales_import', rows: (adminState.fieldos_legacy_lightningos_sales_import || []).length, use: 'LightningOS history', notes: 'Original LightningOS sales staging table.' },
-        { table: 'fieldos_lightningos_historical_sales_archive', rows: (adminState.fieldos_lightningos_historical_sales_archive || []).length, use: 'LightningOS history', notes: 'Preferred LightningOS archive source.' },
-        { table: 'fieldos_legacy_lightningos_schedule_import', rows: (adminState.fieldos_legacy_lightningos_schedule_import || []).length, use: 'Schedule history', notes: 'LightningOS historical schedule source.' },
-        { table: 'fieldos_historical_campaigns', rows: (adminState.fieldos_historical_campaigns || []).length, use: 'Campaign labels', notes: 'Manual historical campaign registry.' }
+      const importRecords = [
+        { table: 'Fiber sales history import', rows: (adminState.fieldos_legacy_fiber_sales_import || []).length, use: 'Import review', notes: 'Original Fiber historical sales import. Daily team KPIs use the active sales workflow.' },
+        { table: 'Disposition history import', rows: (adminState.fieldos_legacy_disposition_import || []).length, use: 'Import review', notes: 'Original historical disposition import.' },
+        { table: 'LightningOS sales history import', rows: (adminState.fieldos_legacy_lightningos_sales_import || []).length, use: 'LightningOS history', notes: 'Original LightningOS historical sales import.' },
+        { table: 'LightningOS sales archive', rows: (adminState.fieldos_lightningos_historical_sales_archive || []).length, use: 'LightningOS history', notes: 'Preferred LightningOS history source.' },
+        { table: 'LightningOS schedule history import', rows: (adminState.fieldos_legacy_lightningos_schedule_import || []).length, use: 'Schedule history', notes: 'LightningOS historical schedule records.' },
+        { table: 'Historical campaign labels', rows: (adminState.fieldos_historical_campaigns || []).length, use: 'Campaign labels', notes: 'Manual historical campaign list.' }
       ];
-      els.histImportBody.innerHTML = importRows.map(r => `<tr><td><code>${escapeHtml(r.table)}</code></td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.use)}</td><td>${escapeHtml(r.notes)}</td></tr>`).join('');
+      els.histImportBody.innerHTML = importRecords.map(r => `<tr><td>${escapeHtml(r.table)}</td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.use)}</td><td>${escapeHtml(r.notes)}</td></tr>`).join('');
 
       if (els.histExportFiber) els.histExportFiber.onclick = () => csvDownload('fieldos_fiber_historical_campaigns.csv', fiberGroups.map(r => ({ territory:r.territory, sales:r.sales, gig:r.gig, mega:r.mega, first_sale:r.first, last_sale:r.last, source:Array.from(r.source).join('|') })));
       if (els.histExportLightning) els.histExportLightning.onclick = () => csvDownload('fieldos_lightningos_historical_campaigns.csv', lightningGroups);
-      if (els.histExportImports) els.histExportImports.onclick = () => csvDownload('fieldos_import_archive_counts.csv', importRows);
+      if (els.histExportImports) els.histExportImports.onclick = () => csvDownload('fieldos_history_import_counts.csv', importRecords);
     }
 
-    function buildSourceSplitRows() {
+    function buildOriginSplitRecords() {
       const rows = [];
-      groupRows(
+      groupRecords(
         state.address_events || [],
-        row => ['address_events', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowSourceLabel(row)].map(String).join('|'),
-        row => ({ dataset:'address_events', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowSourceLabel(row), rows:0 }),
+        row => ['Field activity', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowOriginLabel(row)].map(String).join('|'),
+        row => ({ dataset:'Field activity', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowOriginLabel(row), rows:0 }),
         (g) => { g.rows += 1; }
       ).forEach(r => rows.push(r));
-      groupRows(
+      groupRecords(
         state.sales_orders || [],
-        row => ['sales_orders', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowSourceLabel(row)].map(String).join('|'),
-        row => ({ dataset:'sales_orders', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowSourceLabel(row), rows:0 }),
+        row => ['Submitted sales', getDashboardTeamSlug(row) || row.team_slug || 'unknown', getRowTerritory(row) || 'unknown', rowOriginLabel(row)].map(String).join('|'),
+        row => ({ dataset:'Submitted sales', team:getDashboardTeamSlug(row) || row.team_slug || 'unknown', territory:getRowTerritory(row) || 'unknown', source_system:rowOriginLabel(row), rows:0 }),
         (g) => { g.rows += 1; }
       ).forEach(r => rows.push(r));
       return rows.sort((a,b) => String(a.dataset).localeCompare(String(b.dataset)) || String(a.team).localeCompare(String(b.team)) || String(a.territory).localeCompare(String(b.territory)) || b.rows-a.rows);
@@ -3620,23 +3620,23 @@
       salesKeys.forEach(k => {
         if (!addressKeys.has(k)) {
           const [team, territory] = k.split(':');
-          addWarning('warn', 'Sales exist without loaded addresses', team, territory, 'sales_orders has rows, but addresses does not for this team/territory in the current load.', 'Dashboard should include sales-only territories in territory filters; import addresses if this territory is active.');
+          addWarning('warn', 'Sales exist without matching address records', team, territory, 'Sales exist, but matching address records are not available for this team/territory in the current view.', 'Include the territory in reporting or add address records if this territory is active.');
         }
       });
       addressKeys.forEach(k => {
         if (!slotKeys.has(k)) {
           const [team, territory] = k.split(':');
-          addWarning('info', 'Addresses exist without schedule slots', team, territory, 'addresses has rows, but schedule_slots does not.', 'Seed install capacity if the market should allow booking.');
+          addWarning('info', 'Addresses exist without install openings', team, territory, 'Addresses exist, but no install openings are available.', 'Seed install capacity if the market should allow booking.');
         }
         if (!boundaryKeys.has(k) && ['fiber','sfi','lynxx'].includes(k.split(':')[0])) {
           const [team, territory] = k.split(':');
-          addWarning('info', 'Addresses exist without boundary file', team, territory, 'addresses has rows, but territory_boundary_files does not.', 'Upload/assign a KMZ/KML if map boundaries should auto-load.');
+          addWarning('info', 'Addresses exist without a territory map file', team, territory, 'Addresses exist, but no matching territory map file is assigned.', 'Upload/assign a KMZ/KML if map boundaries should auto-load.');
         }
       });
       boundaryKeys.forEach(k => {
         if (!addressKeys.has(k)) {
           const [team, territory] = k.split(':');
-          addWarning('info', 'Boundary exists without loaded addresses', team, territory, 'Boundary file exists, but no matching addresses loaded.', 'Check team_slug/territory naming or import addresses if active.');
+          addWarning('info', 'Territory map exists without matching addresses', team, territory, 'A territory map file exists, but no matching address records are available in the current view.', 'Check team/territory naming or add addresses if active.');
         }
       });
       return warnings;
@@ -3646,18 +3646,18 @@
       if (!els.dbInventoryBody) return;
 
       if (!canUseAllTeams()) {
-        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Database Health is company-admin only and is hidden from team dashboards.</td></tr>';
-        if (els.dbWarningList) els.dbWarningList.innerHTML = '<li>Team dashboards are locked to their assigned team and cannot view cross-team database health.</li>';
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">System Status is company-admin only and is hidden from team dashboards.</td></tr>';
+        if (els.dbWarningList) els.dbWarningList.innerHTML = '<li>Team dashboards are locked to their assigned team and cannot view company system status.</li>';
         return;
       }
 
       if (!databaseHealthDataLoaded && databaseHealthDataLoading) {
-        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading database health data...</td></tr>';
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading system status...</td></tr>';
         return;
       }
 
       if (!databaseHealthDataLoaded && !databaseHealthDataLoading) {
-        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading database health data...</td></tr>';
+        els.dbInventoryBody.innerHTML = '<tr><td colspan="4" style="color:#94a3b8;">Loading system status...</td></tr>';
         loadDatabaseHealthData().then(() => {
           if (els.tabPanelDatabaseHealth && els.tabPanelDatabaseHealth.classList.contains('active')) {
             renderDatabaseHealth();
@@ -3666,34 +3666,34 @@
         return;
       }
 
-      const sourceRows = buildSourceSplitRows();
+      const sourceRecords = buildOriginSplitRecords();
       const warnings = buildDataAlignmentWarnings();
-      const inventoryRows = [
-        { table:'addresses', rows:state.addresses.length, role:'Rep map/address universe', source:'Core table' },
-        { table:'address_events', rows:state.address_events.length, role:'Dispositions/door knocks', source:'Core table' },
-        { table:'sales_orders', rows:state.sales_orders.length, role:'Sales queue/review/invoicing', source:'Core table' },
-        { table:'schedule_slots', rows:state.schedule_slots.length, role:'Install capacity', source:'Core table' },
-        { table:'schedule_bookings', rows:state.schedule_bookings.length, role:'Booked installs', source:'Core table' },
-        { table:'reps', rows:state.reps.length, role:'Rep management/filtering', source:'Core table' },
-        { table:'rep_territories', rows:(adminState.rep_territories || []).length, role:'Rep-to-territory assignment', source:'Admin table' },
-        { table:'territories', rows:(adminState.territories || []).length, role:'Territory master list', source:'Admin table' },
-        { table:'territory_boundary_files', rows:(adminState.territory_boundary_files || []).length, role:'Boundary/KMZ references', source:'Admin table' },
-        { table:'fieldos_pricing_offers', rows:state.fieldos_pricing_offers.length, role:'Offer cards/pricing', source:'Core table' },
-        { table:'notification_queue', rows:(adminState.notification_queue || []).length, role:'Queued sale/booking notifications', source:'Ops table' }
+      const inventoryRecords = [
+        { table:'Address list', rows:state.addresses.length, role:'Rep map and address universe', source:'Live operations' },
+        { table:'Field activity', rows:state.address_events.length, role:'Dispositions and door knocks', source:'Live operations' },
+        { table:'Submitted sales', rows:state.sales_orders.length, role:'Sales queue, review, and invoicing', source:'Live operations' },
+        { table:'Install openings', rows:state.schedule_slots.length, role:'Available install capacity', source:'Scheduling' },
+        { table:'Booked installs', rows:state.schedule_bookings.length, role:'Customer install appointments', source:'Scheduling' },
+        { table:'Team reps', rows:state.reps.length, role:'Rep management and filtering', source:'Team setup' },
+        { table:'Rep assignments', rows:(adminState.rep_territories || []).length, role:'Which reps work which territories', source:'Team setup' },
+        { table:'Territory list', rows:(adminState.territories || []).length, role:'Available markets and territory names', source:'Team setup' },
+        { table:'Territory map files', rows:(adminState.territory_boundary_files || []).length, role:'Map boundaries used by the rep app', source:'Team setup' },
+        { table:'Approved offers', rows:state.fieldos_pricing_offers.length, role:'Offer cards and pricing shown to reps', source:'Sales setup' },
+        { table:'Notifications', rows:(adminState.notification_queue || []).length, role:'Sale and booking notification activity', source:'Operations' }
       ];
 
       if (els.dbKpiCoreTables) els.dbKpiCoreTables.textContent = formatNumber(10);
-      if (els.dbKpiLoadedRows) els.dbKpiLoadedRows.textContent = formatNumber(inventoryRows.reduce((sum,r) => sum + Number(r.rows || 0), 0));
+      if (els.dbKpiLoadedRecords) els.dbKpiLoadedRecords.textContent = formatNumber(inventoryRecords.reduce((sum,r) => sum + Number(r.rows || 0), 0));
       if (els.dbKpiWarnings) els.dbKpiWarnings.textContent = formatNumber(warnings.length);
       if (els.dbKpiViews) els.dbKpiViews.textContent = '0';
 
-      els.dbInventoryBody.innerHTML = inventoryRows.map(r => `<tr><td><code>${escapeHtml(r.table)}</code></td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.role)}</td><td>${escapeHtml(r.source)}</td></tr>`).join('');
-      els.dbSourceBody.innerHTML = sourceRows.length ? sourceRows.map(r => `<tr><td>${escapeHtml(r.dataset)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.source_system)}</td><td>${formatNumber(r.rows)}</td></tr>`).join('') : '<tr><td colspan="5" style="color:#94a3b8;">No source rows loaded.</td></tr>';
-      els.dbWarningBody.innerHTML = warnings.length ? warnings.map(r => `<tr><td><span class="admin-tag ${r.severity === 'warn' ? 'warn' : 'info'}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.issue)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.evidence)}</td><td>${escapeHtml(r.fix)}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#22c55e;">No major alignment warnings found in the loaded data.</td></tr>';
+      els.dbInventoryBody.innerHTML = inventoryRecords.map(r => `<tr><td>${escapeHtml(r.table)}</td><td>${formatNumber(r.rows)}</td><td>${escapeHtml(r.role)}</td><td>${escapeHtml(r.source)}</td></tr>`).join('');
+      els.dbOriginBody.innerHTML = sourceRecords.length ? sourceRecords.map(r => `<tr><td>${escapeHtml(r.dataset)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.source_system)}</td><td>${formatNumber(r.rows)}</td></tr>`).join('') : '<tr><td colspan="5" style="color:#94a3b8;">No activity source records loaded.</td></tr>';
+      els.dbWarningBody.innerHTML = warnings.length ? warnings.map(r => `<tr><td><span class="admin-tag ${r.severity === 'warn' ? 'warn' : 'info'}">${escapeHtml(r.severity)}</span></td><td>${escapeHtml(r.issue)}</td><td>${escapeHtml(r.team)}</td><td>${escapeHtml(r.territory)}</td><td>${escapeHtml(r.evidence)}</td><td>${escapeHtml(r.fix)}</td></tr>`).join('') : '<tr><td colspan="6" style="color:#22c55e;">No major system notices found in the current view.</td></tr>';
 
-      if (els.dbExportInventory) els.dbExportInventory.onclick = () => csvDownload('fieldos_core_table_inventory.csv', inventoryRows);
-      if (els.dbExportSourceSplit) els.dbExportSourceSplit.onclick = () => csvDownload('fieldos_source_system_split.csv', sourceRows);
-      if (els.dbExportWarnings) els.dbExportWarnings.onclick = () => csvDownload('fieldos_data_alignment_warnings.csv', warnings);
+      if (els.dbExportInventory) els.dbExportInventory.onclick = () => csvDownload('fieldos_current_view_inventory.csv', inventoryRecords);
+      if (els.dbExportOriginSplit) els.dbExportOriginSplit.onclick = () => csvDownload('fieldos_activity_source_review.csv', sourceRecords);
+      if (els.dbExportWarnings) els.dbExportWarnings.onclick = () => csvDownload('fieldos_system_notices.csv', warnings);
     }
 
     function renderAdminControlCenter() {
@@ -3761,7 +3761,7 @@
       return idKey(r.raw_id || r.raw.id) && r.review_status === 'entered_in_zip' && r.install_outcome === 'installed' && !r.invoice_id;
     }
 
-    function exportRowsForInvoice(rows, invoiceId) {
+    function exportRecordsForInvoice(rows, invoiceId) {
       return rows.map(r => {
         r = normalizeInvoiceSaleRow(r);
         const raw = r.raw || {};
@@ -3792,8 +3792,8 @@
       });
     }
 
-    function filteredSalesReviewRows() {
-      const rows = buildSalesQueueRows(state.sales_orders, state.address_events, buildAddressMap(), currentFilters());
+    function filteredSalesReviewRecords() {
+      const rows = buildSalesQueueRecords(state.sales_orders, state.address_events, buildAddressMap(), currentFilters());
       const filter = els.adminSalesReviewFilter?.value || 'all';
       return rows.map(r => {
         const raw = state.sales_orders.find(s => idKey(s.id) === idKey(r.raw_id)) || state.sales_orders.find(s => String(s.created_at) === String(r.created_at) && (getRepName(s) === r.rep_name || buildAddressLabel(buildAddressMap(), s) === r.address)) || {};
@@ -3812,18 +3812,18 @@
 
     async function salesOpsUpdateSale(id, payload, successMessage) {
       if (!id) { els.status.textContent = 'Sales action blocked: missing sale id.'; els.status.classList.add('error'); return false; }
-      const { data: oldRows } = await supabaseClient.from('sales_orders').select('*').eq('id', id).limit(1);
+      const { data: oldRecords } = await supabaseClient.from('sales_orders').select('*').eq('id', id).limit(1);
       const { error } = await supabaseClient.from('sales_orders').update(payload).eq('id', id);
       if (error) { els.status.textContent = error.message || 'Sales update failed.'; els.status.classList.add('error'); return false; }
       els.status.classList.remove('error');
       els.status.textContent = successMessage || 'Sales update saved.';
-      await logAdminAction('sales_ops_update', 'sales_orders', id, oldRows && oldRows[0] ? oldRows[0] : null, payload);
+      await logAdminAction('sales_ops_update', 'sales_orders', id, oldRecords && oldRecords[0] ? oldRecords[0] : null, payload);
       await loadData();
       return true;
     }
 
     async function createInvoiceForInstalledSales() {
-      const eligible = filteredSalesReviewRows().filter(isInvoiceEligibleSale);
+      const eligible = filteredSalesReviewRecords().filter(isInvoiceEligibleSale);
       if (!eligible.length) {
         const msg = 'No installed, uninvoiced sales were found in the current Sales Review view.';
         if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = msg;
@@ -3866,24 +3866,24 @@
         updatedIds = saleIds.map(String);
       }
 
-      const exportRows = eligible.filter(r => updatedIds.includes(String(r.raw_id || r.raw.id)));
-      csvDownload('fieldos_' + invoiceId.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_installed_sales.csv', exportRowsForInvoice(exportRows, invoiceId));
-      await logAdminAction('create_invoice', 'fieldos_invoice_batches', batchId || invoiceId, null, { invoice_id: invoiceId, sales_count: exportRows.length, sale_ids: updatedIds });
-      if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = 'Created ' + invoiceId + ' with ' + exportRows.length + ' sale(s). Already invoiced sales will be skipped in future exports.';
+      const exportRecords = eligible.filter(r => updatedIds.includes(String(r.raw_id || r.raw.id)));
+      csvDownload('fieldos_' + invoiceId.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_installed_sales.csv', exportRecordsForInvoice(exportRecords, invoiceId));
+      await logAdminAction('create_invoice', 'fieldos_invoice_batches', batchId || invoiceId, null, { invoice_id: invoiceId, sales_count: exportRecords.length, sale_ids: updatedIds });
+      if (els.adminInvoiceStatus) els.adminInvoiceStatus.textContent = 'Created ' + invoiceId + ' with ' + exportRecords.length + ' sale(s). Already invoiced sales will be skipped in future exports.';
       await loadData();
       if (els.adminInvoiceInstalledSales) els.adminInvoiceInstalledSales.disabled = false;
     }
 
     function renderAdminSalesReview() {
-      const reviewRows = filteredSalesReviewRows();
-      const allRows = filteredSalesReviewRows.call ? (() => { const current = els.adminSalesReviewFilter?.value; if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = 'all'; const rows = filteredSalesReviewRows(); if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = current || 'all'; return rows; })() : reviewRows;
-      const entered = allRows.filter(r => r.review_status === 'entered_in_zip' && !r.invoice_id && !r.install_outcome).length;
-      const readyInvoice = allRows.filter(isInvoiceEligibleSale).length;
-      const invoiced = allRows.filter(r => !!r.invoice_id).length;
-      const needsReview = reviewRows.filter(r => !r.review_status || ['submitted','needs_review'].includes(r.review_status)).length;
-      const missingSnapshot = reviewRows.filter(r => !r.offer_snapshot && !r.offer_code).length;
-      const missingContact = reviewRows.filter(r => !r.phone || !r.email).length;
-      setText('admin-kpi-sales-submitted', formatNumber(allRows.length));
+      const reviewRecords = filteredSalesReviewRecords();
+      const allRecords = filteredSalesReviewRecords.call ? (() => { const current = els.adminSalesReviewFilter?.value; if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = 'all'; const rows = filteredSalesReviewRecords(); if (els.adminSalesReviewFilter) els.adminSalesReviewFilter.value = current || 'all'; return rows; })() : reviewRecords;
+      const entered = allRecords.filter(r => r.review_status === 'entered_in_zip' && !r.invoice_id && !r.install_outcome).length;
+      const readyInvoice = allRecords.filter(isInvoiceEligibleSale).length;
+      const invoiced = allRecords.filter(r => !!r.invoice_id).length;
+      const needsReview = reviewRecords.filter(r => !r.review_status || ['submitted','needs_review'].includes(r.review_status)).length;
+      const missingSnapshot = reviewRecords.filter(r => !r.offer_snapshot && !r.offer_code).length;
+      const missingContact = reviewRecords.filter(r => !r.phone || !r.email).length;
+      setText('admin-kpi-sales-submitted', formatNumber(allRecords.length));
       setText('admin-kpi-sales-entered', formatNumber(entered));
       setText('admin-kpi-sales-ready-invoice', formatNumber(readyInvoice));
       setText('admin-kpi-sales-invoiced', formatNumber(invoiced));
@@ -3894,7 +3894,7 @@
         ? readyInvoice + ' installed sale(s) are ready to invoice in the current filtered view.'
         : 'No installed, uninvoiced sales are currently ready to invoice in this view.';
       if (!els.adminSalesReviewBody) return;
-      els.adminSalesReviewBody.innerHTML = reviewRows.length ? reviewRows.map(r => {
+      els.adminSalesReviewBody.innerHTML = reviewRecords.length ? reviewRecords.map(r => {
         r = normalizeInvoiceSaleRow(r);
         const flags = [];
         if (!r.phone || !r.email) flags.push('<span class="admin-tag bad">Missing contact</span>');
@@ -3924,7 +3924,7 @@
 
         return `<tr><td>${escapeHtml(formatDateTime(r.created_at))}</td><td>${statusTag(r.review_status)}${r.review_note ? '<div class="admin-note">'+escapeHtml(r.review_note)+'</div>' : ''}</td><td>${installOutcomeTag(r.install_outcome)}</td><td>${invoiceCell}</td><td>${escapeHtml(r.rep_name || '—')}</td><td>${escapeHtml(r.territory || '—')}</td><td>${escapeHtml(r.customer_name || '—')}<div class="admin-note">${escapeHtml(r.address || '')}</div></td><td>${escapeHtml(r.package_name || '—')}<div class="admin-note">${escapeHtml(r.offer_promo || '')} ${escapeHtml(r.monthly_total || '')}</div></td><td>${escapeHtml(r.phone || '—')}<br>${escapeHtml(r.email || '—')}</td><td>${escapeHtml(r.install_date || '—')}<br>${escapeHtml(r.install_time || '—')}</td><td>${flags.join(' ') || '<span class="admin-tag good">OK</span>'}</td><td><div class="admin-actions">${actionButtons.join('')}</div></td></tr>`;
       }).join('') : '<tr><td colspan="12" style="color:#94a3b8;">No sales found for this review filter.</td></tr>';
-      if (els.adminExportSalesReview) els.adminExportSalesReview.onclick = () => csvDownload('fieldos_sales_review.csv', reviewRows.map(r => exportRowsForInvoice([r], r.invoice_id || '')[0]));
+      if (els.adminExportSalesReview) els.adminExportSalesReview.onclick = () => csvDownload('fieldos_sales_review.csv', reviewRecords.map(r => exportRecordsForInvoice([r], r.invoice_id || '')[0]));
       if (els.adminInvoiceInstalledSales) els.adminInvoiceInstalledSales.onclick = createInvoiceForInstalledSales;
     }
 
@@ -3955,7 +3955,7 @@
     }
 
     function renderAdminTerritories() {
-      const rows = territoryRowsForAdmin();
+      const rows = territoryRecordsForAdmin();
       const noReps = rows.filter(r => !r.reps.length && r.total > 0).length;
       const noBoundary = rows.filter(r => !r.boundaries.length && r.total > 0).length;
       const noOffers = rows.filter(r => (!r.offerMega || !r.offerGig) && r.total > 0).length;
@@ -3974,8 +3974,8 @@
     function renderAdminBoundaries() {
       const rows = adminState.territory_boundary_files || [];
       const active = rows.filter(r => r.is_active !== false);
-      const territoryRows = territoryRowsForAdmin();
-      const missing = territoryRows.filter(t => t.total > 0 && !t.boundaries.length).length;
+      const territoryRecords = territoryRecordsForAdmin();
+      const missing = territoryRecords.filter(t => t.total > 0 && !t.boundaries.length).length;
       const dupMap = new Map();
       active.forEach(r => { const k = adminTerritoryKey(r.territory); dupMap.set(k, (dupMap.get(k)||0)+1); });
       const dups = [...dupMap.values()].filter(v => v > 1).length;
@@ -4035,7 +4035,7 @@
       return (adminState.address_admin_notes || []).filter(n => addrKeys.includes(idKey(n.address_id)) || addrKeys.includes(idKey(n.location_id)));
     }
 
-    function buildAddressTimelineRows(addr) {
+    function buildAddressTimelineRecords(addr) {
       const rows = [];
       eventsForAddress(addr).forEach(ev => rows.push({ time: ev.created_at || ev.knocked_at, type: 'Disposition', actor: getRepName(ev) || ev.rep_name || '—', title: ev.status || 'event', detail: ev.note || '', raw: ev }));
       salesForAddress(addr).forEach(s => rows.push({ time: s.created_at, type: 'Sale', actor: getRepName(s) || s.rep_name || '—', title: getPackageName(s) || s.package_key || 'sale', detail: [getCustomerName(s), firstNonEmpty(s.phone, s.customer_phone), firstNonEmpty(s.email, s.customer_email), s.review_status].filter(Boolean).join(' • '), raw: s }));
@@ -4066,7 +4066,7 @@
         return;
       }
       const events = eventsForAddress(addr), sales = salesForAddress(addr), notes = notesForAddress(addr);
-      const rows = buildAddressTimelineRows(addr);
+      const rows = buildAddressTimelineRecords(addr);
       setText('admin-kpi-timeline-events', formatNumber(events.length));
       setText('admin-kpi-timeline-sales', formatNumber(sales.length));
       setText('admin-kpi-timeline-notes', formatNumber(notes.length));
@@ -4288,7 +4288,7 @@
       const allowed = await isMainAdminSession();
       if (!allowed) { els.status.textContent = 'Admin action blocked: main admin login required.'; els.status.classList.add('error'); return; }
       if (!id) { els.status.textContent = 'Admin action blocked: missing row id.'; els.status.classList.add('error'); return; }
-      const { data: oldRows } = await supabaseClient.from(table).select('*').eq('id', id).limit(1);
+      const { data: oldRecords } = await supabaseClient.from(table).select('*').eq('id', id).limit(1);
       const { error } = await supabaseClient.from(table).update(payload).eq('id', id);
       if (error) {
         els.status.textContent = error.message || 'Admin update failed.';
@@ -4297,7 +4297,7 @@
       }
       els.status.classList.remove('error');
       els.status.textContent = successMessage || 'Admin update saved.';
-      await logAdminAction('update', table, id, oldRows && oldRows[0] ? oldRows[0] : null, payload);
+      await logAdminAction('update', table, id, oldRecords && oldRecords[0] ? oldRecords[0] : null, payload);
       await loadData();
     }
 
@@ -4531,7 +4531,7 @@
       const isEdit = !!existing;
       openAdminCrudModal({
         title: isEdit ? 'Edit Boundary Mapping' : 'Add Boundary Mapping',
-        subtitle: 'Map an uploaded Supabase Storage KMZ/KML object to a team and territory.',
+        subtitle: 'Map an uploaded KMZ/KML territory file to a team and territory.',
         note: 'Bucket should usually be fieldos-boundaries. File path must match Storage exactly, including spaces and capitalization.',
         fields: [
           { name:'team_slug', label:'Team Slug', type:'select', options: adminKnownTeams(), value: existing?.team_slug || 'fiber' },
@@ -4555,7 +4555,7 @@
     function openBoundaryUploadForm(presetTerritory) {
       openAdminCrudModal({
         title: 'Upload KMZ/KML Boundary',
-        subtitle: 'Upload a file to Supabase Storage and create the territory mapping in one step.',
+        subtitle: 'Upload a KMZ/KML territory file and create the territory mapping in one step.',
         note: 'Suggested path format: team/territory/file_name.kmz. Example: fiber/cameron_tx/cameron_tx.kmz',
         fields: [
           { name:'file', label:'KMZ/KML File', type:'file', required:true, full:true },
@@ -4884,7 +4884,7 @@
       const qualityRow = e.target.closest('[data-quality-index]');
       if (qualityRow) {
         const issue = adminState.quality_issues[Number(qualityRow.getAttribute('data-quality-index'))];
-        if (issue) openDetail('Data Quality Detail: ' + issue.issue, issue.detailRows && issue.detailRows.length ? issue.detailRows : [issue]);
+        if (issue) openDetail('Data Quality Detail: ' + issue.issue, issue.detailRecords && issue.detailRecords.length ? issue.detailRecords : [issue]);
       }
       const repDetailBtn = e.target.closest('[data-open-rep]');
       if (repDetailBtn) {
