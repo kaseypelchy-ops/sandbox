@@ -217,10 +217,7 @@
 
       <div class="panel controls">
         <select id="team-filter">
-          <option value="all">All Teams</option>
-          <option value="fiber">Fiber Sales Team</option>
-          <option value="sfi">Sales Focus Inc.</option>
-          <option value="lynxx">Lynxx</option>
+          <option value="">Loading dashboard access...</option>
         </select>
         <select id="territory-filter"><option value="all">All Territories</option></select>
         <select id="rep-filter"><option value="all">All Reps</option></select>
@@ -1383,11 +1380,10 @@
       const email = String(session?.user?.email || '').trim().toLowerCase();
       els.sessionEmail.textContent = email || 'Signed in';
 
-      // Provisional UI state until resolveDashboardAccess() completes.
-      const likelyMainAdmin = FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
-      document.body.classList.toggle('admin-enabled', likelyMainAdmin);
-      document.body.classList.toggle('admin-denied', !likelyMainAdmin);
-      document.body.classList.toggle('team-admin-locked', !likelyMainAdmin);
+      // Provisional UI state until resolveDashboardAccess() reads dashboard_users.
+      document.body.classList.remove('admin-enabled');
+      document.body.classList.add('admin-denied');
+      document.body.classList.add('team-admin-locked');
     }
 
     async function signIn() {
@@ -1448,7 +1444,7 @@
 
       const selectedTeamForQueryBeforeLoad = selectedTeamFilter();
       if (!canUseAllTeams() && !selectedTeamForQueryBeforeLoad) {
-        els.status.textContent = 'Your dashboard login is not assigned to a team. Ask the company admin to assign your email to Fiber, SFI, or Lynxx.';
+        els.status.textContent = 'Access denied: this login is not in dashboard_users. Add this user to dashboard_users with team = fiber, sfi, lynxx, or all.';
         els.status.classList.add('error');
         state = { addresses: [], reps: [], address_events: [], sales_orders: [], schedule_slots: [], schedule_bookings: [], fieldos_pricing_offers: [] };
         renderAll();
@@ -2863,17 +2859,9 @@
     if (els.tabInstallCapacity) els.tabInstallCapacity.onclick = () => setActiveTab('install-capacity');
     if (els.tabHistoricalReporting) {
       els.tabHistoricalReporting.onclick = () => setActiveTab('historical-reporting');
-      els.tabHistoricalReporting.addEventListener('click', (e) => {
-        e.preventDefault();
-        setActiveTab('historical-reporting');
-      });
     }
     if (els.tabDatabaseHealth) {
       els.tabDatabaseHealth.onclick = () => setActiveTab('database-health');
-      els.tabDatabaseHealth.addEventListener('click', (e) => {
-        e.preventDefault();
-        setActiveTab('database-health');
-      });
     }
     els.tabRoute.onclick = () => setActiveTab('route');
     els.routeRender.onclick = renderRouteReplay;
@@ -3050,69 +3038,71 @@
     async function resolveDashboardAccess({ force = false } = {}) {
       if (dashboardAccess.resolved && !force) return dashboardAccess;
 
-      const email = await getCurrentUserEmail();
-      const mainAdminEmail = FIELDOS_MAIN_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email);
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const user = sessionData?.session?.user || null;
+      const email = String(user?.email || '').trim().toLowerCase();
+      const userId = user?.id || '';
 
-      let isCompanyAdmin = mainAdminEmail;
+      let isCompanyAdmin = false;
       let allowedTeams = [];
       const urlTeam = normalizeTeamSlug(initialTeamParam);
-      if (VALID_TEAM_SLUGS.includes(urlTeam)) allowedTeams.push(urlTeam);
 
-      // Preferred path: SQL RPC from the security setup file.
+      // Preferred path: RPC backed by dashboard_users.
+      // This is the clean source of truth for dashboard access.
       try {
         const { data, error } = await supabaseClient.rpc('fieldos_dashboard_access');
         const row = Array.isArray(data) ? data[0] : data;
         if (!error && row) {
-          isCompanyAdmin = isCompanyAdmin || row.is_company_admin === true;
+          isCompanyAdmin = row.is_company_admin === true;
           allowedTeams = allowedTeams.concat(normalizeAllowedTeams(row.allowed_teams || row.allowed_team || row.team_slug || row.team));
+        } else if (error) {
+          console.warn('fieldos_dashboard_access RPC error; falling back to dashboard_users read.', error);
         }
       } catch (err) {
-        console.warn('fieldos_dashboard_access RPC not available yet; using fallback access checks.', err);
+        console.warn('fieldos_dashboard_access RPC not available yet; falling back to dashboard_users read.', err);
       }
 
-      // Fallback checks so the dashboard still works before the RPC SQL is installed.
-      try {
-        const { data, error } = await supabaseClient
-          .from('dashboard_users')
-          .select('email,team,is_company_admin')
-          .ilike('email', email)
-          .maybeSingle();
+      // Fallback path: read dashboard_users directly.
+      // Do not use fieldos_admin_users or fieldos_sales_ops_users to grant dashboard access.
+      if (!isCompanyAdmin && allowedTeams.length === 0) {
+        try {
+          let rows = [];
 
-        if (!error && data) {
-          isCompanyAdmin = isCompanyAdmin || data.is_company_admin === true;
-          allowedTeams = allowedTeams.concat(normalizeAllowedTeams(data.team));
+          if (userId) {
+            const byUser = await supabaseClient
+              .from('dashboard_users')
+              .select('user_id,email,team,is_company_admin')
+              .eq('user_id', userId)
+              .limit(10);
+
+            if (!byUser.error && Array.isArray(byUser.data)) {
+              rows = byUser.data;
+            }
+          }
+
+          if ((!rows || rows.length === 0) && email) {
+            const byEmail = await supabaseClient
+              .from('dashboard_users')
+              .select('user_id,email,team,is_company_admin')
+              .ilike('email', email)
+              .limit(10);
+
+            if (!byEmail.error && Array.isArray(byEmail.data)) {
+              rows = byEmail.data;
+            }
+          }
+
+          rows.forEach(row => {
+            const team = normalizeTeamSlug(row.team);
+            if (row.is_company_admin === true || team === 'all') {
+              isCompanyAdmin = true;
+            } else if (VALID_TEAM_SLUGS.includes(team)) {
+              allowedTeams.push(team);
+            }
+          });
+        } catch (err) {
+          console.warn('dashboard_users access check failed', err);
         }
-      } catch (err) {
-        console.warn('dashboard_users access check failed', err);
-      }
-
-      try {
-        const { data, error } = await supabaseClient
-          .from('fieldos_admin_users')
-          .select('email,is_active,role')
-          .ilike('email', email)
-          .maybeSingle();
-
-        if (!error && data && data.is_active !== false) {
-          isCompanyAdmin = true;
-        }
-      } catch (err) {
-        console.warn('fieldos_admin_users access check failed', err);
-      }
-
-      try {
-        const { data, error } = await supabaseClient
-          .from('fieldos_sales_ops_users')
-          .select('email,team_slug,is_active')
-          .ilike('email', email);
-
-        if (!error && Array.isArray(data)) {
-          data
-            .filter(row => row.is_active !== false)
-            .forEach(row => allowedTeams = allowedTeams.concat(normalizeAllowedTeams(row.team_slug)));
-        }
-      } catch (err) {
-        console.warn('fieldos_sales_ops_users access check failed', err);
       }
 
       allowedTeams = [...new Set(allowedTeams.filter(t => VALID_TEAM_SLUGS.includes(t)))];
@@ -3126,7 +3116,8 @@
         email,
         isCompanyAdmin,
         allowedTeams,
-        forcedTeam: urlTeam && VALID_TEAM_SLUGS.includes(urlTeam) ? urlTeam : ''
+        forcedTeam: urlTeam && VALID_TEAM_SLUGS.includes(urlTeam) ? urlTeam : '',
+        source: 'dashboard_users'
       };
 
       updateTeamFilterOptions();
@@ -3155,9 +3146,20 @@
       if (note) {
         note.className = 'admin-alert';
         note.textContent = allowed
-          ? 'Full company admin tools are enabled. You can view All Teams or filter to a specific team.'
-          : `Team dashboard locked to ${access.allowedTeams.map(t => TEAM_LABELS[t] || t).join(', ') || 'no assigned team'}. Company-wide, historical, database health, and cross-team admin tools are hidden.`;
+          ? 'Full company admin tools are enabled from dashboard_users. You can view All Teams or filter to a specific team.'
+          : `Team dashboard locked by dashboard_users to ${access.allowedTeams.map(t => TEAM_LABELS[t] || t).join(', ') || 'no assigned team'}. Company-wide, historical, database health, and cross-team admin tools are hidden.`;
       }
+
+      if (els.dashboardTitle && els.dashboardSubtitle) {
+        if (allowed) {
+          els.dashboardTitle.textContent = 'Company Admin Dashboard';
+          els.dashboardSubtitle.textContent = 'Company-wide view controlled by dashboard_users.';
+        } else {
+          els.dashboardTitle.textContent = `${selectedTeamLabel()} Dashboard`;
+          els.dashboardSubtitle.textContent = 'Team-scoped dashboard controlled by dashboard_users.';
+        }
+      }
+
       return allowed;
     }
 
