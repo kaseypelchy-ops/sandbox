@@ -79,7 +79,7 @@ var DEFAULT_PRICING_OFFERS = {
       { key: 'eero', label: 'eero WiFi Router', amount: 5, recurring: true, required: true, prorate: true },
       { key: 'processing', label: 'Payment Processing Fee', amount: 1, recurring: true, required: true, prorate: false }
     ],
-    disclosure: 'Fallback pricing shown because no active Supabase offer was loaded. Confirm current promo before quoting.'
+    disclosure: 'Fallback pricing shown because no approved offer was loaded. Confirm current promo before quoting.'
   },
   gig: {
     id: null,
@@ -100,7 +100,7 @@ var DEFAULT_PRICING_OFFERS = {
       { key: 'eero', label: 'eero WiFi Router', amount: 5, recurring: true, required: true, prorate: true },
       { key: 'processing', label: 'Payment Processing Fee', amount: 1, recurring: true, required: true, prorate: false }
     ],
-    disclosure: 'Fallback pricing shown because no active Supabase offer was loaded. Confirm current promo before quoting.'
+    disclosure: 'Fallback pricing shown because no approved offer was loaded. Confirm current promo before quoting.'
   }
 };
 
@@ -311,14 +311,14 @@ function fetchPricingOffersForActiveTerritories(territories) {
       return pricingOffersByPackage;
     })
     .catch(function(err) {
-      console.error('Pricing offer load failed:', err);
-      pricingLoadError = String((err && err.message) || err || 'Could not load pricing');
+      console.error('Offer load failed:', err);
+      pricingLoadError = String((err && err.message) || err || 'Could not load current offers');
       pricingOffersByPackage = {
         mega: DEFAULT_PRICING_OFFERS.mega,
         gig: DEFAULT_PRICING_OFFERS.gig
       };
       renderPackageCards();
-      toast('⚠ Could not load current pricing — using fallback', 't-err');
+      toast('⚠ Could not load current offers — using fallback', 't-err');
       return pricingOffersByPackage;
     });
 }
@@ -506,7 +506,7 @@ function hasSupabase() {
 
 function supabaseWarn() {
   if (!hasSupabase()) {
-    toast('⚠ Supabase is not configured yet', 't-err');
+    toast('⚠ App connection is not configured yet', 't-err');
     console.error('Set FIELDOS_SUPABASE_URL and FIELDOS_SUPABASE_ANON_KEY in index.html');
     return false;
   }
@@ -585,7 +585,7 @@ function stripOptionalEventFields(payload) {
   delete copy.lng;
   delete copy.knocked_lat;
   delete copy.knocked_lng;
-  // Keep app from breaking if the database has not yet been patched.
+  // Keep app from breaking if an optional field is not available.
   // Run the included SQL so these fields persist going forward.
   delete copy.team;
   delete copy.team_slug;
@@ -617,7 +617,7 @@ function stripOptionalSalesFields(payload) {
   delete copy.promo_price;
   delete copy.promo_term;
   delete copy.standard_rate;
-  // Keep app from breaking if the database has not yet been patched.
+  // Keep app from breaking if an optional field is not available.
   // Run the included SQL so these fields persist going forward.
   delete copy.team;
   delete copy.team_slug;
@@ -638,7 +638,7 @@ function stripOptionalTeamFields(payload) {
 }
 
 function insertSupabaseRow(table, payload) {
-  if (!hasSupabase()) return Promise.reject(new Error('Supabase not configured'));
+  if (!hasSupabase()) return Promise.reject(new Error('App connection is not configured'));
   return supabaseClient.from(table).insert([payload]).then(function(res) {
     if (res.error && table === 'address_events' && isMissingOptionalColumnError(res.error)) {
       return supabaseClient.from(table).insert([stripOptionalEventFields(payload)]).then(function(retry) {
@@ -673,7 +673,7 @@ function processOfflineQueue(manual) {
     return Promise.resolve(true);
   }
   if (!hasSupabase()) {
-    if (manual) toast('⚠ Supabase is not configured — queue kept locally', 't-err');
+    if (manual) toast('⚠ Connection is not configured — queue kept locally', 't-err');
     updateOfflineQueueUI();
     return Promise.resolve(false);
   }
@@ -1322,7 +1322,7 @@ function loadBoundaryFilesForActiveTerritories(territories, opts) {
         })
         .catch(function(err) {
           console.warn('Automatic boundary file load failed:', err);
-          // Do not block address loading if the table/policy/file is missing.
+          // Do not block address loading if the map file is missing.
           toast('⚠ Could not auto-load territory boundary', 't-err');
           resolve([]);
         });
@@ -1481,7 +1481,7 @@ function fetchAddressesFromSheet(opts) {
     return Promise.reject(new Error('Enter your full name first (First Last).'));
   }
 
-  if (!supabaseWarn()) return Promise.reject(new Error('Supabase is not configured yet'));
+  if (!supabaseWarn()) return Promise.reject(new Error('App connection is not configured yet'));
 
   if (btn) btn.disabled = true;
   if (!isRefresh && document.getElementById('fetch-addr-icon')) {
@@ -1500,7 +1500,7 @@ function fetchAddressesFromSheet(opts) {
 
   return fetchRepProfileFromSupabase(repInput)
     .then(function(rep){
-      if (!rep) throw new Error('Rep not found in Supabase reps table.');
+      if (!rep) throw new Error('Rep profile not found for this team.');
 
       activeTerritory = (rep.territory || '').trim();
       repPhone = (rep.phone || '').trim();
@@ -1537,7 +1537,7 @@ function fetchAddressesFromSheet(opts) {
 
           var pricingPromise = fetchPricingOffersForActiveTerritories(activeTerritories)
             .catch(function(err) {
-              console.error('Pricing offer load failed:', err);
+              console.error('Offer load failed:', err);
               toast('⚠ Pricing offers could not load — using fallback pricing', 't-err');
               return [];
             });
@@ -5673,7 +5673,7 @@ function _dzProcessBuildings_(elements, polygonPoints) {
   document.getElementById('dz-breakdown').innerHTML = parts.join('');
   document.getElementById('dz-geocode-time').textContent = needGeo
     ? 'Pins appear on the map instantly — addresses fill in as geocoding completes'
-    : 'All addresses are ready — homes will be pinned instantly';
+    : 'All addresses are ready — homes will pin instantly';
 
   var terrInput = document.getElementById('dz-territory-input');
   if (terrInput && !terrInput.value) terrInput.value = activeTerritory || '';
