@@ -99,7 +99,7 @@
     <button class="btn-launch" id="launch-btn" disabled onclick="launchApp()">Load & Launch</button>
 
     <div class="login-footnote">
-      Addresses, offers, and KMZ footprint boundaries are loaded automatically from Supabase.
+      Addresses, offers, and territory boundaries load automatically for your assigned team.
     </div>
   </div>
 </div>
@@ -302,7 +302,7 @@
 
             <div class="price-note">
               📅 Bills are generated on the <strong>1st</strong> of each month and due by the <strong>10th</strong>.
-              <br><span id="pr-disclosure">Pricing is loaded from Supabase. Final billing is subject to serviceability, approved promo, equipment selection, taxes, and account setup.</span>
+              <br><span id="pr-disclosure">Pricing is based on the approved offer for this territory. Final billing is subject to serviceability, approved promo, equipment selection, taxes, and account setup.</span>
             </div>
           </div>
         </div>
@@ -384,10 +384,10 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-<!-- Supabase client -->
+<!-- App client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<!-- Supabase config -->
+<!-- App config -->
 <script>
   window.FIELDOS_SUPABASE_URL = 'https://zyioicczczmlsksxysqw.supabase.co';
   window.FIELDOS_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5aW9pY2N6Y3ptbHNrc3h5c3F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzYyODMsImV4cCI6MjA5ODMxMjI4M30.Wfcn5_JA73k-Dq6YX0KpHZ3HLNsWa87v7TE3owDpOyM';
